@@ -494,6 +494,30 @@ svg { stroke-width: 1.8; }
 .availability-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); font-size: 12px; }
 .availability-item button { border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 11px; font-weight: 700; }
 .availability-panel > .settings-primary-action { width: 100%; justify-content: center; padding: 10px; font-size: 12px; }
+.breaks-editor, .timeoff-editor { display: grid; gap: 0; }
+.breaks-heading { display: grid; gap: 3px; padding-bottom: 10px; }
+.breaks-heading strong { font-size: 13px; }
+.breaks-heading small { color: var(--muted-foreground); font-size: 10px; }
+.break-row { display: grid; grid-template-columns: 28px minmax(72px, 1fr) 86px 14px 86px 24px; align-items: center; gap: 6px; min-height: 48px; border-top: 1px solid var(--border); font-size: 11px; }
+.break-row input[type="time"], .timeoff-editor input, .timeoff-editor select { height: 34px; min-width: 0; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font: inherit; font-size: 11px; }
+.break-row b { color: var(--muted-foreground); text-align: center; }
+.break-row em { grid-column: 3 / -1; justify-self: end; padding: 6px 8px; border-radius: 5px; background: var(--secondary); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
+.break-add { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 19px; }
+.timeoff-editor { gap: 15px; }
+.timeoff-editor label { display: grid; gap: 6px; }
+.timeoff-editor label > span { font-size: 11px; font-weight: 700; }
+.timeoff-editor > label input { width: 100%; font-size: 12px; }
+.timeoff-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.timeoff-dates input { width: 100%; font-size: 12px; }
+.timeoff-options { display: flex; align-items: center; gap: 14px; }
+.timeoff-options .checkbox-label { display: inline-flex; align-items: center; gap: 6px; }
+.timeoff-options .checkbox-label input { width: 16px; height: 16px; accent-color: var(--primary); }
+.timeoff-options select { min-width: 128px; }
+.timeoff-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 3px; }
+.timeoff-actions > button:first-child { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 12px; }
+.timeoff-actions .settings-primary-action { min-width: 60px; }
+.availability-saved { color: var(--primary); font-size: 10px; font-weight: 700; }
+@media (max-width: 560px) { .break-row { grid-template-columns: 25px minmax(65px, 1fr) 76px 10px 76px 20px; gap: 4px; } .timeoff-dates { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .account-profile-grid { grid-template-columns: 1fr; } .security-item { align-items: flex-start; flex-wrap: wrap; } .security-item button { margin-left: 48px; } }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
 .hours-row em { grid-column: 3 / 6; justify-self: end; padding: 5px 9px; border-radius: 4px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
