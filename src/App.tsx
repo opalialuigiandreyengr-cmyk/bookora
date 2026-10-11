@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  CalendarRange,
   Check,
   ChevronDown,
   CirclePlay,
@@ -11,12 +12,17 @@ import {
   EyeOff,
   Fingerprint,
   Globe2,
+  Home,
   ListChecks,
   LockKeyhole,
   Mail,
   Menu,
+  Plus,
+  Search,
   Store,
   ShieldCheck,
+  Settings2,
+  Scissors,
   Users,
   X,
   Zap,
@@ -439,6 +445,106 @@ function PasskeyModal({ onClose }: { onClose: (dontAskAgain?: boolean) => void }
   )
 }
 
+const dashboardNav = [
+  { label: "Overview", icon: Home },
+  { label: "Calendar", icon: CalendarDays },
+  { label: "Appointments", icon: CalendarRange },
+  { label: "Clients", icon: Users },
+  { label: "Services", icon: Scissors },
+  { label: "Staff", icon: Users },
+  { label: "Payments", icon: CreditCard },
+  { label: "Reports", icon: BarChart3 },
+  { label: "Settings", icon: Settings2 },
+]
+
+const upcomingAppointments = [
+  { name: "Anna Reyes", service: "Hair Treatment", time: "9:00 AM", color: "lilac", initials: "AR" },
+  { name: "Liza Gomez", service: "Gel Manicure", time: "10:30 AM", color: "peach", initials: "LG" },
+  { name: "Maria Cruz", service: "Facial", time: "1:00 PM", color: "mint", initials: "MC" },
+  { name: "John Tan", service: "Haircut", time: "3:00 PM", color: "blue", initials: "JT" },
+]
+
+function DashboardScreen({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+  const [activeNav, setActiveNav] = useState("Overview")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const businessName = String(user.user_metadata?.business_name ?? "Your business")
+  const firstName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "there").split(" ")[0]
+  const avatar = firstName.slice(0, 2).toUpperCase()
+
+  const selectNav = (label: string) => {
+    setActiveNav(label)
+    setSidebarOpen(false)
+  }
+
+  return (
+    <div className="dashboard-shell">
+      {sidebarOpen && <button className="dashboard-scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`dashboard-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="dashboard-brand"><Logo /></div>
+        <div className="workspace-switcher">
+          <span className="workspace-avatar"><Store /></span>
+          <span><strong>{businessName}</strong><small>Business account</small></span>
+          <ChevronDown />
+        </div>
+        <nav className="dashboard-nav" aria-label="Dashboard navigation">
+          <p className="dashboard-nav-label">Workspace</p>
+          {dashboardNav.map(({ label, icon: Icon }) => (
+            <button key={label} className={activeNav === label ? "active" : ""} onClick={() => selectNav(label)}>
+              <Icon /> <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="dashboard-sidebar-bottom">
+          <div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div>
+          <button className="dashboard-signout" onClick={onSignOut}><X /> Sign out</button>
+        </div>
+      </aside>
+
+      <div className="dashboard-content">
+        <header className="dashboard-header">
+          <button className="dashboard-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu /></button>
+          <div className="dashboard-search"><Search /><input aria-label="Search" placeholder="Search anything..." /></div>
+          <div className="dashboard-header-actions">
+            <button className="dashboard-icon-button" aria-label="Notifications"><Bell /><i /></button>
+            <span className="dashboard-divider" />
+            <button className="dashboard-user"><span className="user-avatar">{avatar}</span><span><strong>{firstName}</strong><small>Owner</small></span><ChevronDown /></button>
+          </div>
+        </header>
+
+        <main className="dashboard-main">
+          {activeNav === "Overview" ? (
+            <>
+              <div className="dashboard-page-heading">
+                <div><p className="dashboard-kicker">{new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(new Date())}</p><h1>Good morning, {firstName} <span>✦</span></h1><p>Here’s what’s happening with your business today.</p></div>
+                <Button><Plus data-icon="inline-start" /> New appointment</Button>
+              </div>
+
+              <section className="dashboard-welcome">
+                <div><span className="dashboard-welcome-label">Your day at a glance</span><h2>Keep your schedule moving.</h2><p>Three quick actions will help you make the most of Bookora.</p><div className="welcome-actions"><button onClick={() => selectNav("Services")}><Scissors /> Add your services <ArrowRight /></button><button onClick={() => selectNav("Staff")}><Users /> Invite your team <ArrowRight /></button></div></div>
+                <div className="welcome-orbit"><span>Today</span><strong>12</strong><small>appointments</small></div>
+              </section>
+
+              <section className="dashboard-metrics" aria-label="Business summary">
+                <article><span className="metric-icon coral"><CalendarDays /></span><div><small>Today's appointments</small><strong>12</strong><em className="positive">+20.4% <span>vs last week</span></em></div></article>
+                <article><span className="metric-icon lavender"><CreditCard /></span><div><small>Revenue this week</small><strong>₱18,420</strong><em className="positive">+12.8% <span>vs last week</span></em></div></article>
+                <article><span className="metric-icon mint"><Users /></span><div><small>New clients</small><strong>8</strong><em className="positive">+4.2% <span>vs last week</span></em></div></article>
+                <article><span className="metric-icon peach"><BarChart3 /></span><div><small>Completion rate</small><strong>94%</strong><em>Last 30 days</em></div></article>
+              </section>
+
+              <section className="dashboard-lower-grid">
+                <article className="dashboard-panel appointments-panel"><div className="panel-heading"><div><h2>Upcoming appointments</h2><p>Your schedule for today</p></div><button onClick={() => selectNav("Calendar")}>View calendar <ArrowRight /></button></div><div className="appointments-list">{upcomingAppointments.map((appointment) => <div className="appointment-row" key={appointment.name}><span className={`appointment-avatar ${appointment.color}`}>{appointment.initials}</span><div><strong>{appointment.name}</strong><small>{appointment.service}</small></div><time>{appointment.time}</time><span className="appointment-status">Confirmed</span><button aria-label={`More options for ${appointment.name}`}><span>•••</span></button></div>)}</div><button className="panel-footer-link" onClick={() => selectNav("Appointments")}>View all appointments <ArrowRight /></button></article>
+                <article className="dashboard-panel setup-panel"><div className="panel-heading"><div><h2>Finish setting up</h2><p>Unlock the full Bookora experience</p></div><span className="setup-count">2/4</span></div><div className="setup-progress"><span /></div><div className="setup-task done"><span><Check /></span><div><strong>Business details</strong><small>Completed</small></div></div><div className="setup-task"><span>2</span><div><strong>Add your first service</strong><small>Help clients know what you offer</small></div><ArrowRight /></div><div className="setup-task"><span>3</span><div><strong>Set your availability</strong><small>Choose when clients can book</small></div><ArrowRight /></div></article>
+              </section>
+            </>
+          ) : (
+            <section className="dashboard-placeholder"><span className="placeholder-icon"><ListChecks /></span><p className="dashboard-kicker">Workspace feature</p><h1>{activeNav}</h1><p>This mockup is ready for your {activeNav.toLowerCase()} workflow. Connect it to Supabase when you’re ready to add live data.</p><Button onClick={() => setActiveNav("Overview")}>Back to overview</Button></section>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [authUser, setAuthUser] = useState<User | null>(null)
@@ -469,8 +575,8 @@ export default function App() {
     const currentPath = window.location.pathname
     if (shouldBeOnboarding && currentPath !== "/onboarding") {
       window.history.replaceState({}, "", "/onboarding")
-    } else if (!shouldBeOnboarding && currentPath === "/onboarding") {
-      window.history.replaceState({}, "", "/")
+    } else if (!shouldBeOnboarding && (currentPath === "/onboarding" || currentPath === "/")) {
+      window.history.replaceState({}, "", "/dashboard")
     }
   }, [authUser, onboardingDone])
 
@@ -479,6 +585,16 @@ export default function App() {
       setOnboardingDone(true)
       if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskeyPrompt(true)
     }} />
+  }
+
+  if (authUser && onboardingDone) {
+    return <>
+      <DashboardScreen user={authUser} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />
+      {showPasskeyPrompt && <PasskeyModal onClose={(dontAskAgain) => {
+        if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true")
+        setShowPasskeyPrompt(false)
+      }} />}
+    </>
   }
 
   return (
