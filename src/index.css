@@ -523,7 +523,7 @@ svg { stroke-width: 1.8; }
 .availability-saved { color: var(--primary); font-size: 10px; font-weight: 700; }
 .availability-breaks .availability-saved { position: absolute; top: 128px; left: 54px; right: 54px; display: block; min-height: 38px; margin: 0; padding: 0; border: 0; color: transparent; font-size: 0; }
 .availability-breaks:has(.availability-saved) .breaks-editor .break-row:nth-of-type(2) { margin-bottom: 52px; }
-.availability-breaks .availability-saved::before { content: "03:00 PM       —       03:15 PM"; display: block; width: 236px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: linear-gradient(90deg, var(--card) 0 46%, transparent 46% 54%, var(--card) 54% 100%); color: var(--foreground); font-size: 12px; white-space: pre; }
+.availability-breaks .availability-saved::before { content: "h:mm a       —       h:mm a     ♜"; display: block; width: 264px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: linear-gradient(90deg, var(--card) 0 42%, transparent 42% 51%, var(--card) 51% 88%, transparent 88% 100%); color: var(--muted-foreground); font-size: 12px; white-space: pre; }
 @media (max-width: 560px) { .break-row { grid-template-columns: 25px minmax(45px, 1fr) 96px 12px 96px 24px; gap: 4px; } .break-row input[type="time"] { min-width: 96px; font-size: 11px; } .timeoff-dates { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .account-profile-grid { grid-template-columns: 1fr; } .security-item { align-items: flex-start; flex-wrap: wrap; } .security-item button { margin-left: 48px; } }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
