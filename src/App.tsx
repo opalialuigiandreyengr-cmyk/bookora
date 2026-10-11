@@ -317,7 +317,6 @@ function OnboardingScreen({ user, onComplete }: { user: User; onComplete: () => 
         <div className="onboarding-brand"><Logo /></div>
         <Card className="onboarding-card">
           <CardHeader>
-            <p className="eyebrow"><span>Step 2 of 2</span></p>
             <CardTitle>Confirm your time zone and currency</CardTitle>
             <CardDescription>We’ll use these settings for your calendar, booking times, and payment reporting.</CardDescription>
           </CardHeader>
@@ -369,7 +368,6 @@ function OnboardingScreen({ user, onComplete }: { user: User; onComplete: () => 
       <div className="onboarding-brand"><Logo /></div>
       <Card className="onboarding-card">
         <CardHeader>
-          <p className="eyebrow"><span>Step 1 of 2</span></p>
           <CardTitle>Let’s start with your brand</CardTitle>
           <CardDescription>Tell us a little about your business so we can make Bookora feel like yours.</CardDescription>
         </CardHeader>
