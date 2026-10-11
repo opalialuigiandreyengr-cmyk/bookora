@@ -18,9 +18,11 @@ import {
   LockKeyhole,
   Mail,
   Menu,
+  Monitor,
   Plus,
   Search,
   Save,
+  Smartphone,
   Store,
   ShieldCheck,
   Settings2,
@@ -485,6 +487,10 @@ function BusinessProfileSettings({ user, businessName, setBusinessName }: { user
   </div>
 }
 
+function SettingsPreview({ businessName }: { businessName: string }) {
+  return <aside className="settings-preview"><div className="preview-heading"><strong>Preview</strong><div><button className="active" aria-label="Mobile preview"><Smartphone /></button><button aria-label="Desktop preview"><Monitor /></button></div></div><div className="preview-card"><div className="preview-url">https://{businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.bookora.com <span>↗</span></div><div className="preview-stage"><div className="preview-phone"><div className="preview-phone-notch" /><strong>{businessName}</strong><span>Book your appointment</span><i /><i /><i /><button>Book now</button></div></div></div><div className="preview-help"><div className="preview-avatars"><span>LU</span><span>MA</span><span>JO</span></div><strong>Need help with your Booking Page?</strong><p>We’re real people here to help you 24/7</p><button>● &nbsp;Connect with us</button></div></aside>
+}
+
 function SettingsScreen({ user }: { user: User }) {
   const [activeTab, setActiveTab] = useState("Business profile")
   const [businessName, setBusinessName] = useState(String(user.user_metadata?.business_name ?? "Your business"))
@@ -505,7 +511,7 @@ function SettingsScreen({ user }: { user: User }) {
           <div className="settings-note"><Building2 /><strong>Mock settings</strong><span>These preferences are ready to connect to your account data.</span></div>
         </nav>
 
-        <div className="settings-content">
+          <div className="settings-content">
           {activeTab === "Business profile" && <BusinessProfileSettings user={user} businessName={businessName} setBusinessName={setBusinessName} />}{false && <>
             <section className="settings-card"><div className="settings-card-heading"><div><h2>Business information</h2></div><span className="settings-card-icon"><Building2 /></span></div><div className="settings-form-grid"><label><span>Business name</span><input value={businessName} onChange={(event) => setBusinessName(event.target.value)} /></label><label><span>Industry</span><select defaultValue={String(user.user_metadata?.industry ?? "nail-salon")}><option value="nail-salon">Nail salon</option><option value="hair-salon">Hair salon</option><option value="barbershop">Barbershop</option><option value="facial-spa">Facial &amp; spa</option><option value="makeup-studio">Makeup studio</option><option value="beauty-clinic">Beauty clinic</option></select></label><label><span>Phone number</span><input defaultValue={String(user.user_metadata?.phone ?? "")} placeholder="+63 917 123 4567" /></label><label><span>Booking page slug</span><div className="settings-input-prefix"><span>bookora.com/</span><input defaultValue={businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")} /></div></label></div></section>
             <section className="settings-card"><div className="settings-card-heading"><div><h2>Brand appearance</h2></div></div><div className="brand-assets"><div className="brand-upload banner-upload"><div><strong>Business banner</strong><small>Recommended size: 1600 × 500 px</small></div><button>Upload banner</button></div><div className="brand-upload logo-upload"><span className="brand-logo-preview"><Store /></span><div><strong>Business logo</strong><small>PNG or JPG, up to 5 MB</small></div><button>Upload logo</button></div><div className="appearance-colors"><strong>Brand color</strong><div><button className="color-swatch selected" aria-label="Coral brand color" /><button className="color-swatch navy" aria-label="Navy brand color" /><button className="color-swatch sage" aria-label="Sage brand color" /><button className="color-swatch plum" aria-label="Plum brand color" /></div></div></div></section>
@@ -518,9 +524,10 @@ function SettingsScreen({ user }: { user: User }) {
           {activeTab === "Booking preferences" && <section className="settings-card settings-option-card"><div className="settings-card-heading"><div><h2>Booking preferences</h2><p>Choose how clients discover and request appointments.</p></div></div>{[["Online booking", "Let clients book appointments from your public page."], ["Require approval", "Review appointment requests before confirming them."], ["Allow cancellations", "Clients can cancel up to 24 hours before their visit."]].map(([title, copy], index) => <label className="settings-toggle-row" key={title}><span><strong>{title}</strong><small>{copy}</small></span><input type="checkbox" defaultChecked={index !== 1} /><i /></label>)}</section>}
           {activeTab === "Notifications" && <section className="settings-card settings-option-card"><div className="settings-card-heading"><div><h2>Notifications</h2><p>Decide which updates you and your team receive.</p></div></div>{[["Appointment reminders", "Send automatic reminders before each appointment."], ["New booking alerts", "Get notified when a client books a new appointment."], ["Weekly performance summary", "Receive a weekly overview of your bookings and revenue."]].map(([title, copy], index) => <label className="settings-toggle-row" key={title}><span><strong>{title}</strong><small>{copy}</small></span><input type="checkbox" defaultChecked={index < 2} /><i /></label>)}</section>}
           {activeTab === "Account & security" && <section className="settings-card settings-option-card"><div className="settings-card-heading"><div><h2>Account &amp; security</h2><p>Manage your sign-in and account protection preferences.</p></div></div><div className="security-row"><span className="settings-card-icon"><LockKeyhole /></span><div><strong>Email address</strong><small>{user.email ?? "Connected account"}</small></div><button className="settings-text-action">Change</button></div><div className="security-row"><span className="settings-card-icon"><Fingerprint /></span><div><strong>Passkey login</strong><small>Use Face ID, fingerprint, or PIN to sign in.</small></div><button className="settings-text-action">Manage</button></div><div className="security-row"><span className="settings-card-icon"><Bell /></span><div><strong>Active sessions</strong><small>Review devices signed in to your account.</small></div><button className="settings-text-action">Review</button></div></section>}
-          <div className="settings-public-link"><div><strong>Your public booking page</strong><span>bookora.com/{businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}</span></div><button>Copy link</button></div>
+            <div className="settings-public-link"><div><strong>Your public booking page</strong><span>bookora.com/{businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}</span></div><button>Copy link</button></div>
+          </div>
+          <SettingsPreview businessName={businessName} />
         </div>
-      </div>
     </div>
   )
 }
