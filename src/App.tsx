@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
+  Building2,
   CalendarDays,
   CalendarRange,
   Check,
@@ -19,6 +20,7 @@ import {
   Menu,
   Plus,
   Search,
+  Save,
   Store,
   ShieldCheck,
   Settings2,
@@ -464,6 +466,44 @@ const upcomingAppointments = [
   { name: "John Tan", service: "Haircut", time: "3:00 PM", color: "blue", initials: "JT" },
 ]
 
+const settingsTabs = ["Business profile", "Booking preferences", "Notifications", "Account & security"]
+
+function SettingsScreen({ user }: { user: User }) {
+  const [activeTab, setActiveTab] = useState("Business profile")
+  const [businessName, setBusinessName] = useState(String(user.user_metadata?.business_name ?? "Your business"))
+  const [saved, setSaved] = useState(false)
+
+  const saveChanges = () => {
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 2200)
+  }
+
+  return (
+    <div className="settings-page">
+      <div className="dashboard-page-heading settings-heading"><div><p className="dashboard-kicker">Workspace settings</p><h1>Settings</h1><p>Keep your business details and booking experience up to date.</p></div><Button onClick={saveChanges}><Save data-icon="inline-start" /> {saved ? "Changes saved" : "Save changes"}</Button></div>
+      <div className="settings-layout">
+        <nav className="settings-tabs" aria-label="Settings sections">
+          <p>Manage your workspace</p>
+          {settingsTabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}<span>›</span></button>)}
+          <div className="settings-note"><Building2 /><strong>Mock settings</strong><span>These preferences are ready to connect to your account data.</span></div>
+        </nav>
+
+        <div className="settings-content">
+          {activeTab === "Business profile" && <>
+            <section className="settings-card"><div className="settings-card-heading"><div><h2>Business information</h2><p>This appears on your booking page and client confirmations.</p></div><span className="settings-card-icon"><Building2 /></span></div><div className="settings-form-grid"><label><span>Business name</span><input value={businessName} onChange={(event) => setBusinessName(event.target.value)} /></label><label><span>Industry</span><select defaultValue={String(user.user_metadata?.industry ?? "nail-salon")}><option value="nail-salon">Nail salon</option><option value="hair-salon">Hair salon</option><option value="barbershop">Barbershop</option><option value="facial-spa">Facial &amp; spa</option><option value="makeup-studio">Makeup studio</option><option value="beauty-clinic">Beauty clinic</option></select></label><label><span>Phone number</span><input defaultValue={String(user.user_metadata?.phone ?? "")} placeholder="+63 917 123 4567" /></label><label><span>Booking page slug</span><div className="settings-input-prefix"><span>bookora.com/</span><input defaultValue={businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")} /></div></label></div></section>
+            <section className="settings-card"><div className="settings-card-heading"><div><h2>Regional settings</h2><p>Choose how dates, times, and prices appear to clients.</p></div></div><div className="settings-form-grid"><label><span>Time zone</span><select defaultValue={String(user.user_metadata?.time_zone ?? "Asia/Manila")}><option value="Asia/Manila">Philippine Time (GMT+8)</option><option value="Asia/Singapore">Singapore Time (GMT+8)</option><option value="Asia/Tokyo">Japan Time (GMT+9)</option><option value="America/Los_Angeles">Pacific Time (US)</option></select></label><label><span>Currency</span><select defaultValue={String(user.user_metadata?.currency ?? "PHP")}><option value="PHP">Philippine Peso (₱ PHP)</option><option value="USD">US Dollar ($ USD)</option><option value="SGD">Singapore Dollar ($ SGD)</option></select></label></div></section>
+            <section className="settings-card"><div className="settings-card-heading"><div><h2>Opening hours</h2><p>Set the hours clients can request appointments.</p></div><button className="settings-text-action">Edit hours</button></div><div className="hours-list">{[["Monday", "9:00 AM", "6:00 PM"], ["Tuesday", "9:00 AM", "6:00 PM"], ["Wednesday", "9:00 AM", "6:00 PM"], ["Thursday", "9:00 AM", "6:00 PM"], ["Friday", "9:00 AM", "7:00 PM"]].map(([day, start, end]) => <div key={day}><strong>{day}</strong><span>{start} – {end}</span><i>Open</i></div>)}</div></section>
+          </>}
+          {activeTab === "Booking preferences" && <section className="settings-card settings-option-card"><div className="settings-card-heading"><div><h2>Booking preferences</h2><p>Choose how clients discover and request appointments.</p></div></div>{[["Online booking", "Let clients book appointments from your public page."], ["Require approval", "Review appointment requests before confirming them."], ["Allow cancellations", "Clients can cancel up to 24 hours before their visit."]].map(([title, copy], index) => <label className="settings-toggle-row" key={title}><span><strong>{title}</strong><small>{copy}</small></span><input type="checkbox" defaultChecked={index !== 1} /><i /></label>)}</section>}
+          {activeTab === "Notifications" && <section className="settings-card settings-option-card"><div className="settings-card-heading"><div><h2>Notifications</h2><p>Decide which updates you and your team receive.</p></div></div>{[["Appointment reminders", "Send automatic reminders before each appointment."], ["New booking alerts", "Get notified when a client books a new appointment."], ["Weekly performance summary", "Receive a weekly overview of your bookings and revenue."]].map(([title, copy], index) => <label className="settings-toggle-row" key={title}><span><strong>{title}</strong><small>{copy}</small></span><input type="checkbox" defaultChecked={index < 2} /><i /></label>)}</section>}
+          {activeTab === "Account & security" && <section className="settings-card settings-option-card"><div className="settings-card-heading"><div><h2>Account &amp; security</h2><p>Manage your sign-in and account protection preferences.</p></div></div><div className="security-row"><span className="settings-card-icon"><LockKeyhole /></span><div><strong>Email address</strong><small>{user.email ?? "Connected account"}</small></div><button className="settings-text-action">Change</button></div><div className="security-row"><span className="settings-card-icon"><Fingerprint /></span><div><strong>Passkey login</strong><small>Use Face ID, fingerprint, or PIN to sign in.</small></div><button className="settings-text-action">Manage</button></div><div className="security-row"><span className="settings-card-icon"><Bell /></span><div><strong>Active sessions</strong><small>Review devices signed in to your account.</small></div><button className="settings-text-action">Review</button></div></section>}
+          <div className="settings-public-link"><div><strong>Your public booking page</strong><span>bookora.com/{businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}</span></div><button>Copy link</button></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DashboardScreen({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [activeNav, setActiveNav] = useState("Overview")
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -536,6 +576,8 @@ function DashboardScreen({ user, onSignOut }: { user: User; onSignOut: () => voi
                 <article className="dashboard-panel setup-panel"><div className="panel-heading"><div><h2>Finish setting up</h2><p>Unlock the full Bookora experience</p></div><span className="setup-count">2/4</span></div><div className="setup-progress"><span /></div><div className="setup-task done"><span><Check /></span><div><strong>Business details</strong><small>Completed</small></div></div><div className="setup-task"><span>2</span><div><strong>Add your first service</strong><small>Help clients know what you offer</small></div><ArrowRight /></div><div className="setup-task"><span>3</span><div><strong>Set your availability</strong><small>Choose when clients can book</small></div><ArrowRight /></div></article>
               </section>
             </>
+          ) : activeNav === "Settings" ? (
+            <SettingsScreen user={user} />
           ) : (
             <section className="dashboard-placeholder"><span className="placeholder-icon"><ListChecks /></span><p className="dashboard-kicker">Workspace feature</p><h1>{activeNav}</h1><p>This mockup is ready for your {activeNav.toLowerCase()} workflow. Connect it to Supabase when you’re ready to add live data.</p><Button onClick={() => setActiveNav("Overview")}>Back to overview</Button></section>
           )}

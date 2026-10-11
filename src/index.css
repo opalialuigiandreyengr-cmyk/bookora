@@ -349,6 +349,59 @@ svg { stroke-width: 1.8; }
 .dashboard-placeholder > p:not(.dashboard-kicker) { max-width: 440px; line-height: 1.6; margin-bottom: 22px; }
 .dashboard-scrim { display: none; }
 
+/* Settings */
+.settings-page { max-width: 1080px; }
+.settings-heading { margin-bottom: 29px; }
+.settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 25px; }
+.settings-tabs { display: flex; flex-direction: column; gap: 3px; }
+.settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 10px; font-weight: 700; }
+.settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 11px; font-weight: 700; }
+.settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
+.settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); }
+.settings-note { display: grid; gap: 6px; padding: 13px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
+.settings-note svg { width: 16px; color: var(--primary); }
+.settings-note strong { font-size: 11px; }
+.settings-note span { color: var(--muted-foreground); font-size: 9px; line-height: 1.45; }
+.settings-content { min-width: 0; display: grid; gap: 16px; }
+.settings-card { padding: 22px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
+.settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 21px; }
+.settings-card-heading h2 { margin: 0 0 5px; font-size: 15px; letter-spacing: -.03em; }
+.settings-card-heading p { margin: 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
+.settings-card-icon { width: 32px; height: 32px; display: grid; flex: 0 0 32px; place-items: center; border-radius: 9px; background: var(--accent); color: var(--primary); }
+.settings-card-icon svg { width: 16px; }
+.settings-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px 14px; }
+.settings-form-grid label { display: grid; gap: 7px; min-width: 0; }
+.settings-form-grid label > span { color: var(--muted-foreground); font-size: 10px; font-weight: 700; }
+.settings-form-grid input, .settings-form-grid select { width: 100%; height: 39px; min-width: 0; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 11px; }
+.settings-form-grid input:focus, .settings-form-grid select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.65 0.14 20 / .12); }
+.settings-input-prefix { display: flex; align-items: center; min-width: 0; height: 39px; padding-left: 11px; border: 1px solid var(--border); border-radius: 8px; background: oklch(0.995 0.003 35); color: var(--muted-foreground); font-size: 10px; }
+.settings-input-prefix input { height: 37px; padding-left: 3px; border: 0; background: transparent; box-shadow: none; }
+.hours-list { display: grid; }
+.hours-list > div { display: grid; grid-template-columns: 1fr 1fr 45px; align-items: center; min-height: 38px; border-top: 1px solid oklch(0.91 0.01 35); }
+.hours-list strong, .hours-list span { font-size: 10px; }
+.hours-list span { color: var(--muted-foreground); }
+.hours-list i { color: oklch(0.45 0.09 150); font-size: 9px; font-style: normal; font-weight: 800; text-align: right; }
+.settings-text-action { padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.settings-option-card { padding-bottom: 7px; }
+.settings-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px 0; border-top: 1px solid oklch(0.91 0.01 35); cursor: pointer; }
+.settings-toggle-row > span { display: grid; gap: 4px; }
+.settings-toggle-row strong { font-size: 11px; }
+.settings-toggle-row small { color: var(--muted-foreground); font-size: 10px; }
+.settings-toggle-row input { position: absolute; opacity: 0; pointer-events: none; }
+.settings-toggle-row i { position: relative; width: 35px; height: 20px; flex: 0 0 35px; border-radius: 20px; background: var(--muted); transition: background .2s ease; }
+.settings-toggle-row i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px oklch(0.2 0.03 255 / .2); transition: transform .2s ease; }
+.settings-toggle-row input:checked + i { background: var(--primary); }
+.settings-toggle-row input:checked + i::after { transform: translateX(15px); }
+.security-row { display: flex; align-items: center; gap: 11px; padding: 14px 0; border-top: 1px solid oklch(0.91 0.01 35); }
+.security-row > div { display: grid; flex: 1; gap: 3px; }
+.security-row strong { font-size: 11px; }
+.security-row small { color: var(--muted-foreground); font-size: 10px; }
+.settings-public-link { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 18px; border: 1px solid oklch(0.76 0.1 20 / .35); border-radius: 11px; background: oklch(0.97 0.025 18); }
+.settings-public-link > div { display: grid; gap: 4px; min-width: 0; }
+.settings-public-link strong { font-size: 11px; }
+.settings-public-link span { overflow: hidden; color: var(--primary); text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.settings-public-link button { padding: 8px 12px; border: 0; border-radius: 7px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
+
 @media (min-width: 1251px) and (max-width: 1400px) {
   .hero-shell { padding-left: 32px; padding-right: 32px; }
   .hero-grid {
@@ -494,6 +547,14 @@ svg { stroke-width: 1.8; }
   .appointment-row { grid-template-columns: 31px minmax(0, 1fr) auto 17px; gap: 7px; }
   .appointment-status { display: none; }
   .appointment-row time { font-size: 9px; }
+  .settings-layout { grid-template-columns: 1fr; gap: 19px; }
+  .settings-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+  .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
+  .settings-note { margin-top: 10px; }
+  .settings-card { padding: 17px 14px; }
+  .settings-form-grid { grid-template-columns: 1fr; gap: 13px; }
+  .settings-public-link { align-items: flex-start; flex-direction: column; }
+  .settings-public-link button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
