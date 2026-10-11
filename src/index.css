@@ -486,6 +486,8 @@ svg { stroke-width: 1.8; }
 .locked-field { background: oklch(0.96 0.01 35) !important; color: var(--muted-foreground) !important; cursor: not-allowed; }
 .availability-panel { position: fixed; z-index: 100; top: 50%; left: 50%; width: min(440px, calc(100vw - 32px)); display: grid; gap: 14px; padding: 20px; border: 1px solid oklch(0.76 0.02 255 / .55); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .22), 0 0 0 100vmax oklch(0.13 0.02 255 / .35); transform: translate(-50%, -50%); }
 .availability-panel-heading { display: flex; justify-content: space-between; gap: 12px; }
+.availability-breaks > .availability-panel-heading { justify-content: flex-end; margin-bottom: -6px; }
+.availability-breaks > .availability-panel-heading > div { display: none; }
 .availability-panel-heading h3 { margin: 0; font-size: 16px; }
 .availability-panel-heading p { margin: 5px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .availability-panel-heading > button { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--card); color: var(--muted-foreground); cursor: pointer; }
