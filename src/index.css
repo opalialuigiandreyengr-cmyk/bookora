@@ -166,6 +166,28 @@ svg { stroke-width: 1.8; }
 .terms a { font-weight: 700; color: var(--foreground); }
 .auth-error { margin: -2px 0 0; color: oklch(0.51 0.16 25); font-size: 10px; line-height: 1.4; }
 .auth-note { margin: -1px 0 0; color: var(--muted-foreground); font-size: 9px; line-height: 1.4; text-align: center; }
+.passkey-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: oklch(0.18 0.02 255 / .46); backdrop-filter: blur(5px); }
+.passkey-modal { width: min(100%, 470px); position: relative; border: 1px solid color-mix(in oklch, var(--border) 70%, transparent); border-radius: 22px; background: var(--card); padding: 32px; box-shadow: 0 24px 80px oklch(0.15 0.02 255 / .25); }
+.passkey-close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--muted); color: var(--muted-foreground); cursor: pointer; }
+.passkey-close:hover { background: var(--accent); color: var(--foreground); }
+.passkey-close svg { width: 16px; height: 16px; }
+.passkey-icon { width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: 20px; border-radius: 16px; background: oklch(0.95 0.035 18); color: var(--primary); }
+.passkey-icon svg { width: 27px; height: 27px; }
+.passkey-modal .eyebrow { margin-bottom: 10px; }
+.passkey-modal h2 { margin: 0; font-size: clamp(24px, 4vw, 30px); line-height: 1.08; letter-spacing: -.045em; }
+.passkey-intro { margin: 10px 0 22px; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+.passkey-benefits { display: flex; flex-direction: column; gap: 15px; }
+.passkey-benefits > div { display: flex; align-items: flex-start; gap: 12px; }
+.passkey-benefits > div > span { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; background: var(--secondary); color: var(--primary); }
+.passkey-benefits svg { width: 17px; height: 17px; }
+.passkey-benefits p { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.passkey-benefits strong { font-size: 13px; }
+.passkey-benefits small { color: var(--muted-foreground); font-size: 11px; line-height: 1.4; }
+.passkey-check { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; color: var(--muted-foreground); font-size: 12px; cursor: pointer; }
+.passkey-check input { accent-color: var(--primary); width: 15px; height: 15px; }
+.passkey-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.passkey-actions [data-slot="button"] { min-width: 112px; }
+.passkey-actions [data-slot="button"]:last-child { color: var(--primary-foreground); }
 .onboarding-page { min-height: 100vh; padding: 32px 20px 44px; background: radial-gradient(circle at 50% 0%, oklch(0.96 0.04 18), transparent 45%), var(--background); }
 .onboarding-brand { max-width: 560px; margin: 0 auto 34px; }
 .onboarding-card { max-width: 560px; margin: 0 auto; border: 0; box-shadow: 0 20px 60px oklch(0.31 0.04 25 / .1); }
@@ -304,6 +326,11 @@ svg { stroke-width: 1.8; }
   .onboarding-card [data-slot="card-header"] { padding: 20px 20px 0; }
   .onboarding-card [data-slot="card-content"] { padding: 20px; }
   .onboarding-progress { padding: 20px 20px 0; }
+  .passkey-modal { padding: 26px 20px 20px; border-radius: 18px; }
+  .passkey-intro { margin-bottom: 18px; }
+  .passkey-benefits { gap: 13px; }
+  .passkey-actions { margin-top: 18px; }
+  .passkey-actions [data-slot="button"] { flex: 1; min-width: 0; }
   .appointment { display: none; }
   .feature-strip { grid-template-columns: repeat(2, 1fr); padding: 24px 14px; }
   .businesses { padding-left: 18px; padding-right: 18px; }
