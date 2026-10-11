@@ -281,7 +281,7 @@ svg { stroke-width: 1.8; }
 .dashboard-user > svg { width: 13px; color: var(--muted-foreground); }
 .user-avatar { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: oklch(0.83 0.07 18); color: oklch(0.42 0.1 18); font-size: 10px; font-weight: 800; }
 .dashboard-menu { display: none; border: 0; background: transparent; cursor: pointer; }
-.dashboard-main { width: min(1230px, 100%); margin: 0 auto; padding: 12px clamp(10px, 1.4vw, 18px) 18px; }
+.dashboard-main { width: min(1230px, 100%); margin: 0 auto; padding: 12px clamp(10px, 1.4vw, 18px) 18px; overflow: visible; }
 .dashboard-page-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 27px; }
 .dashboard-page-heading h1, .dashboard-placeholder h1 { margin: 2px 0 4px; font-size: clamp(20px, 1.9vw, 24px); letter-spacing: -.05em; line-height: 1.08; }
 .dashboard-page-heading h1 span { color: var(--primary); font-size: .62em; vertical-align: top; }
@@ -354,7 +354,7 @@ svg { stroke-width: 1.8; }
 .settings-heading { margin-bottom: 24px; }
 .settings-heading h1 { font-size: clamp(18px, 1.7vw, 21px); }
 .settings-layout { display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: start; gap: 22px; }
-.settings-tabs { position: sticky; top: 88px; z-index: 10; align-self: start; height: fit-content; max-height: calc(100dvh - 104px); display: flex; flex-direction: column; gap: 3px; overflow: hidden; padding: 0 20px 12px 0; background: oklch(0.975 0.009 35); border-right: 1px solid var(--border); }
+.settings-tabs { position: sticky; top: 88px; z-index: 10; align-self: start; height: fit-content; max-height: calc(100dvh - 104px); display: flex; flex-direction: column; gap: 3px; overflow: visible; padding: 0 20px 12px 0; background: oklch(0.975 0.009 35); border-right: 1px solid var(--border); }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 12px; font-weight: 700; }
 .settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
@@ -406,7 +406,7 @@ svg { stroke-width: 1.8; }
 .settings-public-link strong { font-size: 11px; }
 .settings-public-link span { overflow: hidden; color: var(--primary); text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 .settings-public-link button { padding: 8px 12px; border: 0; border-radius: 7px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
-.settings-preview { position: sticky; top: 88px; align-self: start; min-width: 0; }
+.settings-preview { position: sticky; top: 88px; z-index: 10; align-self: start; min-width: 0; height: fit-content; overflow: visible; }
 .preview-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .preview-heading > strong { color: var(--muted-foreground); font-size: 12px; font-weight: 800; }
 .preview-heading > div { display: flex; gap: 4px; }
