@@ -72,7 +72,7 @@ svg { stroke-width: 1.8; }
   z-index: 20;
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; width: fit-content; }
-.brand-image { display: block; width: 174px; height: 42px; object-fit: contain; object-position: left center; }
+.brand-image { display: block; width: 42px; height: 42px; object-fit: contain; object-position: center; }
 .brand-compact .brand-image { width: 34px; height: 34px; }
 .brand-mark { width: 25px; height: 33px; position: relative; display: inline-grid; place-items: center; color: var(--primary); }
 .brand-mark::before, .brand-mark::after { content: ""; position: absolute; border: 3px solid currentColor; border-radius: 9px; }
@@ -80,7 +80,8 @@ svg { stroke-width: 1.8; }
 .brand-mark::after { width: 12px; height: 24px; right: 1px; top: 0; }
 .brand-mark span { font-size: 9px; font-weight: 800; position: relative; z-index: 1; }
 .brand-name { font-size: 28px; font-weight: 800; letter-spacing: -1.8px; }
-.brand-name span { color: oklch(0.48 0.08 18); font-weight: 500; }
+.brand-name { color: oklch(0.14 0.03 255); }
+.brand-name span { color: oklch(0.58 0.15 18); font-weight: 500; }
 .site-header nav { display: flex; align-items: center; justify-content: center; gap: clamp(28px, 3vw, 48px); }
 .site-header nav a { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; }
 .site-header nav svg, .language svg:last-child { width: 13px; height: 13px; }
@@ -483,8 +484,8 @@ svg { stroke-width: 1.8; }
 .account-profile-grid label > span { color: var(--muted-foreground); font-size: 12px; font-weight: 700; }
 .account-profile-grid input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 13px; }
 .locked-field { background: oklch(0.96 0.01 35) !important; color: var(--muted-foreground) !important; cursor: not-allowed; }
-.availability-panel { position: fixed; z-index: 100; top: 50%; left: 50%; width: min(420px, calc(100vw - 32px)); display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .22); transform: translate(-50%, -50%); }
-.availability-panel::before { content: ""; position: fixed; z-index: -1; inset: 50% auto auto 50%; width: 100vw; height: 100vh; background: oklch(0.13 0.02 255 / .35); transform: translate(-50%, -50%); }
+.availability-panel { position: fixed; z-index: 100; top: 30%; left: 50%; width: min(420px, calc(100vw - 32px)); display: grid; gap: 12px; padding: 18px; border: 1px solid oklch(0.76 0.02 255 / .55); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .22); transform: translate(-50%, -50%); }
+.availability-panel::before { content: ""; position: fixed; z-index: -1; inset: 0; width: 100vw; height: 100vh; background: oklch(0.13 0.02 255 / .35); }
 .availability-panel-heading { display: flex; justify-content: space-between; gap: 12px; }
 .availability-panel-heading h3 { margin: 0; font-size: 13px; }
 .availability-panel-heading p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 10px; }
@@ -493,6 +494,7 @@ svg { stroke-width: 1.8; }
 .availability-items { display: grid; gap: 7px; }
 .availability-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); font-size: 11px; }
 .availability-item button { border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 10px; font-weight: 700; }
+.availability-panel > .settings-primary-action { width: 100%; justify-content: center; }
 @media (max-width: 560px) { .account-profile-grid { grid-template-columns: 1fr; } .security-item { align-items: flex-start; flex-wrap: wrap; } .security-item button { margin-left: 48px; } }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
 .hours-row em { grid-column: 3 / 6; justify-self: end; padding: 5px 9px; border-radius: 4px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
