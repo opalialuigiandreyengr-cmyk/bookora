@@ -174,13 +174,14 @@ svg { stroke-width: 1.8; }
 .onboarding-progress span.active { background: var(--primary); color: var(--primary-foreground); }
 .onboarding-progress i { height: 1px; flex: 1; background: var(--border); }
 .onboarding-card [data-slot="card-header"] { padding: 24px 32px 0; }
-.onboarding-card [data-slot="card-title"] { font-size: clamp(27px, 4vw, 36px); letter-spacing: -.05em; }
-.onboarding-card [data-slot="card-description"] { max-width: 430px; line-height: 1.55; }
+.onboarding-card [data-slot="card-title"] { font-size: clamp(24px, 3.5vw, 32px); letter-spacing: -.045em; }
+.onboarding-card [data-slot="card-description"] { max-width: 430px; line-height: 1.5; font-size: 13px; }
 .onboarding-card [data-slot="card-content"] { padding: 24px 32px 32px; }
 .onboarding-form { display: flex; flex-direction: column; gap: 20px; }
 .onboarding-form [data-slot="field-group"] { gap: 18px; }
 .onboarding-form [data-slot="field"] { gap: 7px; }
-.onboarding-form [data-slot="field-label"] { font-size: 13px; }
+.onboarding-form [data-slot="field-label"] { font-size: 12px; }
+.onboarding-form input { font-size: 13px; }
 .onboarding-form select { height: 44px; width: 100%; border: 1px solid var(--input); border-radius: 8px; background: var(--background); padding: 0 12px; color: var(--foreground); font: inherit; font-size: 13px; outline: none; }
 .onboarding-form select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 25%, transparent); }
 .onboarding-submit { width: 100%; color: var(--primary-foreground); }
