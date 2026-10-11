@@ -352,7 +352,6 @@ svg { stroke-width: 1.8; }
 /* Settings */
 .settings-page { max-width: 1080px; }
 .settings-heading { margin-bottom: 24px; }
-.settings-heading h1 { font-size: 28px; }
 .settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 25px; }
 .settings-tabs { display: flex; flex-direction: column; gap: 3px; }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
