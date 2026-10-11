@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react"
+import { FormEvent, useEffect, useState } from "react"
 import {
   ArrowRight,
   BarChart3,
@@ -25,6 +25,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
+import type { User } from "@supabase/supabase-js"
 
 const features = [
   { icon: CalendarDays, title: "Online Booking", copy: "Let clients book 24/7 from any device." },
@@ -217,8 +218,112 @@ function SignupCard() {
   )
 }
 
+function OnboardingScreen({ user, onComplete }: { user: User; onComplete: () => void }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
+  const [error, setError] = useState("")
+  const [brandName, setBrandName] = useState(String(user.user_metadata?.business_name ?? ""))
+  const [industry, setIndustry] = useState("")
+  const [phone, setPhone] = useState("")
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase) return
+
+    setStatus("loading")
+    setError("")
+    const { error: updateError } = await supabase.auth.updateUser({
+      data: {
+        business_name: brandName.trim(),
+        industry,
+        phone: phone.trim(),
+        onboarding_complete: true,
+      },
+    })
+
+    if (updateError) {
+      setStatus("error")
+      setError(updateError.message)
+      return
+    }
+
+    onComplete()
+  }
+
+  return (
+    <main className="onboarding-page">
+      <div className="onboarding-brand"><Logo /></div>
+      <Card className="onboarding-card">
+        <div className="onboarding-progress" aria-label="Onboarding step 1 of 3">
+          <span className="active">1</span><i /><span>2</span><i /><span>3</span>
+        </div>
+        <CardHeader>
+          <p className="eyebrow"><span>Step 1 of 3</span></p>
+          <CardTitle>Let’s start with your brand</CardTitle>
+          <CardDescription>Tell us a little about your business so we can make Bookora feel like yours.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="onboarding-form" onSubmit={submit}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="brand-name">Brand name</FieldLabel>
+                <Input id="brand-name" value={brandName} onChange={(event) => setBrandName(event.target.value)} placeholder="e.g. Glow Studio" required />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="industry">Industry</FieldLabel>
+                <select id="industry" value={industry} onChange={(event) => setIndustry(event.target.value)} required>
+                  <option value="" disabled>Select your industry</option>
+                  <option value="nail-salon">Nail salon</option>
+                  <option value="hair-salon">Hair salon</option>
+                  <option value="barbershop">Barbershop</option>
+                  <option value="facial-spa">Facial &amp; spa</option>
+                  <option value="makeup-studio">Makeup studio</option>
+                  <option value="beauty-clinic">Beauty clinic</option>
+                  <option value="other">Other beauty business</option>
+                </select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="phone">Phone number</FieldLabel>
+                <Input id="phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="e.g. +63 917 123 4567" autoComplete="tel" required />
+              </Field>
+            </FieldGroup>
+            {status === "error" && <p className="auth-error" role="alert">{error}</p>}
+            <Button className="onboarding-submit" size="lg" type="submit" disabled={status === "loading"}>
+              {status === "loading" ? "Saving…" : "Continue"} <ArrowRight data-icon="inline-end" />
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      <p className="onboarding-footnote">You can update these details later in Settings.</p>
+    </main>
+  )
+}
+
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [authUser, setAuthUser] = useState<User | null>(null)
+  const [onboardingDone, setOnboardingDone] = useState(false)
+
+  useEffect(() => {
+    if (!supabase) return
+
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null
+      setAuthUser(user)
+      setOnboardingDone(Boolean(user?.user_metadata?.onboarding_complete))
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null
+      setAuthUser(user)
+      setOnboardingDone(Boolean(user?.user_metadata?.onboarding_complete))
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  if (authUser && !onboardingDone) {
+    return <OnboardingScreen user={authUser} onComplete={() => setOnboardingDone(true)} />
+  }
 
   return (
     <main id="top">

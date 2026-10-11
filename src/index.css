@@ -166,6 +166,25 @@ svg { stroke-width: 1.8; }
 .terms a { font-weight: 700; color: var(--foreground); }
 .auth-error { margin: -2px 0 0; color: oklch(0.51 0.16 25); font-size: 10px; line-height: 1.4; }
 .auth-note { margin: -1px 0 0; color: var(--muted-foreground); font-size: 9px; line-height: 1.4; text-align: center; }
+.onboarding-page { min-height: 100vh; padding: 32px 20px 44px; background: radial-gradient(circle at 50% 0%, oklch(0.96 0.04 18), transparent 45%), var(--background); }
+.onboarding-brand { max-width: 560px; margin: 0 auto 34px; }
+.onboarding-card { max-width: 560px; margin: 0 auto; border: 0; box-shadow: 0 20px 60px oklch(0.31 0.04 25 / .1); }
+.onboarding-progress { display: flex; align-items: center; gap: 8px; padding: 28px 28px 0; }
+.onboarding-progress span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--muted); color: var(--muted-foreground); font-size: 11px; font-weight: 700; }
+.onboarding-progress span.active { background: var(--primary); color: var(--primary-foreground); }
+.onboarding-progress i { height: 1px; flex: 1; background: var(--border); }
+.onboarding-card [data-slot="card-header"] { padding: 24px 32px 0; }
+.onboarding-card [data-slot="card-title"] { font-size: clamp(27px, 4vw, 36px); letter-spacing: -.05em; }
+.onboarding-card [data-slot="card-description"] { max-width: 430px; line-height: 1.55; }
+.onboarding-card [data-slot="card-content"] { padding: 24px 32px 32px; }
+.onboarding-form { display: flex; flex-direction: column; gap: 20px; }
+.onboarding-form [data-slot="field-group"] { gap: 18px; }
+.onboarding-form [data-slot="field"] { gap: 7px; }
+.onboarding-form [data-slot="field-label"] { font-size: 13px; }
+.onboarding-form select { height: 44px; width: 100%; border: 1px solid var(--input); border-radius: 8px; background: var(--background); padding: 0 12px; color: var(--foreground); font: inherit; font-size: 13px; outline: none; }
+.onboarding-form select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 25%, transparent); }
+.onboarding-submit { width: 100%; color: var(--primary-foreground); }
+.onboarding-footnote { margin: 17px auto 0; max-width: 560px; text-align: center; color: var(--muted-foreground); font-size: 11px; }
 .success-state { min-height: 275px; display: flex; align-items: center; justify-content: center; text-align: center; flex-direction: column; gap: 12px; }
 .success-state > span { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--secondary); color: var(--primary); }
 .success-state h3, .success-state p { margin: 0; }
@@ -276,6 +295,11 @@ svg { stroke-width: 1.8; }
   .signup-card .social-buttons { gap: 8px; }
   .signup-card .social-buttons button { height: 40px; font-size: 12px; }
   .signup-card .terms { font-size: 10px; }
+  .onboarding-page { padding: 22px 16px 30px; }
+  .onboarding-brand { margin-bottom: 24px; }
+  .onboarding-card [data-slot="card-header"] { padding: 20px 20px 0; }
+  .onboarding-card [data-slot="card-content"] { padding: 20px; }
+  .onboarding-progress { padding: 20px 20px 0; }
   .appointment { display: none; }
   .feature-strip { grid-template-columns: repeat(2, 1fr); padding: 24px 14px; }
   .businesses { padding-left: 18px; padding-right: 18px; }
