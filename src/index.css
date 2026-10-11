@@ -369,6 +369,8 @@ svg { stroke-width: 1.8; }
 .settings-note strong { font-size: 11px; }
 .settings-note span { color: var(--muted-foreground); font-size: 9px; line-height: 1.45; }
 .settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding-right: 7px; }
+.settings-content { scrollbar-width: none; -ms-overflow-style: none; }
+.settings-content::-webkit-scrollbar { display: none; }
 .settings-float-save { position: fixed; top: 84px; right: 32px; z-index: 55; }
 .settings-float-save [data-slot="button"] { box-shadow: 0 5px 14px oklch(0.2 0.03 255 / .14); }
 .settings-card { padding: 7px 9px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
