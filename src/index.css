@@ -479,6 +479,20 @@ svg { stroke-width: 1.8; }
 .settings-primary-action { border: 1px solid var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .settings-danger-action { border: 1px solid oklch(0.65 0.18 20 / .35); background: oklch(0.97 0.03 20); color: oklch(0.5 0.15 20); }
 .security-danger { border-color: oklch(0.65 0.18 20 / .25); }
+.preferences-settings-stack { display: grid; gap: 14px; max-width: 860px; }
+.preference-card { padding: 18px 20px; }
+.preference-form-grid { margin-top: 4px; }
+.preference-form-grid select { width: 100%; }
+.preference-toggle { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 0; border-top: 1px solid var(--border); }
+.preference-toggle > div { min-width: 0; }
+.preference-toggle strong { display: block; font-size: 13px; }
+.preference-toggle p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 11px; }
+.settings-switch { position: relative; width: 38px; height: 22px; flex: 0 0 38px; }
+.settings-switch input { position: absolute; opacity: 0; }
+.settings-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--muted); cursor: pointer; transition: background .2s ease; }
+.settings-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px oklch(0.2 0.03 255 / .2); transition: transform .2s ease; }
+.settings-switch input:checked + i { background: var(--primary); }
+.settings-switch input:checked + i::after { transform: translateX(16px); }
 .account-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
 .account-profile-grid label { display: grid; gap: 7px; }
 .account-profile-grid label > span { color: var(--muted-foreground); font-size: 12px; font-weight: 700; }
