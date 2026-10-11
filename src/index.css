@@ -507,6 +507,10 @@ svg { stroke-width: 1.8; }
 .break-row b { color: var(--muted-foreground); text-align: center; }
 .break-row em { grid-column: 3 / -1; justify-self: end; padding: 6px 8px; border-radius: 5px; background: var(--secondary); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
 .break-add { width: 24px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 20px; }
+.break-day-group { display: grid; }
+.break-extra-row { margin-left: 34px; }
+.break-remove { width: 24px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; }
+.break-remove svg { width: 14px; height: 14px; }
 .timeoff-editor { gap: 15px; }
 .timeoff-editor label { display: grid; gap: 6px; }
 .timeoff-editor label > span { font-size: 11px; font-weight: 700; }
