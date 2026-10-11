@@ -355,8 +355,8 @@ svg { stroke-width: 1.8; }
 .settings-heading h1 { font-size: 28px; }
 .settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 25px; }
 .settings-tabs { display: flex; flex-direction: column; gap: 3px; }
-.settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 12px; font-weight: 800; }
-.settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 11px; font-weight: 700; }
+.settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
+.settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 12px; font-weight: 700; }
 .settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
 .settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); }
 .settings-note { display: grid; gap: 6px; padding: 13px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
@@ -364,17 +364,17 @@ svg { stroke-width: 1.8; }
 .settings-note strong { font-size: 11px; }
 .settings-note span { color: var(--muted-foreground); font-size: 9px; line-height: 1.45; }
 .settings-content { min-width: 0; display: grid; gap: 16px; }
-.settings-card { padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
+.settings-card { padding: 14px 16px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
 .settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 21px; }
-.settings-card-heading h2 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: -.03em; }
+.settings-card-heading h2 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.03em; }
 .settings-card-heading p { margin: 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 .settings-card-heading > div > p { display: none; }
 .settings-card-icon { width: 32px; height: 32px; display: grid; flex: 0 0 32px; place-items: center; border-radius: 9px; background: var(--accent); color: var(--primary); }
 .settings-card-icon svg { width: 16px; }
 .settings-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px 14px; }
 .settings-form-grid label { display: grid; gap: 7px; min-width: 0; }
-.settings-form-grid label > span { color: var(--muted-foreground); font-size: 11px; font-weight: 700; }
-.settings-form-grid input, .settings-form-grid select { width: 100%; height: 39px; min-width: 0; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 12px; }
+.settings-form-grid label > span { color: var(--muted-foreground); font-size: 12px; font-weight: 700; }
+.settings-form-grid input, .settings-form-grid select { width: 100%; height: 39px; min-width: 0; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 13px; }
 .settings-field-wide { grid-column: 1 / -1; }
 .settings-form-grid input:focus, .settings-form-grid select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.65 0.14 20 / .12); }
 .settings-input-prefix { display: flex; align-items: center; min-width: 0; height: 39px; padding-left: 11px; border: 1px solid var(--border); border-radius: 8px; background: oklch(0.995 0.003 35); color: var(--muted-foreground); font-size: 10px; }
@@ -388,8 +388,8 @@ svg { stroke-width: 1.8; }
 .settings-option-card { padding-bottom: 7px; }
 .settings-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px 0; border-top: 1px solid oklch(0.91 0.01 35); cursor: pointer; }
 .settings-toggle-row > span { display: grid; gap: 4px; }
-.settings-toggle-row strong { font-size: 11px; }
-.settings-toggle-row small { color: var(--muted-foreground); font-size: 10px; }
+.settings-toggle-row strong { font-size: 12px; }
+.settings-toggle-row small { color: var(--muted-foreground); font-size: 11px; }
 .settings-toggle-row input { position: absolute; opacity: 0; pointer-events: none; }
 .settings-toggle-row i { position: relative; width: 35px; height: 20px; flex: 0 0 35px; border-radius: 20px; background: var(--muted); transition: background .2s ease; }
 .settings-toggle-row i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px oklch(0.2 0.03 255 / .2); transition: transform .2s ease; }
@@ -572,7 +572,7 @@ svg { stroke-width: 1.8; }
   .settings-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
   .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
   .settings-note { margin-top: 10px; }
-  .settings-card { padding: 17px 14px; }
+  .settings-card { padding: 14px 12px; }
   .settings-form-grid { grid-template-columns: 1fr; gap: 13px; }
   .brand-assets { grid-template-columns: 1fr; }
   .brand-upload.banner-upload { grid-column: auto; }
