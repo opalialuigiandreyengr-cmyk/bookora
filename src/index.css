@@ -353,8 +353,8 @@ svg { stroke-width: 1.8; }
 .settings-page { max-width: 1260px; }
 .settings-heading { margin-bottom: 24px; }
 .settings-heading h1 { font-size: clamp(18px, 1.7vw, 21px); }
-.settings-layout { display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: start; gap: 22px; }
-.settings-tabs { position: sticky; top: 88px; z-index: 10; align-self: start; height: fit-content; max-height: calc(100dvh - 104px); display: flex; flex-direction: column; gap: 3px; overflow: visible; padding: 0 20px 12px 0; background: oklch(0.975 0.009 35); border-right: 1px solid var(--border); }
+.settings-layout { height: calc(100dvh - 120px); min-height: 420px; display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: stretch; gap: 22px; overflow: hidden; }
+.settings-tabs { position: sticky; top: 0; z-index: 10; align-self: start; height: fit-content; max-height: 100%; display: flex; flex-direction: column; gap: 3px; overflow: visible; padding: 0 20px 12px 0; background: oklch(0.975 0.009 35); border-right: 1px solid var(--border); }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 12px; font-weight: 700; }
 .settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
@@ -365,7 +365,7 @@ svg { stroke-width: 1.8; }
 .settings-note svg { width: 16px; color: var(--primary); }
 .settings-note strong { font-size: 11px; }
 .settings-note span { color: var(--muted-foreground); font-size: 9px; line-height: 1.45; }
-.settings-content { min-width: 0; display: grid; gap: 16px; }
+.settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding-right: 7px; }
 .settings-card { padding: 7px 9px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
 .settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 10px; }
 .settings-card-heading h2 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: -.03em; }
@@ -406,7 +406,7 @@ svg { stroke-width: 1.8; }
 .settings-public-link strong { font-size: 11px; }
 .settings-public-link span { overflow: hidden; color: var(--primary); text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 .settings-public-link button { padding: 8px 12px; border: 0; border-radius: 7px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
-.settings-preview { position: sticky; top: 88px; z-index: 10; align-self: start; min-width: 0; height: fit-content; overflow: visible; }
+.settings-preview { position: sticky; top: 0; z-index: 10; align-self: start; min-width: 0; height: fit-content; overflow: visible; }
 .preview-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .preview-heading > strong { color: var(--muted-foreground); font-size: 12px; font-weight: 800; }
 .preview-heading > div { display: flex; gap: 4px; }
@@ -617,6 +617,8 @@ svg { stroke-width: 1.8; }
   .appointment-status { display: none; }
   .appointment-row time { font-size: 9px; }
   .settings-layout { grid-template-columns: 1fr; gap: 19px; }
+  .settings-layout { height: auto; min-height: 0; overflow: visible; }
+  .settings-content { overflow: visible; padding-right: 0; }
   .settings-tabs { position: static; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding-right: 0; border-right: 0; }
   .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
   .settings-note { margin-top: 10px; }
