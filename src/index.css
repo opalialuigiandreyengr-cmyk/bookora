@@ -458,6 +458,24 @@ svg { stroke-width: 1.8; }
 .hours-row { grid-template-columns: 30px minmax(90px, 1fr) 96px 18px 96px !important; gap: 7px; min-height: 49px !important; padding: 0 10px; }
 .hours-row strong { font-size: 11px; }
 .hours-row input[type="time"] { width: 96px; height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 11px; }
+.settings-layout-no-preview { grid-template-columns: 200px minmax(0, 1fr); }
+.security-settings-stack { display: grid; gap: 14px; max-width: 860px; }
+.security-card { padding: 18px 20px; }
+.security-heading-icon, .security-item-icon { display: grid; place-items: center; border-radius: 9px; background: var(--accent); color: var(--primary); }
+.security-heading-icon { width: 34px; height: 34px; }
+.security-item-icon { width: 34px; height: 34px; flex: 0 0 34px; }
+.security-heading-icon svg, .security-item-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.security-item { display: flex; align-items: center; gap: 14px; padding: 15px 0; border-top: 1px solid var(--border); }
+.security-item > div { min-width: 0; flex: 1; }
+.security-item strong { display: block; font-size: 13px; }
+.security-item p { margin: 3px 0 2px; color: var(--muted-foreground); font-size: 11px; }
+.security-item small { color: var(--muted-foreground); font-size: 10px; }
+.security-item button { white-space: nowrap; }
+.settings-outline-action, .settings-primary-action, .settings-danger-action { padding: 8px 11px; border-radius: 7px; cursor: pointer; font-size: 11px; font-weight: 700; }
+.settings-outline-action { border: 1px solid var(--border); background: var(--card); color: var(--foreground); }
+.settings-primary-action { border: 1px solid var(--primary); background: var(--primary); color: var(--primary-foreground); }
+.settings-danger-action { border: 1px solid oklch(0.65 0.18 20 / .35); background: oklch(0.97 0.03 20); color: oklch(0.5 0.15 20); }
+.security-danger { border-color: oklch(0.65 0.18 20 / .25); }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
 .hours-row em { grid-column: 3 / 6; justify-self: end; padding: 5px 9px; border-radius: 4px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
 .hours-toggle { position: relative; width: 27px; height: 16px; }
