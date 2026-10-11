@@ -72,6 +72,8 @@ svg { stroke-width: 1.8; }
   z-index: 20;
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; width: fit-content; }
+.brand-image { display: block; width: 174px; height: 42px; object-fit: contain; object-position: left center; }
+.brand-compact .brand-image { width: 34px; height: 34px; }
 .brand-mark { width: 25px; height: 33px; position: relative; display: inline-grid; place-items: center; color: var(--primary); }
 .brand-mark::before, .brand-mark::after { content: ""; position: absolute; border: 3px solid currentColor; border-radius: 9px; }
 .brand-mark::before { width: 12px; height: 24px; left: 1px; top: 5px; }

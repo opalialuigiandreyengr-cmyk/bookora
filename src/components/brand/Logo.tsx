@@ -1,3 +1,3 @@
 export function Logo({ compact = false }: { compact?: boolean }) {
-  return <a href="#top" className="brand" aria-label="Bookora home"><span className="brand-mark" aria-hidden="true"><span>B</span></span>{!compact && <span className="brand-name">Book<span>ora</span></span>}</a>
+  return <a href="#top" className={`brand ${compact ? "brand-compact" : ""}`} aria-label="Bookora home"><img className="brand-image" src={compact ? "/assets/bookora-icon.svg" : "/assets/bookora-logo.png"} alt="Bookora" /></a>
 }
