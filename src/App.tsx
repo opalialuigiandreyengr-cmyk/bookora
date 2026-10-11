@@ -466,7 +466,12 @@ const upcomingAppointments = [
   { name: "John Tan", service: "Haircut", time: "3:00 PM", color: "blue", initials: "JT" },
 ]
 
-const settingsTabs = ["Business profile", "Booking preferences", "Notifications", "Account & security"]
+const settingsTabs = [
+  { label: "Business profile", icon: Building2 },
+  { label: "Booking preferences", icon: CalendarDays },
+  { label: "Notifications", icon: Bell },
+  { label: "Account & security", icon: LockKeyhole },
+]
 
 function SettingsScreen({ user }: { user: User }) {
   const [activeTab, setActiveTab] = useState("Business profile")
@@ -484,7 +489,7 @@ function SettingsScreen({ user }: { user: User }) {
       <div className="settings-layout">
         <nav className="settings-tabs" aria-label="Settings sections">
           <p>Manage your workspace</p>
-          {settingsTabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}<span>›</span></button>)}
+          {settingsTabs.map(({ label, icon: Icon }) => <button key={label} className={activeTab === label ? "active" : ""} onClick={() => setActiveTab(label)}><span className="settings-tab-label"><Icon />{label}</span><span>›</span></button>)}
           <div className="settings-note"><Building2 /><strong>Mock settings</strong><span>These preferences are ready to connect to your account data.</span></div>
         </nav>
 
