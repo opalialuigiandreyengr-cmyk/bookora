@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 
 const features = [
   { icon: CalendarDays, title: "Online Booking", copy: "Let clients book 24/7 from any device." },
@@ -107,10 +108,61 @@ function ProductMockup() {
 }
 
 function SignupCard() {
-  const [created, setCreated] = useState(false)
-  const submit = (event: FormEvent) => {
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [message, setMessage] = useState("")
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setCreated(true)
+    const form = new FormData(event.currentTarget)
+    const business = String(form.get("business") ?? "").trim()
+    const email = String(form.get("email") ?? "").trim()
+    const password = String(form.get("password") ?? "")
+
+    if (!supabase) {
+      setStatus("error")
+      setMessage("Connect Supabase first by adding VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.")
+      return
+    }
+
+    setStatus("loading")
+    setMessage("")
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { business_name: business },
+        emailRedirectTo: window.location.origin,
+      },
+    })
+
+    if (error) {
+      setStatus("error")
+      setMessage(error.message)
+      return
+    }
+
+    setStatus("success")
+    setMessage(data.session ? "Your account is ready." : "Check your email to confirm your account, then come back to Bookora.")
+  }
+
+  const signInWithProvider = async (provider: "google" | "apple") => {
+    if (!supabase) {
+      setStatus("error")
+      setMessage("Connect Supabase first by adding VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.")
+      return
+    }
+
+    setStatus("loading")
+    setMessage("")
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    })
+
+    if (error) {
+      setStatus("error")
+      setMessage(error.message)
+    }
   }
 
   return (
@@ -120,12 +172,12 @@ function SignupCard() {
         <CardDescription>Start your booking app in minutes.</CardDescription>
       </CardHeader>
       <CardContent>
-        {created ? (
+        {status === "success" ? (
           <div className="success-state" role="status">
             <span><Check /></span>
-            <h3>You’re on the list!</h3>
-            <p>This frontend demo is ready. We’ll connect account creation when the backend arrives.</p>
-            <Button variant="outline" type="button" onClick={() => setCreated(false)}>Back to form</Button>
+            <h3>Welcome to Bookora</h3>
+            <p>{message}</p>
+            <Button variant="outline" type="button" onClick={() => { setStatus("idle"); setMessage("") }}>Back to form</Button>
           </div>
         ) : (
           <form onSubmit={submit}>
@@ -147,13 +199,17 @@ function SignupCard() {
                 <EyeOff className="end-icon" aria-hidden="true" />
               </Field>
             </FieldGroup>
-            <Button className="wide-button" size="lg" type="submit">Create Free Account</Button>
+            <Button className="wide-button" size="lg" type="submit" disabled={status === "loading"}>
+              {status === "loading" ? "Connecting…" : "Create Free Account"}
+            </Button>
+            {status === "error" && <p className="auth-error" role="alert">{message}</p>}
             <div className="or-row"><Separator /><span>or continue with</span><Separator /></div>
             <div className="social-buttons">
-              <Button variant="outline" type="button"><img className="social-logo" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" /> Continue with Google</Button>
-              <Button variant="outline" type="button"><img className="social-logo" src="https://cdn.simpleicons.org/apple/111827" alt="" /> Continue with Apple</Button>
+              <Button variant="outline" type="button" disabled={status === "loading"} onClick={() => signInWithProvider("google")}><img className="social-logo" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" /> Continue with Google</Button>
+              <Button variant="outline" type="button" disabled={status === "loading"} onClick={() => signInWithProvider("apple")}><img className="social-logo" src="https://cdn.simpleicons.org/apple/111827" alt="" /> Continue with Apple</Button>
             </div>
             <p className="terms">By creating an account, you agree to our<br /><a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy.</a></p>
+            {!hasSupabaseConfig && <p className="auth-note">OAuth is ready once Supabase environment variables are added.</p>}
           </form>
         )}
       </CardContent>
