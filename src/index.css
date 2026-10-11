@@ -483,7 +483,8 @@ svg { stroke-width: 1.8; }
 .account-profile-grid label > span { color: var(--muted-foreground); font-size: 12px; font-weight: 700; }
 .account-profile-grid input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 13px; }
 .locked-field { background: oklch(0.96 0.01 35) !important; color: var(--muted-foreground) !important; cursor: not-allowed; }
-.availability-panel { display: grid; gap: 12px; margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: oklch(0.99 0.003 35); }
+.availability-panel { position: fixed; z-index: 100; top: 50%; left: 50%; width: min(420px, calc(100vw - 32px)); display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .22); transform: translate(-50%, -50%); }
+.availability-panel::before { content: ""; position: fixed; z-index: -1; inset: 50% auto auto 50%; width: 100vw; height: 100vh; background: oklch(0.13 0.02 255 / .35); transform: translate(-50%, -50%); }
 .availability-panel-heading { display: flex; justify-content: space-between; gap: 12px; }
 .availability-panel-heading h3 { margin: 0; font-size: 13px; }
 .availability-panel-heading p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 10px; }
