@@ -132,7 +132,7 @@ function SignupCard() {
       password,
       options: {
         data: { business_name: business },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/onboarding`,
       },
     })
 
@@ -157,7 +157,7 @@ function SignupCard() {
     setMessage("")
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/onboarding` },
     })
 
     if (error) {
@@ -430,6 +430,17 @@ export default function App() {
 
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!authUser) return
+    const shouldBeOnboarding = !onboardingDone
+    const currentPath = window.location.pathname
+    if (shouldBeOnboarding && currentPath !== "/onboarding") {
+      window.history.replaceState({}, "", "/onboarding")
+    } else if (!shouldBeOnboarding && currentPath === "/onboarding") {
+      window.history.replaceState({}, "", "/")
+    }
+  }, [authUser, onboardingDone])
 
   if (authUser && !onboardingDone) {
     return <OnboardingScreen user={authUser} onComplete={() => setOnboardingDone(true)} />
