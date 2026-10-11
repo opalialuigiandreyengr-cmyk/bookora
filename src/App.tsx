@@ -166,6 +166,63 @@ function SignupCard() {
     }
   }
 
+  /* if (step === 2) {
+    return (
+      <main className="onboarding-page">
+        <div className="onboarding-brand"><Logo /></div>
+        <Card className="onboarding-card">
+          <div className="onboarding-progress" aria-label="Onboarding step 2 of 3">
+            <span className="active">1</span><i /><span className="active">2</span><i /><span>3</span>
+          </div>
+          <CardHeader>
+            <p className="eyebrow"><span>Step 2 of 3</span></p>
+            <CardTitle>Confirm your time zone and currency</CardTitle>
+            <CardDescription>We’ll use these settings for your calendar, booking times, and payment reporting.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="onboarding-form" onSubmit={submit}>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="time-zone">Time zone</FieldLabel>
+                  <select id="time-zone" value={timeZone} onChange={(event) => setTimeZone(event.target.value)} required>
+                    <option value="Asia/Manila">Philippine Time (GMT+8)</option>
+                    <option value="Asia/Singapore">Singapore Time (GMT+8)</option>
+                    <option value="Asia/Tokyo">Japan Time (GMT+9)</option>
+                    <option value="Asia/Dubai">Gulf Standard Time (GMT+4)</option>
+                    <option value="Australia/Sydney">Australian Eastern Time</option>
+                    <option value="Europe/London">United Kingdom Time</option>
+                    <option value="America/Los_Angeles">Pacific Time (US)</option>
+                    <option value="America/New_York">Eastern Time (US)</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="currency">Currency</FieldLabel>
+                  <select id="currency" value={currency} onChange={(event) => setCurrency(event.target.value)} required>
+                    <option value="PHP">Philippine Peso (₱ PHP)</option>
+                    <option value="USD">US Dollar ($ USD)</option>
+                    <option value="SGD">Singapore Dollar ($ SGD)</option>
+                    <option value="AUD">Australian Dollar ($ AUD)</option>
+                    <option value="GBP">British Pound (£ GBP)</option>
+                    <option value="AED">UAE Dirham (د.إ AED)</option>
+                  </select>
+                </Field>
+              </FieldGroup>
+              {status === "error" && <p className="auth-error" role="alert">{error}</p>}
+              <div className="onboarding-actions">
+                <Button variant="outline" size="lg" type="button" onClick={() => { setStep(1); setStatus("idle"); setError("") }}>Back</Button>
+                <Button className="onboarding-submit" size="lg" type="submit" disabled={status === "loading"}>
+                  {status === "loading" ? "Saving…" : "Finish setup"} <ArrowRight data-icon="inline-end" />
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+        <p className="onboarding-footnote">You can update these details later in Settings.</p>
+      </main>
+    )
+  }
+  */
+
   return (
     <Card className="signup-card" id="signup">
       <CardHeader>
@@ -219,11 +276,14 @@ function SignupCard() {
 }
 
 function OnboardingScreen({ user, onComplete }: { user: User; onComplete: () => void }) {
+  const [step, setStep] = useState<1 | 2>(1)
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
   const [error, setError] = useState("")
   const [brandName, setBrandName] = useState(String(user.user_metadata?.business_name ?? ""))
   const [industry, setIndustry] = useState("")
   const [phone, setPhone] = useState("")
+  const [timeZone, setTimeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Manila")
+  const [currency, setCurrency] = useState("PHP")
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -232,12 +292,9 @@ function OnboardingScreen({ user, onComplete }: { user: User; onComplete: () => 
     setStatus("loading")
     setError("")
     const { error: updateError } = await supabase.auth.updateUser({
-      data: {
-        business_name: brandName.trim(),
-        industry,
-        phone: phone.trim(),
-        onboarding_complete: true,
-      },
+      data: step === 1
+        ? { business_name: brandName.trim(), industry, phone: phone.trim() }
+        : { time_zone: timeZone, currency, onboarding_complete: true },
     })
 
     if (updateError) {
@@ -246,7 +303,68 @@ function OnboardingScreen({ user, onComplete }: { user: User; onComplete: () => 
       return
     }
 
-    onComplete()
+    if (step === 1) {
+      setStatus("idle")
+      setStep(2)
+    } else {
+      onComplete()
+    }
+  }
+
+  if (step === 2) {
+    return (
+      <main className="onboarding-page">
+        <div className="onboarding-brand"><Logo /></div>
+        <Card className="onboarding-card">
+          <div className="onboarding-progress" aria-label="Onboarding step 2 of 3">
+            <span className="active">1</span><i /><span className="active">2</span><i /><span>3</span>
+          </div>
+          <CardHeader>
+            <p className="eyebrow"><span>Step 2 of 3</span></p>
+            <CardTitle>Confirm your time zone and currency</CardTitle>
+            <CardDescription>We’ll use these settings for your calendar, booking times, and payment reporting.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="onboarding-form" onSubmit={submit}>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="time-zone">Time zone</FieldLabel>
+                  <select id="time-zone" value={timeZone} onChange={(event) => setTimeZone(event.target.value)} required>
+                    <option value="Asia/Manila">Philippine Time (GMT+8)</option>
+                    <option value="Asia/Singapore">Singapore Time (GMT+8)</option>
+                    <option value="Asia/Tokyo">Japan Time (GMT+9)</option>
+                    <option value="Asia/Dubai">Gulf Standard Time (GMT+4)</option>
+                    <option value="Australia/Sydney">Australian Eastern Time</option>
+                    <option value="Europe/London">United Kingdom Time</option>
+                    <option value="America/Los_Angeles">Pacific Time (US)</option>
+                    <option value="America/New_York">Eastern Time (US)</option>
+                  </select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="currency">Currency</FieldLabel>
+                  <select id="currency" value={currency} onChange={(event) => setCurrency(event.target.value)} required>
+                    <option value="PHP">Philippine Peso (₱ PHP)</option>
+                    <option value="USD">US Dollar ($ USD)</option>
+                    <option value="SGD">Singapore Dollar ($ SGD)</option>
+                    <option value="AUD">Australian Dollar ($ AUD)</option>
+                    <option value="GBP">British Pound (£ GBP)</option>
+                    <option value="AED">UAE Dirham (د.إ AED)</option>
+                  </select>
+                </Field>
+              </FieldGroup>
+              {status === "error" && <p className="auth-error" role="alert">{error}</p>}
+              <div className="onboarding-actions">
+                <Button variant="outline" size="lg" type="button" onClick={() => { setStep(1); setStatus("idle"); setError("") }}>Back</Button>
+                <Button className="onboarding-submit" size="lg" type="submit" disabled={status === "loading"}>
+                  {status === "loading" ? "Saving…" : "Finish setup"} <ArrowRight data-icon="inline-end" />
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+        <p className="onboarding-footnote">You can update these details later in Settings.</p>
+      </main>
+    )
   }
 
   return (

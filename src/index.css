@@ -184,6 +184,9 @@ svg { stroke-width: 1.8; }
 .onboarding-form select { height: 44px; width: 100%; border: 1px solid var(--input); border-radius: 8px; background: var(--background); padding: 0 12px; color: var(--foreground); font: inherit; font-size: 13px; outline: none; }
 .onboarding-form select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 25%, transparent); }
 .onboarding-submit { width: 100%; color: var(--primary-foreground); }
+.onboarding-actions { display: flex; gap: 10px; }
+.onboarding-actions > [data-slot="button"]:first-child { flex: 0 0 auto; }
+.onboarding-actions .onboarding-submit { flex: 1; }
 .onboarding-footnote { margin: 17px auto 0; max-width: 560px; text-align: center; color: var(--muted-foreground); font-size: 11px; }
 .success-state { min-height: 275px; display: flex; align-items: center; justify-content: center; text-align: center; flex-direction: column; gap: 12px; }
 .success-state > span { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--secondary); color: var(--primary); }
