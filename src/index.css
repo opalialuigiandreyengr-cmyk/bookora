@@ -477,7 +477,7 @@ svg { stroke-width: 1.8; }
 .theme-options strong { font-size: 11px; font-weight: 600; }
 .theme-radio { position: absolute; top: 9px; left: 9px; width: 15px; height: 15px; border: 1px solid var(--border); border-radius: 50%; }
 .theme-options button.selected .theme-radio { border: 4px solid var(--foreground); }
-.profile-settings-stack .appearance-settings-grid .appearance-colors { display: none; }
+.profile-settings-stack .appearance-settings-grid .appearance-colors { display: flex; }
 .profile-settings-stack > .settings-card:nth-child(2) > .appearance-colors { margin-top: 12px; }
 .color-swatch.active { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--foreground); }
 .color-swatch.coral { background: oklch(0.64 0.17 19); }
@@ -515,6 +515,14 @@ svg { stroke-width: 1.8; }
 .color-swatch.navy { background: oklch(0.25 0.04 255); }
 .color-swatch.sage { background: oklch(0.62 0.08 160); }
 .color-swatch.plum { background: oklch(0.43 0.1 320); }
+
+/* Live booking-page preview tokens */
+.preview-phone button { background: var(--preview-accent, var(--primary)); }
+.preview-help button { border-color: color-mix(in srgb, var(--preview-accent, var(--border)) 35%, var(--border)); }
+.preview-theme-dark .preview-stage { background: oklch(0.09 0.015 255); }
+.preview-theme-dark .preview-phone { background: oklch(0.14 0.015 255); }
+.preview-theme-system .preview-stage { background: oklch(0.18 0.01 255); }
+.preview-theme-light .preview-stage { background: oklch(0.18 0.01 255); }
 .profile-settings-stack > .settings-card:first-child .settings-card-icon { display: none; }
 .profile-settings-stack > .settings-card:first-child .settings-card-heading { margin-bottom: 17px; }
 .profile-settings-stack > .settings-card:first-child .brand-assets { display: block; }
