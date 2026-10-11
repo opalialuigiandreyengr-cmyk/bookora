@@ -474,6 +474,18 @@ svg { stroke-width: 1.8; }
 .color-swatch.navy { background: oklch(0.25 0.04 255); }
 .color-swatch.sage { background: oklch(0.62 0.08 160); }
 .color-swatch.plum { background: oklch(0.43 0.1 320); }
+.profile-settings-stack > .settings-card:first-child .settings-card-icon { display: none; }
+.profile-settings-stack > .settings-card:first-child .settings-card-heading { margin-bottom: 17px; }
+.profile-settings-stack > .settings-card:first-child .brand-assets { display: block; }
+.profile-settings-stack > .settings-card:first-child .brand-upload.banner-upload { position: relative; min-height: 150px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 12px; border: 1px solid oklch(0.88 0.01 255); border-radius: 9px; background: oklch(0.965 0.004 255); }
+.profile-settings-stack > .settings-card:first-child .banner-upload > div { display: none; }
+.profile-settings-stack > .settings-card:first-child .banner-upload::before { content: "✣"; position: absolute; inset: 0; display: grid; place-items: center; color: oklch(0.16 0.01 255); font-size: 22px; }
+.profile-settings-stack > .settings-card:first-child .banner-upload button { position: relative; z-index: 1; padding: 8px 13px; border-radius: 20px; font-size: 11px; }
+.profile-settings-stack > .settings-card:first-child .brand-upload.logo-upload { display: flex; align-items: center; justify-content: flex-start; gap: 16px; padding: 16px 0 9px; border: 0; background: transparent; }
+.profile-settings-stack > .settings-card:first-child .logo-upload .brand-logo-preview { width: 80px; height: 80px; flex-basis: 80px; border: 1px solid oklch(0.9 0.01 255); border-radius: 50%; background: oklch(0.965 0.004 255); color: oklch(0.16 0.01 255); }
+.profile-settings-stack > .settings-card:first-child .logo-upload .brand-logo-preview svg { width: 24px; }
+.profile-settings-stack > .settings-card:first-child .logo-upload > div { display: grid; gap: 5px; }
+.profile-settings-stack > .settings-card:first-child .logo-upload button { margin-top: 4px; border-radius: 20px; }
 
 @media (min-width: 1251px) and (max-width: 1400px) {
   .hero-shell { padding-left: 32px; padding-right: 32px; }
