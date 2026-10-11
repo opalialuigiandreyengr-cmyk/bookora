@@ -352,6 +352,7 @@ svg { stroke-width: 1.8; }
 /* Settings */
 .settings-page { max-width: 1080px; }
 .settings-heading { margin-bottom: 24px; }
+.settings-heading h1 { font-size: clamp(18px, 1.7vw, 21px); }
 .settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 25px; }
 .settings-tabs { display: flex; flex-direction: column; gap: 3px; }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
@@ -365,7 +366,7 @@ svg { stroke-width: 1.8; }
 .settings-content { min-width: 0; display: grid; gap: 16px; }
 .settings-card { padding: 7px 9px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
 .settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 10px; }
-.settings-card-heading h2 { margin: 0; font-size: 14px; font-weight: 800; letter-spacing: -.03em; }
+.settings-card-heading h2 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: -.03em; }
 .settings-card-heading p { margin: 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 .settings-card-heading > div > p { display: none; }
 .settings-card-icon { width: 32px; height: 32px; display: grid; flex: 0 0 32px; place-items: center; border-radius: 9px; background: var(--accent); color: var(--primary); }

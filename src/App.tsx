@@ -480,7 +480,7 @@ function SettingsScreen({ user }: { user: User }) {
 
   return (
     <div className="settings-page">
-      <div className="dashboard-page-heading settings-heading"><div><h1>Settings</h1><p>Keep your business details and booking experience up to date.</p></div><Button onClick={saveChanges}><Save data-icon="inline-start" /> {saved ? "Changes saved" : "Save changes"}</Button></div>
+      <div className="dashboard-page-heading settings-heading"><div><h1>Settings</h1></div><Button onClick={saveChanges}><Save data-icon="inline-start" /> {saved ? "Changes saved" : "Save changes"}</Button></div>
       <div className="settings-layout">
         <nav className="settings-tabs" aria-label="Settings sections">
           <p>Manage your workspace</p>
