@@ -516,6 +516,10 @@ svg { stroke-width: 1.8; }
 .timeoff-editor label > span { font-size: 11px; font-weight: 700; }
 .timeoff-editor > label input { width: 100%; font-size: 12px; }
 .timeoff-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.timeoff-dates label:nth-child(1) { grid-column: 1; grid-row: 1; }
+.timeoff-dates label:nth-child(2) { grid-column: 1; grid-row: 2; }
+.timeoff-dates label:nth-child(3) { grid-column: 2; grid-row: 1; }
+.timeoff-dates label:nth-child(4) { grid-column: 2; grid-row: 2; }
 .timeoff-dates input { width: 100%; font-size: 12px; }
 .timeoff-options { display: flex; align-items: center; gap: 14px; }
 .timeoff-options .checkbox-label { display: inline-flex; align-items: center; gap: 6px; }
@@ -530,7 +534,7 @@ svg { stroke-width: 1.8; }
 .availability-breaks .availability-saved::before, .availability-breaks .availability-saved::after { display: grid; align-items: center; width: 104px; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--muted-foreground); font-size: 12px; }
 .availability-breaks .availability-saved::before { content: "12:00 PM"; color: var(--foreground); }
 .availability-breaks .availability-saved::after { content: "01:00 PM     ♜"; color: var(--foreground); }
-@media (max-width: 560px) { .break-row { grid-template-columns: 25px minmax(45px, 1fr) 96px 12px 96px 24px; gap: 4px; } .break-row input[type="time"] { min-width: 96px; font-size: 11px; } .timeoff-dates { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .break-row { grid-template-columns: 25px minmax(45px, 1fr) 96px 12px 96px 24px; gap: 4px; } .break-row input[type="time"] { min-width: 96px; font-size: 11px; } .timeoff-dates { grid-template-columns: 1fr; } .timeoff-dates label:nth-child(n) { grid-column: 1; grid-row: auto; } }
 @media (max-width: 560px) { .account-profile-grid { grid-template-columns: 1fr; } .security-item { align-items: flex-start; flex-wrap: wrap; } .security-item button { margin-left: 48px; } }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
 .hours-row em { grid-column: 3 / 6; justify-self: end; padding: 5px 9px; border-radius: 4px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
