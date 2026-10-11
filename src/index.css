@@ -371,7 +371,7 @@ svg { stroke-width: 1.8; }
 .settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding-right: 7px; }
 .settings-content { scrollbar-width: none; -ms-overflow-style: none; }
 .settings-content::-webkit-scrollbar { display: none; }
-.settings-float-save { position: fixed; top: 84px; right: 32px; z-index: 55; }
+.settings-float-save { position: fixed; right: 32px; bottom: 24px; z-index: 55; }
 .settings-float-save [data-slot="button"] { box-shadow: 0 5px 14px oklch(0.2 0.03 255 / .14); }
 .settings-card { padding: 7px 9px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
 .settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 10px; }
@@ -477,15 +477,15 @@ svg { stroke-width: 1.8; }
 .profile-settings-stack > .settings-card:first-child .settings-card-icon { display: none; }
 .profile-settings-stack > .settings-card:first-child .settings-card-heading { margin-bottom: 17px; }
 .profile-settings-stack > .settings-card:first-child .brand-assets { display: block; }
-.profile-settings-stack > .settings-card:first-child .brand-upload.banner-upload { position: relative; min-height: 150px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 12px; border: 1px solid oklch(0.88 0.01 255); border-radius: 9px; background: oklch(0.965 0.004 255); }
+.profile-settings-stack > .settings-card:first-child .brand-upload.banner-upload { position: relative; min-height: 150px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--secondary); }
 .profile-settings-stack > .settings-card:first-child .banner-upload > div { display: none; }
 .profile-settings-stack > .settings-card:first-child .banner-upload::before { content: "✣"; position: absolute; inset: 0; display: grid; place-items: center; color: oklch(0.16 0.01 255); font-size: 22px; }
 .profile-settings-stack > .settings-card:first-child .banner-upload button { position: relative; z-index: 1; padding: 8px 13px; border-radius: 20px; font-size: 11px; }
-.profile-settings-stack > .settings-card:first-child .brand-upload.logo-upload { display: flex; align-items: center; justify-content: flex-start; gap: 16px; padding: 16px 0 9px; border: 0; background: transparent; }
-.profile-settings-stack > .settings-card:first-child .logo-upload .brand-logo-preview { width: 80px; height: 80px; flex-basis: 80px; border: 1px solid oklch(0.9 0.01 255); border-radius: 50%; background: oklch(0.965 0.004 255); color: oklch(0.16 0.01 255); }
+.profile-settings-stack > .settings-card:first-child .brand-upload.logo-upload { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; justify-content: start; gap: 5px 16px; padding: 16px 0 9px; border: 0; background: transparent; }
+.profile-settings-stack > .settings-card:first-child .logo-upload .brand-logo-preview { width: 80px; height: 80px; grid-row: 1 / span 2; flex-basis: 80px; border: 1px solid var(--border); border-radius: 50%; background: var(--secondary); color: var(--foreground); }
 .profile-settings-stack > .settings-card:first-child .logo-upload .brand-logo-preview svg { width: 24px; }
 .profile-settings-stack > .settings-card:first-child .logo-upload > div { display: grid; gap: 5px; }
-.profile-settings-stack > .settings-card:first-child .logo-upload button { margin-top: 4px; border-radius: 20px; }
+.profile-settings-stack > .settings-card:first-child .logo-upload button { grid-column: 2; justify-self: start; margin-top: 0; border-radius: 20px; }
 
 @media (min-width: 1251px) and (max-width: 1400px) {
   .hero-shell { padding-left: 32px; padding-right: 32px; }
@@ -642,7 +642,7 @@ svg { stroke-width: 1.8; }
   .settings-content { overflow: visible; padding-right: 0; }
   .settings-heading { position: static; display: flex; align-items: start; flex-direction: column; gap: 10px; padding-bottom: 12px; }
   .settings-heading > div, .settings-heading > [data-slot="button"] { width: 100%; }
-  .settings-float-save { top: 78px; right: 12px; }
+  .settings-float-save { right: 12px; bottom: 16px; }
   .settings-nav-title { margin-bottom: 15px; }
   .settings-tabs { position: static; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding-right: 0; border-right: 0; }
   .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
