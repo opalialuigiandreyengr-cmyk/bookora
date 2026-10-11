@@ -476,6 +476,11 @@ svg { stroke-width: 1.8; }
 .settings-primary-action { border: 1px solid var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .settings-danger-action { border: 1px solid oklch(0.65 0.18 20 / .35); background: oklch(0.97 0.03 20); color: oklch(0.5 0.15 20); }
 .security-danger { border-color: oklch(0.65 0.18 20 / .25); }
+.account-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
+.account-profile-grid label { display: grid; gap: 7px; }
+.account-profile-grid label > span { color: var(--muted-foreground); font-size: 12px; font-weight: 700; }
+.account-profile-grid input { width: 100%; height: 39px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 13px; }
+@media (max-width: 560px) { .account-profile-grid { grid-template-columns: 1fr; } .security-item { align-items: flex-start; flex-wrap: wrap; } .security-item button { margin-left: 48px; } }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
 .hours-row em { grid-column: 3 / 6; justify-self: end; padding: 5px 9px; border-radius: 4px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-style: normal; }
 .hours-toggle { position: relative; width: 27px; height: 16px; }
