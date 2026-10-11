@@ -358,7 +358,7 @@ svg { stroke-width: 1.8; }
 .settings-layout { height: calc(100dvh - 90px); min-height: 420px; display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: stretch; gap: 22px; overflow: hidden; }
 .settings-tabs { position: sticky; top: 0; z-index: 10; align-self: start; height: fit-content; max-height: 100%; display: flex; flex-direction: column; gap: 3px; overflow: visible; padding: 0 20px 12px 0; background: oklch(0.975 0.009 35); border-right: 1px solid var(--border); }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
-.settings-nav-title { margin: 0 12px 22px; font-size: 22px; font-weight: 500; letter-spacing: -.05em; line-height: 1; }
+.settings-nav-title { margin: 0 12px 10px; font-size: 18px; font-weight: 500; letter-spacing: -.05em; line-height: 1; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 12px; font-weight: 700; }
 .settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
 .settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; opacity: 1; }
