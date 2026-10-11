@@ -455,7 +455,7 @@ svg { stroke-width: 1.8; }
 .theme-select-row select { width: 150px; height: 37px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 12px; }
 .contact-form-grid { grid-template-columns: minmax(0, 1fr) 100px minmax(150px, 1.2fr); }
 .links-grid { grid-template-columns: 1fr; }
-.hours-row { grid-template-columns: minmax(90px, 1fr) 96px 18px 96px 25px !important; gap: 7px; min-height: 49px !important; padding: 0 10px; }
+.hours-row { grid-template-columns: 30px minmax(90px, 1fr) 96px 18px 96px !important; gap: 7px; min-height: 49px !important; padding: 0 10px; }
 .hours-row strong { font-size: 11px; }
 .hours-row input[type="time"] { width: 96px; height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 11px; }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }

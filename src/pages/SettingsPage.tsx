@@ -16,7 +16,7 @@ function ThemeOptions() {
 }
 
 function BusinessHours() {
-  return <section className="settings-card"><div className="settings-card-heading"><div><h2>Business hours</h2><p>Highlight when your business opens and closes on your Booking Page.</p></div></div><div className="hours-list">{businessDays.map((day, index) => <div className="hours-row" key={day}><strong>{day}</strong>{index < 5 ? <><input type="time" defaultValue="09:00" /><span>—</span><input type="time" defaultValue="17:00" /><button className="hours-more" aria-label={`More options for ${day}`}>▣</button></> : <em>Closed</em>}</div>)}</div></section>
+  return <section className="settings-card"><div className="settings-card-heading"><div><h2>Business hours</h2><p>Highlight when your business opens and closes on your Booking Page.</p></div></div><div className="hours-list">{businessDays.map((day, index) => <div className="hours-row" key={day}><label className="hours-toggle"><input type="checkbox" defaultChecked={index < 5} /><i /></label><strong>{day}</strong>{index < 5 ? <><input type="time" defaultValue="09:00" /><span>—</span><input type="time" defaultValue="17:00" /></> : <em>Closed</em>}</div>)}</div></section>
 }
 
 function Profile({ user, name, setName }: { user: User; name: string; setName: (value: string) => void }) {
