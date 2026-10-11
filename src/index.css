@@ -355,9 +355,10 @@ svg { stroke-width: 1.8; }
 .settings-heading h1 { font-size: clamp(18px, 1.7vw, 21px); }
 .settings-heading > div { grid-column: 1; }
 .settings-heading > [data-slot="button"] { grid-column: 2 / 4; justify-self: end; }
-.settings-layout { height: calc(100dvh - 120px); min-height: 420px; display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: stretch; gap: 22px; overflow: hidden; }
+.settings-layout { height: calc(100dvh - 90px); min-height: 420px; display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: stretch; gap: 22px; overflow: hidden; }
 .settings-tabs { position: sticky; top: 0; z-index: 10; align-self: start; height: fit-content; max-height: 100%; display: flex; flex-direction: column; gap: 3px; overflow: visible; padding: 0 20px 12px 0; background: oklch(0.975 0.009 35); border-right: 1px solid var(--border); }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
+.settings-nav-title { margin: 0 12px 22px; font-size: 22px; font-weight: 500; letter-spacing: -.05em; line-height: 1; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 12px; font-weight: 700; }
 .settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
 .settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; opacity: 1; }
@@ -368,6 +369,8 @@ svg { stroke-width: 1.8; }
 .settings-note strong { font-size: 11px; }
 .settings-note span { color: var(--muted-foreground); font-size: 9px; line-height: 1.45; }
 .settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding-right: 7px; }
+.settings-float-save { position: fixed; top: 84px; right: 32px; z-index: 55; }
+.settings-float-save [data-slot="button"] { box-shadow: 0 5px 14px oklch(0.2 0.03 255 / .14); }
 .settings-card { padding: 7px 9px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
 .settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 10px; }
 .settings-card-heading h2 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: -.03em; }
@@ -625,6 +628,8 @@ svg { stroke-width: 1.8; }
   .settings-content { overflow: visible; padding-right: 0; }
   .settings-heading { position: static; display: flex; align-items: start; flex-direction: column; gap: 10px; padding-bottom: 12px; }
   .settings-heading > div, .settings-heading > [data-slot="button"] { width: 100%; }
+  .settings-float-save { top: 78px; right: 12px; }
+  .settings-nav-title { margin-bottom: 15px; }
   .settings-tabs { position: static; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding-right: 0; border-right: 0; }
   .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
   .settings-note { margin-top: 10px; }
