@@ -354,7 +354,7 @@ svg { stroke-width: 1.8; }
 .settings-heading { margin-bottom: 24px; }
 .settings-heading h1 { font-size: clamp(18px, 1.7vw, 21px); }
 .settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: 25px; }
-.settings-tabs { display: flex; flex-direction: column; gap: 3px; padding-right: 20px; border-right: 1px solid var(--border); }
+.settings-tabs { position: sticky; top: 88px; align-self: start; height: fit-content; display: flex; flex-direction: column; gap: 3px; padding-right: 20px; border-right: 1px solid var(--border); }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13px; font-weight: 800; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 12px; font-weight: 700; }
 .settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
@@ -571,7 +571,7 @@ svg { stroke-width: 1.8; }
   .appointment-status { display: none; }
   .appointment-row time { font-size: 9px; }
   .settings-layout { grid-template-columns: 1fr; gap: 19px; }
-  .settings-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding-right: 0; border-right: 0; }
+  .settings-tabs { position: static; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding-right: 0; border-right: 0; }
   .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
   .settings-note { margin-top: 10px; }
   .settings-card { padding: 8px 9px; }
