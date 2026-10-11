@@ -406,6 +406,22 @@ svg { stroke-width: 1.8; }
 .settings-public-link strong { font-size: 11px; }
 .settings-public-link span { overflow: hidden; color: var(--primary); text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 .settings-public-link button { padding: 8px 12px; border: 0; border-radius: 7px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.profile-settings-stack { display: grid; gap: 12px; }
+.profile-settings-stack .settings-card-heading > div > p { display: block; margin-top: 4px; font-size: 11px; }
+.profile-form-grid { margin-top: 14px; }
+.settings-textarea { width: 100%; min-height: 68px; resize: vertical; padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font: inherit; font-size: 13px; }
+.appearance-settings-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; }
+.appearance-select { display: grid; gap: 6px; }
+.appearance-select span { color: var(--muted-foreground); font-size: 11px; font-weight: 700; }
+.appearance-select select { height: 37px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 12px; }
+.gallery-upload { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 13px 0 0; margin-top: 14px; border-top: 1px solid oklch(0.91 0.01 35); }
+.gallery-upload > div { display: grid; gap: 4px; }
+.gallery-upload strong { font-size: 12px; }
+.gallery-upload small { color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
+.gallery-upload button { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--foreground); cursor: pointer; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.settings-add-more { margin-top: 10px; }
+.settings-timezone { max-width: 300px; margin-top: 14px; }
+.settings-footnote { margin: 13px 0 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 .brand-assets { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; }
 .brand-upload { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px dashed oklch(0.78 0.02 255); border-radius: 10px; background: oklch(0.99 0.003 35); }
 .brand-upload.banner-upload { grid-column: 1 / -1; min-height: 80px; background: linear-gradient(110deg, oklch(0.96 0.025 18), oklch(0.98 0.01 35)); }
@@ -578,6 +594,9 @@ svg { stroke-width: 1.8; }
   .settings-form-grid { grid-template-columns: 1fr; gap: 13px; }
   .brand-assets { grid-template-columns: 1fr; }
   .brand-upload.banner-upload { grid-column: auto; }
+  .appearance-settings-grid { grid-template-columns: 1fr; }
+  .gallery-upload { align-items: flex-start; flex-direction: column; }
+  .gallery-upload button { width: 100%; }
   .settings-public-link { align-items: flex-start; flex-direction: column; }
   .settings-public-link button { width: 100%; }
 }
