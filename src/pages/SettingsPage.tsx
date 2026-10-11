@@ -6,17 +6,24 @@ import { Button } from "@/components/ui/button"
 const tabs = [["Business profile", Building2], ["Booking preferences", CalendarDays], ["Notifications", Bell], ["Account & security", LockKeyhole]] as const
 const businessDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+function BrandColors() {
+  const colors = [["coral", "Coral"], ["rose", "Rose"], ["orange", "Orange"], ["navy", "Navy"], ["sage", "Sage"], ["sky", "Sky"], ["plum", "Plum"], ["ink", "Ink"]]
+  const [selected, setSelected] = useState("coral")
+  return <div className="appearance-colors"><strong>Brand color</strong><div>{colors.map(([className, label]) => <button key={className} type="button" className={`color-swatch ${className} ${selected === className ? "active" : ""}`} aria-label={label} aria-pressed={selected === className} onClick={() => setSelected(className)} />)}</div></div>
+}
+
 function Preview({ name }: { name: string }) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
   return <aside className="settings-preview"><div className="preview-heading"><strong>Preview</strong><div><button className="active" aria-label="Mobile preview"><Smartphone /></button><button aria-label="Desktop preview"><Monitor /></button></div></div><div className="preview-card"><div className="preview-url">https://{slug}.bookora.com <span>↗</span></div><div className="preview-stage"><div className="preview-phone"><span className="preview-phone-notch" /><strong>{name}</strong><span>Book your appointment</span><i /><i /><i /><button>Book now</button></div></div></div><div className="preview-help"><div className="preview-avatars"><span>LU</span><span>MA</span><span>JO</span></div><strong>Need help with your Booking Page?</strong><p>We’re real people here to help you 24/7</p><button>● &nbsp;Connect with us</button></div></aside>
 }
 
 function ThemeOptions() {
-  return <div className="theme-options"><button type="button"><span className="theme-radio" /><Monitor /><strong>System</strong></button><button type="button" className="selected"><span className="theme-radio" /><Sun /><strong>Light</strong></button><button type="button"><span className="theme-radio" /><Moon /><strong>Dark</strong></button></div>
+  return <><BrandColors /><div className="theme-options"><button type="button"><span className="theme-radio" /><Monitor /><strong>System</strong></button><button type="button" className="selected"><span className="theme-radio" /><Sun /><strong>Light</strong></button><button type="button"><span className="theme-radio" /><Moon /><strong>Dark</strong></button></div></>
 }
 
 function BusinessHours() {
-  return <section className="settings-card"><div className="settings-card-heading"><div><h2>Business hours</h2><p>Highlight when your business opens and closes on your Booking Page.</p></div></div><div className="hours-list">{businessDays.map((day, index) => <div className="hours-row" key={day}><label className="hours-toggle"><input type="checkbox" defaultChecked={index < 5} /><i /></label><strong>{day}</strong>{index < 5 ? <><input type="time" defaultValue="09:00" /><span>—</span><input type="time" defaultValue="17:00" /></> : <em>Closed</em>}</div>)}</div></section>
+  const [openDays, setOpenDays] = useState(() => businessDays.map((_, index) => index < 5))
+  return <section className="settings-card"><div className="settings-card-heading"><div><h2>Business hours</h2><p>Highlight when your business opens and closes on your Booking Page.</p></div></div><div className="hours-list">{businessDays.map((day, index) => <div className="hours-row" key={day}><label className="hours-toggle"><input type="checkbox" checked={openDays[index]} onChange={() => setOpenDays((current) => current.map((value, itemIndex) => itemIndex === index ? !value : value))} /><i /></label><strong>{day}</strong>{openDays[index] ? <><input type="time" defaultValue="09:00" /><span>—</span><input type="time" defaultValue="17:00" /></> : <em>Closed</em>}</div>)}</div></section>
 }
 
 function Profile({ user, name, setName }: { user: User; name: string; setName: (value: string) => void }) {

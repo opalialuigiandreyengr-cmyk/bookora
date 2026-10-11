@@ -477,6 +477,14 @@ svg { stroke-width: 1.8; }
 .theme-options strong { font-size: 11px; font-weight: 600; }
 .theme-radio { position: absolute; top: 9px; left: 9px; width: 15px; height: 15px; border: 1px solid var(--border); border-radius: 50%; }
 .theme-options button.selected .theme-radio { border: 4px solid var(--foreground); }
+.profile-settings-stack .appearance-settings-grid .appearance-colors { display: none; }
+.profile-settings-stack > .settings-card:nth-child(2) > .appearance-colors { margin-top: 12px; }
+.color-swatch.active { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--foreground); }
+.color-swatch.coral { background: oklch(0.64 0.17 19); }
+.color-swatch.rose { background: oklch(0.67 0.14 355); }
+.color-swatch.orange { background: oklch(0.7 0.14 55); }
+.color-swatch.sky { background: oklch(0.65 0.12 235); }
+.color-swatch.ink { background: oklch(0.25 0.03 255); }
 .profile-settings-stack .settings-footnote { padding: 9px 12px; border-radius: 8px; background: var(--muted); }
 .appearance-select { display: grid; gap: 6px; }
 .appearance-select span { color: var(--muted-foreground); font-size: 11px; font-weight: 700; }
