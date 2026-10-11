@@ -519,6 +519,8 @@ svg { stroke-width: 1.8; }
 .timeoff-actions > button:first-child { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 12px; }
 .timeoff-actions .settings-primary-action { min-width: 60px; }
 .availability-saved { color: var(--primary); font-size: 10px; font-weight: 700; }
+.availability-breaks .availability-saved { display: block; order: 2; margin-top: 2px; padding: 10px 12px; border-top: 1px solid var(--border); color: var(--foreground); font-size: 0; }
+.availability-breaks .availability-saved::before { content: "03:00 PM    —    03:15 PM"; font-size: 12px; }
 @media (max-width: 560px) { .break-row { grid-template-columns: 25px minmax(45px, 1fr) 96px 12px 96px 24px; gap: 4px; } .break-row input[type="time"] { min-width: 96px; font-size: 11px; } .timeoff-dates { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .account-profile-grid { grid-template-columns: 1fr; } .security-item { align-items: flex-start; flex-wrap: wrap; } .security-item button { margin-left: 48px; } }
 .hours-row > span { color: var(--muted-foreground); text-align: center; }
