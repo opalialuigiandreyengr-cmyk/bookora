@@ -829,6 +829,8 @@ function Profile({
             <textarea
               className="settings-textarea"
               value={about}
+              maxLength={255}
+              rows={6}
               onChange={(e) => setAbout(e.target.value)}
               placeholder="Tell clients about your business"
             />
