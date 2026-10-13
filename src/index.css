@@ -1347,6 +1347,8 @@ svg { stroke-width: 1.8; }
   .services-page { grid-template-columns: 1fr; margin: -12px -14px; }
   .services-standalone { grid-template-columns: 1fr; }
   .services-modal { width: min(100%, 640px); padding: 20px 16px; }
+  .services-modal-backdrop:has(.services-service-modal) { padding: 0; place-items: stretch; }
+  .services-service-modal { width: 100%; max-width: none; max-height: none; height: 100dvh; border: 0; border-radius: 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
   .services-details-grid, .services-modal-grid { grid-template-columns: 1fr; }
   .services-image-field { align-items: flex-start; }
   .service-crop-dialog { padding: 18px 16px; }
