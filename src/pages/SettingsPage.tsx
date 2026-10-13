@@ -807,11 +807,15 @@ function Profile({
           </label>
           <label>
             <span>Your Booking Page URL</span>
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder={name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "your-business"}
-            />
+            <div className="booking-url-field">
+              <input
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder={name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "your-business"}
+                aria-label="Booking page slug"
+              />
+              <span aria-hidden="true">.bookora.com</span>
+            </div>
           </label>
           <label>
             <span>Industry</span>

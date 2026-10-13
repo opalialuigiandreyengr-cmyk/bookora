@@ -669,6 +669,11 @@ svg { stroke-width: 1.8; }
 .settings-form-grid input, .settings-form-grid select { width: 100%; height: 42px; min-width: 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 14px; }
 .settings-field-wide { grid-column: 1 / -1; }
 .settings-form-grid input:focus, .settings-form-grid select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.65 0.14 20 / .12); }
+.booking-url-field { display: flex; align-items: center; min-width: 0; height: 42px; border: 1px solid var(--border); border-radius: 9px; background: oklch(0.995 0.003 35); }
+.booking-url-field:focus-within { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.65 0.14 20 / .12); }
+.booking-url-field input { flex: 1; min-width: 0; height: 40px; padding-right: 2px; border: 0; background: transparent; box-shadow: none; }
+.booking-url-field input:focus { border: 0; box-shadow: none; }
+.booking-url-field > span { flex: 0 0 auto; padding-right: 12px; color: var(--muted-foreground); font-size: 14px; white-space: nowrap; }
 .settings-input-prefix { display: flex; align-items: center; min-width: 0; height: 42px; padding-left: 12px; border: 1px solid var(--border); border-radius: 9px; background: oklch(0.995 0.003 35); color: var(--muted-foreground); font-size: 13px; }
 .settings-input-prefix input { height: 40px; padding-left: 4px; border: 0; background: transparent; box-shadow: none; font-size: 14px; }
 .hours-list { display: grid; }
