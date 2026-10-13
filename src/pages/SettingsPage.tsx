@@ -315,6 +315,7 @@ function BookingPreferences() {
   const [visible, setVisible] = useState(true)
   const [reminders, setReminders] = useState(true)
   const [buffer, setBuffer] = useState(true)
+  const [slotSize, setSlotSize] = useState("30")
   const [policy, setPolicy] = useState("")
   const [fields, setFields] = useState({ phone: true, notes: false, address: false })
   return (
@@ -370,6 +371,16 @@ function BookingPreferences() {
               <option value="30">30 days</option>
               <option value="60">60 days</option>
               <option value="90">90 days</option>
+            </select>
+          </label>
+          <label>
+            <span>Booking slot size</span>
+            <select value={slotSize} onChange={(event) => setSlotSize(event.target.value)}>
+              <option value="15">Every 15 minutes</option>
+              <option value="30">Every 30 minutes</option>
+              <option value="45">Every 45 minutes</option>
+              <option value="60">Every 60 minutes</option>
+              <option value="90">Every 90 minutes</option>
             </select>
           </label>
           <label>
