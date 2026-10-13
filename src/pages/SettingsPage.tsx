@@ -3,8 +3,10 @@ import type { CSSProperties, ChangeEvent } from "react"
 import type { User } from "@supabase/supabase-js"
 import {
   Bell,
+  BarChart3,
   Building2,
   CalendarDays,
+  CreditCard,
   CheckCircle2,
   Fingerprint,
   KeyRound,
@@ -33,6 +35,8 @@ const tabs = [
   ["Notifications", Bell],
   ["Account", UserRound],
   ["Security", LockKeyhole],
+  ["Billing", CreditCard],
+  ["Reports", BarChart3],
 ] as const
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -854,6 +858,7 @@ function Profile({
               onChange={(e) => setAbout(e.target.value)}
               placeholder="Tell clients about your business"
             />
+            <small className="settings-character-count">{about.length}/255</small>
           </label>
         </div>
       </section>
@@ -1111,10 +1116,20 @@ function AvailabilityPanel({ type, onClose }: { type: "breaks" | "time-off"; onC
   )
 }
 
-function AccountSettings({ user }: { user: User }) {
+function AccountSettings({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [panel, setPanel] = useState<"breaks" | "time-off" | null>(null)
   return (
     <div className="security-settings-stack">
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Sign out</h2>
+            <p>Sign out of this Bookora workspace on the current device.</p>
+          </div>
+        </div>
+        <button className="settings-outline-action" onClick={onSignOut}>Sign out</button>
+      </section>
+
       <section className="settings-card security-card">
         <div className="settings-card-heading">
           <div>
@@ -1297,7 +1312,7 @@ function SecuritySettings({ user }: { user: User }) {
   )
 }
 
-export function SettingsPage({ user }: { user: User }) {
+export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [active, setActive] = useState("Business profile")
 
   // Load from local cache immediately on startup
@@ -1474,7 +1489,9 @@ export function SettingsPage({ user }: { user: User }) {
     active === "Account" ||
     active === "Security" ||
     active === "Booking preferences" ||
-    active === "Notifications"
+    active === "Notifications" ||
+    active === "Billing" ||
+    active === "Reports"
 
   return (
     <div className="settings-page">
@@ -1566,7 +1583,7 @@ export function SettingsPage({ user }: { user: User }) {
           ) : active === "Notifications" ? (
             <NotificationsSettings />
           ) : active === "Account" ? (
-            <AccountSettings user={user} />
+            <AccountSettings user={user} onSignOut={onSignOut} />
           ) : active === "Security" ? (
             <SecuritySettings user={user} />
           ) : (
