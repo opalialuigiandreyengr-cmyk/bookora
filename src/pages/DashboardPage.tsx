@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, Clock3, CreditCard, Home, ListChecks, Menu, Plus, Search, Scissors, Settings2, Store, Users } from "lucide-react"
+import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, ChevronDown, Clock3, CreditCard, Home, Link2, ListChecks, Menu, MoreVertical, Plus, Search, Scissors, Settings2, Store, Upload, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/brand/Logo"
 import { dashboardNav, upcomingAppointments } from "@/data/mock"
@@ -23,7 +23,7 @@ export function DashboardPage({ user, onSignOut }: { user: User; onSignOut: () =
 
 type Service = { name: string; category: string; duration: string; price: string; color: string }
 
-function ServicesPage() {
+function LegacyServicesPage() {
   const [services, setServices] = useState<Service[]>([
     { name: "Gel Manicure", category: "Nails", duration: "60 min", price: "₱650", color: "coral" },
     { name: "Hair Treatment", category: "Hair", duration: "90 min", price: "₱1,200", color: "lavender" },
@@ -35,6 +35,20 @@ function ServicesPage() {
   }
 
   return <div className="services-page"><div className="dashboard-page-heading"><div><p className="dashboard-kicker">Your offerings</p><h1>Services</h1><p>Manage what clients can book and see your pricing at a glance.</p></div><Button onClick={addService}><Plus data-icon="inline-start" /> Add service</Button></div><div className="services-summary"><div><strong>{services.length}</strong><span>Active services</span></div><div><strong>₱917</strong><span>Average price</span></div><div><strong>60 min</strong><span>Average duration</span></div></div><section className="services-grid">{services.map((service, index) => <article className="service-card" key={`${service.name}-${index}`}><div className={`service-card-icon ${service.color}`}><Scissors /></div><div className="service-card-body"><div className="service-card-top"><div><span>{service.category}</span><h2>{service.name}</h2></div><button aria-label={`More options for ${service.name}`}>•••</button></div><div className="service-card-meta"><span><Clock3 /> {service.duration}</span><strong>{service.price}</strong></div></div></article>)}</section></div>
+}
+
+function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([
+    { name: "Gel Manicure", category: "Nails", duration: "60 mins", price: "₱650", color: "coral" },
+    { name: "Hair Treatment", category: "Hair", duration: "90 mins", price: "₱1,200", color: "lavender" },
+    { name: "Classic Facial", category: "Skin care", duration: "60 mins", price: "Free", color: "mint" },
+  ])
+
+  const addService = () => {
+    setServices((current) => [...current, { name: "New service", category: "General", duration: "60 mins", price: "Free", color: "peach" }])
+  }
+
+  return <div className="services-page"><aside className="services-library-nav"><h1>Services &amp; classes</h1><button className="services-library-section active"><span>Services ({services.length})</span><ChevronDown /></button><button className="services-category-add"><Plus /> New service category</button><button className="services-library-section"><span>Classes</span><ChevronDown /></button></aside><section className="services-main"><header className="services-main-heading"><h2>Services</h2><div><button className="services-icon-action" aria-label="Export services"><Upload /></button><Button onClick={addService} aria-label="Add service"><Plus /></Button></div></header><div className="services-toolbar"><button className="services-team-filter"><Plus /> Team <ChevronDown /></button><label className="services-search"><Search /><input placeholder="Services" aria-label="Search services" /></label><button className="services-booking-link"><span>✣</span><u>nailsqo.setmore.com</u><Link2 /></button></div><div className="services-list">{services.map((service, index) => <article className={`service-row ${service.color}`} key={`${service.name}-${index}`}><div className={`service-row-icon ${service.color}`}><Scissors /></div><div className="service-row-info"><h3>{service.name}</h3><p>{service.duration} · {service.price}</p></div><button className="service-copy-link"><Link2 /> Copy link</button><button className="service-row-menu" aria-label={`More options for ${service.name}`}><MoreVertical /></button></article>)}</div></section></div>
 }
 
 function Overview({ name, firstName, onNavigate }: { name: string; firstName: string; onNavigate: (item: string) => void }) {
