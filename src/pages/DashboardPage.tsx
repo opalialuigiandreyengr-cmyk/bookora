@@ -9,11 +9,15 @@ import { SettingsPage } from "@/pages/SettingsPage"
 const icons = [Home, CalendarDays, CalendarRange, Users, Scissors, Users, CreditCard, BarChart3, Settings2]
 
 export function DashboardPage({ user, onSignOut }: { user: User; onSignOut: () => void }) {
-  const [active, setActive] = useState("Overview")
+  const [active, setActive] = useState(() => (window.location.pathname.includes("/settings") ? "Settings" : "Overview"))
   const [open, setOpen] = useState(false)
   const name = String(user.user_metadata?.business_name ?? "Your business")
   const firstName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "there").split(" ")[0]
-  const select = (item: string) => { setActive(item); setOpen(false) }
+  const select = (item: string) => {
+    setActive(item)
+    setOpen(false)
+    window.history.replaceState({}, "", item === "Settings" ? "/settings" : "/dashboard")
+  }
   return <div className="dashboard-shell">{open && <button className="dashboard-scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}<aside className={`dashboard-sidebar ${open ? "open" : ""}`}><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = icons[index]; return <button key={item} className={active === item ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div><button className="dashboard-signout" onClick={onSignOut}><X /> Sign out</button></div></aside><div className="dashboard-content"><header className="dashboard-header"><button className="dashboard-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu /></button><div className="dashboard-search"><Search /><input aria-label="Search" placeholder="Search anything..." /></div><div className="dashboard-header-actions"><button className="dashboard-icon-button" aria-label="Notifications"><Bell /><i /></button><span className="dashboard-divider" /><span className="user-avatar">{firstName.slice(0, 2).toUpperCase()}</span></div></header><main className="dashboard-main">{active === "Settings" ? <SettingsPage user={user} /> : <Overview name={name} firstName={firstName} onNavigate={select} />}</main></div></div>
 }
 

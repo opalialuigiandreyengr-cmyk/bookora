@@ -1401,3 +1401,442 @@ svg { stroke-width: 1.8; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Change Password Modal */
+@keyframes cpFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cpScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.change-password-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: oklch(0.14 0.02 255 / 0.58);
+  backdrop-filter: blur(8px);
+  animation: cpFadeIn 0.18s ease-out;
+}
+
+.change-password-modal {
+  position: relative;
+  width: min(100%, 470px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 30px 28px 26px;
+  border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+  border-radius: 22px;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 24px 80px oklch(0.12 0.02 255 / 0.28), 0 4px 16px oklch(0.12 0.02 255 / 0.08);
+  animation: cpScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.change-password-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.change-password-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.change-password-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.change-password-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.change-password-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 14px;
+  background: oklch(0.95 0.035 18);
+  color: var(--primary);
+}
+
+.change-password-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.change-password-modal .eyebrow {
+  margin: 0 0 4px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.change-password-modal h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+
+.change-password-subtitle {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.change-password-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border: 1px solid oklch(0.68 0.18 25 / 0.35);
+  border-radius: 9px;
+  background: oklch(0.97 0.03 25);
+  color: oklch(0.48 0.18 25);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.change-password-alert svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin-top: 1px;
+}
+
+.change-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cp-field label {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cp-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cp-input-wrap input {
+  width: 100%;
+  height: 42px;
+  padding: 0 42px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: oklch(0.995 0.003 35);
+  color: var(--foreground);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cp-input-wrap input:focus {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px oklch(0.65 0.14 20 / 0.14);
+}
+
+.cp-input-wrap .cp-input-icon {
+  position: absolute;
+  left: 13px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.cp-password-toggle {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cp-password-toggle:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.cp-password-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.cp-strength-box {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cp-strength-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.cp-strength-label {
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.cp-strength-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  height: 4px;
+}
+
+.cp-strength-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--muted);
+  transition: background 0.25s ease;
+}
+
+.strength-weak {
+  color: oklch(0.55 0.2 25) !important;
+}
+.cp-strength-bar.strength-weak {
+  background: oklch(0.62 0.19 25) !important;
+}
+
+.strength-fair {
+  color: oklch(0.65 0.18 55) !important;
+}
+.cp-strength-bar.strength-fair {
+  background: oklch(0.7 0.18 55) !important;
+}
+
+.strength-good {
+  color: oklch(0.6 0.15 220) !important;
+}
+.cp-strength-bar.strength-good {
+  background: oklch(0.62 0.15 220) !important;
+}
+
+.strength-strong {
+  color: oklch(0.55 0.16 150) !important;
+}
+.cp-strength-bar.strength-strong {
+  background: oklch(0.58 0.17 150) !important;
+}
+
+.cp-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 12px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cp-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.3;
+  transition: color 0.15s ease;
+}
+
+.cp-checklist li.valid {
+  color: oklch(0.45 0.15 150);
+  font-weight: 600;
+}
+
+.cp-checklist .chk-icon {
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  font-size: 10px;
+}
+
+.cp-checklist li.valid .chk-icon svg {
+  width: 12px;
+  height: 12px;
+  color: oklch(0.48 0.16 150);
+}
+
+.cp-match-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 0;
+  font-size: 11px;
+}
+
+.cp-match-hint.matched {
+  color: oklch(0.45 0.15 150);
+  font-weight: 600;
+}
+
+.cp-match-hint.mismatched {
+  color: oklch(0.58 0.18 45);
+}
+
+.cp-match-hint svg {
+  width: 13px;
+  height: 13px;
+}
+
+.change-password-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.change-password-actions button {
+  min-width: 100px;
+}
+
+/* Success State View */
+.change-password-success-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 10px 0 4px;
+}
+
+.change-password-success-badge {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: oklch(0.92 0.06 150);
+  color: oklch(0.45 0.16 150);
+  animation: cpScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.change-password-success-badge svg {
+  width: 32px;
+  height: 32px;
+}
+
+.change-password-success-view h2 {
+  margin: 0 0 6px;
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.change-password-summary-box {
+  width: 100%;
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.summary-label {
+  color: var(--muted-foreground);
+}
+
+.summary-value {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.summary-value.status-active {
+  color: oklch(0.45 0.15 150);
+  font-weight: 700;
+}
+
+.change-password-success-view .change-password-actions {
+  width: 100%;
+}
+
+.change-password-success-view .change-password-actions button {
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .change-password-modal {
+    padding: 24px 18px 20px;
+    border-radius: 18px;
+  }
+  .change-password-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cp-checklist {
+    grid-template-columns: 1fr;
+  }
+  .change-password-actions {
+    flex-direction: column-reverse;
+  }
+  .change-password-actions button {
+    width: 100%;
+  }
+}

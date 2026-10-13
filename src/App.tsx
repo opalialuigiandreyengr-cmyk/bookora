@@ -26,6 +26,24 @@ export default function App() {
 
   if (user && !onboardingDone) return <OnboardingPage user={user} onComplete={() => { setOnboardingDone(true); if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskey(true) }} />
   if (user && onboardingDone) return <><DashboardPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />{showPasskey && <PasskeyModal onClose={(dontAskAgain) => { if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true"); setShowPasskey(false) }} />}</>
+
+  const isPreviewPath = window.location.pathname === "/dashboard" || window.location.pathname === "/settings" || window.location.search.includes("demo=true")
+  if (isPreviewPath) {
+    const previewUser: User = {
+      id: "preview-user-123",
+      app_metadata: { provider: "email" },
+      user_metadata: {
+        full_name: "Luigi Opalia",
+        business_name: "Glow Hair & Beauty Studio",
+        onboarding_complete: true,
+      },
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+      email: "luigi@bookora.com",
+    }
+    return <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />
+  }
+
   return <LandingPage />
 }
 
