@@ -159,3 +159,76 @@ drop policy if exists "Anyone can view brand assets" on storage.objects;
 create policy "Anyone can view brand assets"
     on storage.objects for select to public
     using (bucket_id = 'brand-assets');
+
+-- ============================================================================
+-- Services and service categories
+-- ============================================================================
+alter table public.business_profiles
+    add column if not exists service_defaults_seeded boolean not null default false;
+
+create table if not exists public.service_categories (
+    id uuid default gen_random_uuid() primary key,
+    business_id uuid references auth.users(id) on delete cascade not null,
+    name text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    unique (business_id, name)
+);
+
+create table if not exists public.services (
+    id uuid default gen_random_uuid() primary key,
+    business_id uuid references auth.users(id) on delete cascade not null,
+    category_id uuid references public.service_categories(id) on delete set null,
+    name text not null,
+    duration_minutes integer,
+    buffer_minutes integer not null default 0,
+    price text not null default 'Free',
+    image_url text default '',
+    show_on_booking_page boolean not null default true,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    constraint services_duration_nonnegative check (duration_minutes is null or duration_minutes >= 0),
+    constraint services_buffer_nonnegative check (buffer_minutes >= 0)
+);
+
+create index if not exists idx_service_categories_business_id on public.service_categories (business_id);
+create index if not exists idx_services_business_id on public.services (business_id);
+create index if not exists idx_services_category_id on public.services (category_id);
+
+alter table public.service_categories enable row level security;
+alter table public.services enable row level security;
+
+drop policy if exists "Users can view own service categories" on public.service_categories;
+create policy "Users can view own service categories" on public.service_categories for select using (auth.uid() = business_id);
+drop policy if exists "Users can insert own service categories" on public.service_categories;
+create policy "Users can insert own service categories" on public.service_categories for insert with check (auth.uid() = business_id);
+drop policy if exists "Users can update own service categories" on public.service_categories;
+create policy "Users can update own service categories" on public.service_categories for update using (auth.uid() = business_id) with check (auth.uid() = business_id);
+drop policy if exists "Users can delete own service categories" on public.service_categories;
+create policy "Users can delete own service categories" on public.service_categories for delete using (auth.uid() = business_id);
+
+drop policy if exists "Users can view own services" on public.services;
+create policy "Users can view own services" on public.services for select using (auth.uid() = business_id);
+drop policy if exists "Users can insert own services" on public.services;
+create policy "Users can insert own services" on public.services for insert with check (auth.uid() = business_id);
+drop policy if exists "Users can update own services" on public.services;
+create policy "Users can update own services" on public.services for update using (auth.uid() = business_id) with check (auth.uid() = business_id);
+drop policy if exists "Users can delete own services" on public.services;
+create policy "Users can delete own services" on public.services for delete using (auth.uid() = business_id);
+
+grant select, insert, update, delete on public.service_categories to authenticated;
+grant select, insert, update, delete on public.services to authenticated;
+
+insert into storage.buckets (id, name, public)
+values ('service-assets', 'service-assets', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Users can upload own service assets" on storage.objects;
+create policy "Users can upload own service assets" on storage.objects for insert to authenticated
+    with check (bucket_id = 'service-assets' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "Users can update own service assets" on storage.objects;
+create policy "Users can update own service assets" on storage.objects for update to authenticated
+    using (bucket_id = 'service-assets' and (storage.foldername(name))[1] = auth.uid()::text)
+    with check (bucket_id = 'service-assets' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "Anyone can view service assets" on storage.objects;
+create policy "Anyone can view service assets" on storage.objects for select to public
+    using (bucket_id = 'service-assets');
