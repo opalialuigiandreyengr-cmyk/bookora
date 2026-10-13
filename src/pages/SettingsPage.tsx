@@ -1527,11 +1527,11 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
               <span>›</span>
             </button>
           ))}
+          <button className="settings-column-signout" onClick={onSignOut}>
+            <LogOut />
+            <span>Sign out</span>
+          </button>
         </nav>
-        <button className="settings-column-signout" onClick={onSignOut}>
-          <LogOut />
-          <span>Sign out</span>
-        </button>
         <div className="settings-content">
           {active === "Business profile" ? (
             <Profile
