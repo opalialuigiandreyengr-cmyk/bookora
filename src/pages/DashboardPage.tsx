@@ -14,6 +14,10 @@ export function DashboardPage({ user, onSignOut }: { user: User; onSignOut: () =
   const name = String(user.user_metadata?.business_name ?? "Your business")
   const firstName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "there").split(" ")[0]
   const select = (item: string) => {
+    if (item === "Services") {
+      window.location.assign("/services")
+      return
+    }
     setActive(item)
     setOpen(false)
     window.history.replaceState({}, "", item === "Settings" ? "/settings" : "/dashboard")

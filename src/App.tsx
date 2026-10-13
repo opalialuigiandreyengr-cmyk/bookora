@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { ServicesPage } from "@/pages/ServicesPage"
 import { LandingPage } from "@/pages/LandingPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { PasskeyModal } from "@/pages/PasskeyModal"
@@ -20,14 +21,14 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return
-    const destination = onboardingDone ? "/dashboard" : "/onboarding"
+    const destination = onboardingDone ? (window.location.pathname === "/services" ? "/services" : "/dashboard") : "/onboarding"
     if (window.location.pathname !== destination) window.history.replaceState({}, "", destination)
   }, [user, onboardingDone])
 
   if (user && !onboardingDone) return <OnboardingPage user={user} onComplete={() => { setOnboardingDone(true); if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskey(true) }} />
-  if (user && onboardingDone) return <><DashboardPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />{showPasskey && <PasskeyModal onClose={(dontAskAgain) => { if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true"); setShowPasskey(false) }} />}</>
+  if (user && onboardingDone) return window.location.pathname === "/services" ? <ServicesPage /> : <><DashboardPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />{showPasskey && <PasskeyModal onClose={(dontAskAgain) => { if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true"); setShowPasskey(false) }} />}</>
 
-  const isPreviewPath = window.location.pathname === "/dashboard" || window.location.pathname === "/settings" || window.location.search.includes("demo=true")
+  const isPreviewPath = window.location.pathname === "/dashboard" || window.location.pathname === "/settings" || window.location.pathname === "/services" || window.location.search.includes("demo=true")
   if (isPreviewPath) {
     const previewUser: User = {
       id: "preview-user-123",
@@ -41,7 +42,7 @@ export default function App() {
       created_at: new Date().toISOString(),
       email: "luigi@bookora.com",
     }
-    return <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />
+    return window.location.pathname === "/services" ? <ServicesPage /> : <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />
   }
 
   return <LandingPage />
