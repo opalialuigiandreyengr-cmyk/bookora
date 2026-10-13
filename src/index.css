@@ -639,13 +639,15 @@ svg { stroke-width: 1.8; }
 .service-copy-link svg { width: 14px; }
 .service-row-menu svg { width: 16px; }
 .services-modal-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 20px; background: oklch(0.15 0.02 255 / .32); }
-.services-modal { width: min(640px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; display: grid; gap: 16px; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .2); }
+.services-modal { width: min(640px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; display: grid; gap: 16px; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .2); }
+.services-modal::-webkit-scrollbar { display: none; }
 .services-modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .services-modal-heading h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .services-modal-heading button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 20px; line-height: 1; }
-.services-modal label { display: grid; gap: 7px; color: var(--foreground); font-size: 14px; font-weight: 500; }
+.services-modal label { display: block; color: var(--foreground); font-size: 14px; font-weight: 500; }
 .services-modal-help { color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
 .services-modal input, .services-modal select, .services-modal textarea { width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--card); color: var(--foreground); font: inherit; font-size: 14px; }
+.services-modal label > input, .services-modal label > select, .services-modal label > textarea { display: block; margin-top: 7px; }
 .services-modal textarea { resize: vertical; line-height: 1.45; }
 .services-modal input[type=file] { display: none; }
 .services-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -668,10 +670,11 @@ svg { stroke-width: 1.8; }
 .services-input-prefix input { padding-left: 7px !important; }
 .services-service-image-preview { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
 .services-toggle-row { display: flex !important; grid-template-columns: none !important; align-items: center; justify-content: space-between; gap: 12px; }
+.services-modal-grid .services-toggle-row { grid-column: 1 / -1; padding-top: 4px; border-top: 1px solid var(--border); }
 .services-toggle-row > span { display: grid; gap: 3px; }
 .services-toggle-row strong { color: var(--foreground); font-size: 13px; }
 .services-toggle-row small { color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
-.services-toggle-row input { width: 42px; min-height: 24px; height: 24px; accent-color: var(--primary); }
+.services-toggle-row input { display: block; width: 42px; min-height: 24px; height: 24px; margin-top: 0 !important; accent-color: var(--primary); }
 .services-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 2px; }
 .services-modal-actions > button:not([data-slot="button"]) { padding: 9px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 13px; }
 .dashboard-welcome { display: flex; align-items: center; justify-content: space-between; gap: 30px; min-height: 194px; padding: 30px 34px; margin-bottom: 22px; overflow: hidden; border-radius: 16px; background: linear-gradient(108deg, oklch(0.30 0.06 255), oklch(0.38 0.08 20)); color: var(--primary-foreground); }
