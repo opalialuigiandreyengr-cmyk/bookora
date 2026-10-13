@@ -666,10 +666,10 @@ svg { stroke-width: 1.8; }
 .settings-nav-title { margin: 0 12px 14px; font-size: 22px; font-weight: 700; letter-spacing: -.04em; line-height: 1.1; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 14px; font-weight: 600; transition: background 0.15s ease, color 0.15s ease; }
 .settings-tabs > button > span:last-child { font-size: 14px; line-height: 1; opacity: 1; margin-left: auto; }
-.settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 600; opacity: 1; }
+.settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; justify-content: flex-start; gap: 11px; font-size: 14px; font-weight: 600; opacity: 1; text-align: left; }
 .settings-tab-label svg { width: 19px; height: 19px; flex-shrink: 0; }
 .settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); font-weight: 700; }
-.settings-column-signout { display: flex; align-items: center; gap: 11px; width: 100%; margin-top: auto; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--foreground); opacity: 1; cursor: pointer; text-align: left; font: inherit; font-size: 14px; font-weight: 600; }
+.settings-column-signout { display: flex; align-items: center; justify-content: flex-start; gap: 11px; width: 100%; margin-top: auto; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--foreground); opacity: 1; cursor: pointer; text-align: left; font: inherit; font-size: 14px; font-weight: 600; }
 .settings-column-signout:hover { background: oklch(0.97 0.025 18); color: var(--primary); }
 .settings-column-signout svg { width: 19px; height: 19px; }
 .settings-note { display: grid; gap: 6px; padding: 14px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
