@@ -650,7 +650,7 @@ svg { stroke-width: 1.8; }
 .settings-note { display: grid; gap: 6px; padding: 14px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
 .settings-note svg { width: 17px; color: var(--primary); }
 .settings-note strong { font-size: 14px; }
-.settings-note span { color: var(--muted-foreground); font-size: 12.5px; line-height: 1.45; }
+.settings-note span { color: var(--muted-foreground); font-size: 14px; line-height: 1.45; }
 .settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding: 0 7px 0 0; background: var(--card); }
 .settings-content { scrollbar-width: none; -ms-overflow-style: none; }
 .settings-content::-webkit-scrollbar { display: none; }
@@ -659,13 +659,13 @@ svg { stroke-width: 1.8; }
 .settings-card { padding: 24px 26px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
 .settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
 .settings-card-heading h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.03em; }
-.settings-card-heading p { margin: 0; color: var(--muted-foreground); font-size: 13.5px; line-height: 1.45; }
-.settings-card-heading > div > p { display: block; margin-top: 5px; font-size: 13.5px; }
+.settings-card-heading p { margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.45; }
+.settings-card-heading > div > p { display: block; margin-top: 5px; font-size: 14px; }
 .settings-card-icon { width: 34px; height: 34px; display: grid; flex: 0 0 34px; place-items: center; border-radius: 9px; background: var(--accent); color: var(--primary); }
 .settings-card-icon svg { width: 17px; }
 .settings-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
 .settings-form-grid label { display: grid; gap: 8px; min-width: 0; }
-.settings-form-grid label > span { color: var(--muted-foreground); font-size: 13px; font-weight: 700; }
+.settings-form-grid label > span { color: var(--muted-foreground); font-size: 14px; font-weight: 700; }
 .settings-form-grid input, .settings-form-grid select { width: 100%; height: 42px; min-width: 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font-size: 14px; }
 .settings-field-wide { grid-column: 1 / -1; }
 .settings-form-grid input:focus, .settings-form-grid select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px oklch(0.65 0.14 20 / .12); }
@@ -681,7 +681,7 @@ svg { stroke-width: 1.8; }
 .settings-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 0; border-top: 1px solid oklch(0.91 0.01 35); cursor: pointer; }
 .settings-toggle-row > span { display: grid; gap: 4px; }
 .settings-toggle-row strong { font-size: 14.5px; }
-.settings-toggle-row small { color: var(--muted-foreground); font-size: 12.5px; }
+.settings-toggle-row small { color: var(--muted-foreground); font-size: 14px; }
 .settings-toggle-row input { position: absolute; opacity: 0; pointer-events: none; }
 .settings-toggle-row i { position: relative; width: 38px; height: 22px; flex: 0 0 38px; border-radius: 20px; background: var(--muted); transition: background .2s ease; }
 .settings-toggle-row i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px oklch(0.2 0.03 255 / .2); transition: transform .2s ease; }
@@ -690,11 +690,11 @@ svg { stroke-width: 1.8; }
 .security-row { display: flex; align-items: center; gap: 12px; padding: 15px 0; border-top: 1px solid oklch(0.91 0.01 35); }
 .security-row > div { display: grid; flex: 1; gap: 3px; }
 .security-row strong { font-size: 13.5px; }
-.security-row small { color: var(--muted-foreground); font-size: 12px; }
+.security-row small { color: var(--muted-foreground); font-size: 14px; }
 .settings-public-link { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 18px; border: 1px solid oklch(0.76 0.1 20 / .35); border-radius: 11px; background: oklch(0.97 0.025 18); }
 .settings-public-link > div { display: grid; gap: 4px; min-width: 0; }
 .settings-public-link strong { font-size: 13.5px; }
-.settings-public-link span { overflow: hidden; color: var(--primary); text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.settings-public-link span { overflow: hidden; color: var(--primary); text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .settings-public-link button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .settings-preview { position: sticky; top: 0; z-index: 10; align-self: start; min-width: 0; height: fit-content; overflow: visible; }
 .preview-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -724,9 +724,9 @@ svg { stroke-width: 1.8; }
 .preview-help p { margin: 0; color: var(--muted-foreground); font-size: 12px; }
 .preview-help button { padding: 7px 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); color: var(--foreground); cursor: pointer; font-size: 12px; }
 .profile-settings-stack { display: grid; gap: 12px; }
-.profile-settings-stack .settings-card-heading > div > p { display: block; margin-top: 5px; font-size: 13.5px; }
+.profile-settings-stack .settings-card-heading > div > p { display: block; margin-top: 5px; font-size: 14px; }
 .profile-form-grid { margin-top: 14px; }
-.settings-textarea { width: 100%; min-height: 74px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font: inherit; font-size: 14px; }
+.settings-textarea { width: 100%; min-height: 120px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; outline: 0; background: oklch(0.995 0.003 35); color: var(--foreground); font: inherit; font-size: 14px; }
 .appearance-settings-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; }
 .profile-settings-stack { gap: 0; }
 .profile-settings-stack > .settings-card { padding: 22px 10px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--card); }
@@ -739,7 +739,7 @@ svg { stroke-width: 1.8; }
 .links-grid { grid-template-columns: 1fr; }
 .hours-row { grid-template-columns: 34px minmax(100px, 1fr) 104px 18px 104px !important; gap: 8px; min-height: 52px !important; padding: 0 10px; }
 .hours-row strong { font-size: 15px; }
-.hours-row input[type="time"] { width: 104px; height: 42px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 15px; text-align: center; }
+.hours-row input[type="time"] { width: 104px; height: 42px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 14px; text-align: center; }
 .settings-layout-no-preview { grid-template-columns: 235px minmax(0, 1fr); }
 .security-settings-stack { display: grid; gap: 16px; max-width: 880px; }
 .security-card { padding: 22px 24px; }
@@ -1196,7 +1196,7 @@ svg { stroke-width: 1.8; }
   .preference-card { padding: 18px 14px; }
   .settings-card-heading { gap: 10px; }
   .settings-card-heading h2 { font-size: 15px; }
-  .settings-card-heading p { font-size: 12px; }
+  .settings-card-heading p { font-size: 14px; }
   .settings-form-grid:not(.contact-form-grid),
   .account-profile-grid { grid-template-columns: 1fr; gap: 13px; }
   .contact-form-grid { display: grid !important; grid-template-columns: 78px minmax(0, 1fr) !important; gap: 13px 8px !important; }
@@ -1215,7 +1215,7 @@ svg { stroke-width: 1.8; }
   .preference-toggle strong { font-size: 13px; }
   .preference-toggle p { font-size: 12px; line-height: 1.45; }
   .hours-row { grid-template-columns: 26px minmax(0, 1fr) 78px 10px 78px !important; gap: 5px; padding: 0 5px; }
-  .hours-row input[type="time"] { width: 92px; height: 42px; padding: 0 4px; font-size: 15px !important; text-align: center; }
+  .hours-row input[type="time"] { width: 92px; height: 42px; padding: 0 4px; font-size: 14px !important; text-align: center; }
   .break-row { grid-template-columns: 24px minmax(55px, 1fr) 74px 10px 74px 24px; gap: 4px; }
   .break-row input[type="time"] { min-width: 0; width: 74px; font-size: 10px; }
 }
