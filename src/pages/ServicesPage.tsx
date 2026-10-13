@@ -1,10 +1,20 @@
 import { useState } from "react"
-import { ChevronDown, Link2, MoreVertical, Plus, Scissors, Search, Upload } from "lucide-react"
+import type { User } from "@supabase/supabase-js"
+import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, ChevronDown, CreditCard, Home, Link2, MoreVertical, Plus, Scissors, Search, Settings2, Store, Upload, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Logo } from "@/components/brand/Logo"
+import { dashboardNav } from "@/data/mock"
 
 type Service = { name: string; duration: string; price: string; color: string }
+const sidebarIcons = [Home, CalendarDays, CalendarRange, Users, Scissors, Users, CreditCard, BarChart3, Settings2]
 
-export function ServicesPage() {
+export function ServicesPage({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+  const name = String(user.user_metadata?.business_name ?? "Your business")
+  const select = (item: string) => window.location.assign(item === "Settings" ? "/settings" : "/dashboard")
+  return <div className="dashboard-shell services-standalone-shell"><aside className="dashboard-sidebar"><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = sidebarIcons[index]; return <button key={item} className={item === "Services" ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div></div></aside><div className="dashboard-content services-standalone-content"><ServicesContent onSignOut={onSignOut} /></div></div>
+}
+
+function ServicesContent({ onSignOut: _onSignOut }: { onSignOut: () => void }) {
   const [services, setServices] = useState<Service[]>([
     { name: "Gel Manicure", duration: "60 mins", price: "₱650", color: "coral" },
     { name: "Hair Treatment", duration: "90 mins", price: "₱1,200", color: "lavender" },
