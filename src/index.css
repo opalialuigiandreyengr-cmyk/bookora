@@ -669,7 +669,7 @@ svg { stroke-width: 1.8; }
 .settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 600; opacity: 1; }
 .settings-tab-label svg { width: 19px; height: 19px; flex-shrink: 0; }
 .settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); font-weight: 700; }
-.settings-column-signout { display: flex; align-items: center; gap: 11px; width: 100%; margin-top: auto; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font: inherit; font-size: 14px; font-weight: 600; }
+.settings-column-signout { display: inline-flex; align-items: center; align-self: flex-start; gap: 8px; width: auto; margin-top: 12px; padding: 7px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font: inherit; font-size: 14px; font-weight: 600; }
 .settings-column-signout:hover { background: oklch(0.97 0.025 18); color: var(--primary); }
 .settings-column-signout svg { width: 19px; height: 19px; }
 .settings-note { display: grid; gap: 6px; padding: 14px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
