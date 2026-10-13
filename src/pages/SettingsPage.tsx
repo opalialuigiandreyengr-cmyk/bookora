@@ -387,8 +387,13 @@ function BookingPreferences() {
             <span>Cancellation notice</span>
             <select defaultValue="24">
               <option value="0">Anytime</option>
+              <option value="2">2 hours</option>
+              <option value="6">6 hours</option>
+              <option value="12">12 hours</option>
               <option value="24">24 hours</option>
               <option value="48">48 hours</option>
+              <option value="72">72 hours</option>
+              <option value="168">7 days</option>
             </select>
           </label>
           <label>
