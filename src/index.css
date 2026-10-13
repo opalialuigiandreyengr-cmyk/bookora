@@ -629,7 +629,7 @@ svg { stroke-width: 1.8; }
 .services-team-filter svg { width: 13px; }
 .services-search { padding: 0 10px; }
 .services-search svg { width: 15px; color: var(--muted-foreground); }
-.services-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 13px; }
+.services-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 14px; }
 .services-booking-link { justify-content: space-between; min-width: 200px; padding: 0 10px; background: var(--secondary); color: var(--foreground); }
 .services-booking-link span { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: var(--foreground); color: var(--card); font-size: 11px; }
 .services-booking-link u { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
@@ -1367,7 +1367,7 @@ svg { stroke-width: 1.8; }
   .services-main-heading h2 { display: none; }
   .services-main-heading > div { position: absolute; z-index: 2; top: 10px; right: 14px; display: flex; align-items: center; gap: 8px; }
   .services-library-section:not(.active) { margin-top: 8px; }
-  .services-main { padding: 0 14px 80px; }
+  .services-main { padding: 2px 14px 80px; }
   .services-toolbar { grid-template-columns: auto minmax(0, 1fr); }
   .services-booking-link { grid-column: 1 / -1; }
   .service-copy-link { padding: 3px 14px; }
