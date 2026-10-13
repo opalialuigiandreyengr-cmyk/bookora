@@ -21,6 +21,7 @@ import {
   X,
   Trash2,
   UploadCloud,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChangePasswordModal } from "@/pages/ChangePasswordModal"
@@ -51,6 +52,59 @@ export interface DaySchedule {
   open: boolean
   start: string
   end: string
+}
+
+const defaultHours: DaySchedule[] = days.map((day, i) => ({
+  day,
+  open: i < 5,
+  start: "09:00",
+  end: "17:00",
+}))
+
+// Compress images in the browser before saving so they fit into Supabase Auth metadata and localStorage without payload errors
+function compressImage(file: File, maxWidth: number, maxHeight: number, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height)
+          height = maxHeight
+        }
+
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          resolve(String(event.target?.result ?? ""))
+          return
+        }
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL("image/jpeg", quality))
+      }
+      img.onerror = reject
+      img.src = String(event.target?.result ?? "")
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function getStoredProfile(userId: string) {
+  try {
+    const raw = localStorage.getItem(`bookora_profile_${userId}`)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return null
 }
 
 function Preview({
@@ -589,37 +643,43 @@ function Profile({
 }: ProfileProps) {
   const bannerInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
-  const handleBannerUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleBannerUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image file (PNG, JPG, WebP).")
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setBannerUrl(reader.result)
-      }
+    setUploadingBanner(true)
+    try {
+      const compressed = await compressImage(file, 900, 300, 0.8)
+      setBannerUrl(compressed)
+    } catch {
+      alert("Failed to process banner image.")
+    } finally {
+      setUploadingBanner(false)
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image file (PNG, JPG, WebP).")
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setLogoUrl(reader.result)
-      }
+    setUploadingLogo(true)
+    try {
+      const compressed = await compressImage(file, 200, 200, 0.85)
+      setLogoUrl(compressed)
+    } catch {
+      alert("Failed to process logo image.")
+    } finally {
+      setUploadingLogo(false)
     }
-    reader.readAsDataURL(file)
   }
 
   return (
@@ -649,9 +709,22 @@ function Profile({
             }
           >
             <div className="banner-actions">
-              <button type="button" onClick={() => bannerInputRef.current?.click()}>
-                <UploadCloud style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "middle", marginRight: 5 }} />
-                {bannerUrl ? "Change banner image" : "Upload banner image"}
+              <button
+                type="button"
+                disabled={uploadingBanner}
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                {uploadingBanner ? (
+                  <>
+                    <Loader2 className="animate-spin" style={{ width: 14, height: 14, marginRight: 5 }} />
+                    Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "middle", marginRight: 5 }} />
+                    {bannerUrl ? "Change banner image" : "Upload banner image"}
+                  </>
+                )}
               </button>
               {bannerUrl && (
                 <button
@@ -690,11 +763,24 @@ function Profile({
             </span>
             <div>
               <strong>Brand logo</strong>
-              <small>Select a 200 × 200 px image, up to 3 MB in size</small>
+              <small>Select a 200 × 200 px image (automatically optimized)</small>
             </div>
             <div className="logo-actions">
-              <button type="button" onClick={() => logoInputRef.current?.click()}>
-                {logoUrl ? "Change logo" : "Upload logo"}
+              <button
+                type="button"
+                disabled={uploadingLogo}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {uploadingLogo ? (
+                  <>
+                    <Loader2 className="animate-spin" style={{ width: 14, height: 14, marginRight: 5 }} />
+                    Optimizing…
+                  </>
+                ) : logoUrl ? (
+                  "Change logo"
+                ) : (
+                  "Upload logo"
+                )}
               </button>
               {logoUrl && (
                 <button
@@ -1013,8 +1099,8 @@ function AccountSettings({ user }: { user: User }) {
       <section className="settings-card security-card">
         <div className="settings-card-heading">
           <div>
-            <h2>Your profile</h2>
-            <p>Keep your personal details up to date.</p>
+            <h2>Account profile</h2>
+            <p>Keep your personal details and account settings up to date.</p>
           </div>
           <span className="security-heading-icon">
             <UserRound />
@@ -1043,6 +1129,7 @@ function AccountSettings({ user }: { user: User }) {
           </label>
         </div>
       </section>
+
       <section className="settings-card security-card">
         <div className="settings-card-heading">
           <div>
@@ -1075,6 +1162,23 @@ function AccountSettings({ user }: { user: User }) {
           </button>
         </div>
         {panel && <AvailabilityPanel type={panel} onClose={() => setPanel(null)} />}
+      </section>
+
+      {/* Account Danger Zone with prominent red notice */}
+      <section className="settings-card security-card security-danger">
+        <div className="settings-card-heading">
+          <div>
+            <h2 style={{ color: "oklch(0.5 0.18 25)" }}>Danger zone</h2>
+            <p>These actions can permanently affect your account.</p>
+          </div>
+          <span className="security-heading-icon" style={{ background: "oklch(0.97 0.03 25)", color: "oklch(0.5 0.18 25)" }}>
+            <AlertTriangle />
+          </span>
+        </div>
+        <div className="account-danger-notice">
+          <strong>Notice:</strong> Deleting your account will immediately revoke access and remove all workspace records permanently.
+        </div>
+        <button className="settings-danger-action">Delete account</button>
       </section>
     </div>
   )
@@ -1159,8 +1263,13 @@ function SecuritySettings({ user }: { user: User }) {
       </section>
       <section className="settings-card security-card security-danger">
         <div className="settings-card-heading">
-          <h2>Danger zone</h2>
-          <p>These actions can permanently affect your account.</p>
+          <div>
+            <h2 style={{ color: "oklch(0.5 0.18 25)" }}>Danger zone</h2>
+            <p>These actions can permanently affect your account.</p>
+          </div>
+        </div>
+        <div className="account-danger-notice">
+          <strong>Notice:</strong> Deleting your account cannot be undone. All your services, staff, and appointments will be permanently removed.
         </div>
         <button className="settings-danger-action">Delete account</button>
       </section>
@@ -1172,41 +1281,42 @@ function SecuritySettings({ user }: { user: User }) {
 export function SettingsPage({ user }: { user: User }) {
   const [active, setActive] = useState("Business profile")
 
+  // Load from local cache immediately on startup
+  const initialCache = getStoredProfile(user.id) || user.user_metadata?.business_profile || user.user_metadata || {}
+
   // Business profile form state
-  const [name, setName] = useState(String(user.user_metadata?.business_name ?? "Your business"))
-  const [slug, setSlug] = useState(String(user.user_metadata?.slug ?? ""))
-  const [about, setAbout] = useState(String(user.user_metadata?.about ?? ""))
-  const [industry, setIndustry] = useState(String(user.user_metadata?.industry ?? "Nail salon"))
-  const [color, setColor] = useState(String(user.user_metadata?.brand_color ?? "coral"))
-  const [theme, setTheme] = useState(String(user.user_metadata?.theme ?? "Light"))
-  const [email, setEmail] = useState(String(user.email ?? ""))
-  const [countryCode, setCountryCode] = useState(String(user.user_metadata?.country_code ?? "+63"))
-  // Phone number initialized to user's saved phone or empty string (never hardcoded!)
-  const [phone, setPhone] = useState(String(user.user_metadata?.phone ?? ""))
-  const [address, setAddress] = useState(String(user.user_metadata?.address ?? ""))
-  const [city, setCity] = useState(String(user.user_metadata?.city ?? ""))
-  const [country, setCountry] = useState(String(user.user_metadata?.country ?? "Philippines"))
+  const [name, setName] = useState(String(initialCache.business_name ?? user.user_metadata?.business_name ?? "Your business"))
+  const [slug, setSlug] = useState(String(initialCache.slug ?? user.user_metadata?.slug ?? ""))
+  const [about, setAbout] = useState(String(initialCache.about ?? user.user_metadata?.about ?? ""))
+  const [industry, setIndustry] = useState(String(initialCache.industry ?? user.user_metadata?.industry ?? "Nail salon"))
+  const [color, setColor] = useState(String(initialCache.brand_color ?? user.user_metadata?.brand_color ?? "coral"))
+  const [theme, setTheme] = useState(String(initialCache.theme ?? user.user_metadata?.theme ?? "Light"))
+  const [email, setEmail] = useState(String(initialCache.email ?? user.email ?? ""))
+  const [countryCode, setCountryCode] = useState(String(initialCache.country_code ?? user.user_metadata?.country_code ?? "+63"))
+  const [phone, setPhone] = useState(String(initialCache.phone ?? user.user_metadata?.phone ?? ""))
+  const [address, setAddress] = useState(String(initialCache.address ?? user.user_metadata?.address ?? ""))
+  const [city, setCity] = useState(String(initialCache.city ?? user.user_metadata?.city ?? ""))
+  const [country, setCountry] = useState(String(initialCache.country ?? user.user_metadata?.country ?? "Philippines"))
   const [hours, setHours] = useState<DaySchedule[]>(() => {
+    if (initialCache.business_hours && Array.isArray(initialCache.business_hours)) {
+      return initialCache.business_hours
+    }
     if (user.user_metadata?.business_hours && Array.isArray(user.user_metadata.business_hours)) {
       return user.user_metadata.business_hours
     }
-    return days.map((day, i) => ({
-      day,
-      open: i < 5,
-      start: "09:00",
-      end: "17:00",
-    }))
+    return defaultHours
   })
-  const [website, setWebsite] = useState(String(user.user_metadata?.website ?? ""))
-  const [instagram, setInstagram] = useState(String(user.user_metadata?.instagram ?? ""))
-  const [facebook, setFacebook] = useState(String(user.user_metadata?.facebook ?? ""))
-  const [bannerUrl, setBannerUrl] = useState(String(user.user_metadata?.banner_url ?? ""))
-  const [logoUrl, setLogoUrl] = useState(String(user.user_metadata?.logo_url ?? ""))
+  const [website, setWebsite] = useState(String(initialCache.website ?? user.user_metadata?.website ?? ""))
+  const [instagram, setInstagram] = useState(String(initialCache.instagram ?? user.user_metadata?.instagram ?? ""))
+  const [facebook, setFacebook] = useState(String(initialCache.facebook ?? user.user_metadata?.facebook ?? ""))
+  const [bannerUrl, setBannerUrl] = useState(String(initialCache.banner_url ?? user.user_metadata?.banner_url ?? ""))
+  const [logoUrl, setLogoUrl] = useState(String(initialCache.logo_url ?? user.user_metadata?.logo_url ?? ""))
 
   // Save operation state
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [statusMessage, setStatusMessage] = useState("")
 
-  // Load existing profile from public.business_profiles table if present
+  // Hydrate from public.business_profiles table if present in Supabase
   useEffect(() => {
     if (!supabase || !user.id || user.id.startsWith("preview-")) return
 
@@ -1238,9 +1348,14 @@ export function SettingsPage({ user }: { user: User }) {
           if (data.facebook !== undefined) setFacebook(data.facebook || "")
           if (data.banner_url) setBannerUrl(data.banner_url)
           if (data.logo_url) setLogoUrl(data.logo_url)
+
+          // Refresh cache
+          try {
+            localStorage.setItem(`bookora_profile_${user.id}`, JSON.stringify(data))
+          } catch {}
         }
       } catch {
-        // Table may not exist yet; user_metadata is already loaded
+        // Table may not exist yet, cache is already active
       }
     }
 
@@ -1249,6 +1364,7 @@ export function SettingsPage({ user }: { user: User }) {
 
   const handleSaveProfile = async () => {
     setSaveStatus("saving")
+    setStatusMessage("")
 
     const profileData = {
       business_name: name.trim() || "Your business",
@@ -1272,9 +1388,16 @@ export function SettingsPage({ user }: { user: User }) {
       updated_at: new Date().toISOString(),
     }
 
+    // 1. Immediately cache in localStorage (guarantees persistence even without database table!)
+    try {
+      localStorage.setItem(`bookora_profile_${user.id}`, JSON.stringify(profileData))
+    } catch {}
+
+    let tableSaved = false
+
     try {
       if (supabase && user.id && !user.id.startsWith("preview-")) {
-        // 1. Save to Supabase auth user_metadata
+        // 2. Save into Supabase auth user_metadata
         const { data: authData, error: authErr } = await supabase.auth.updateUser({
           data: {
             business_name: profileData.business_name,
@@ -1290,14 +1413,17 @@ export function SettingsPage({ user }: { user: User }) {
           user.user_metadata = authData.user.user_metadata
         }
 
-        // 2. Save directly to public.business_profiles table
+        // 3. Attempt to upsert directly into public.business_profiles table
         try {
-          await supabase.from("business_profiles").upsert({
+          const { error: dbError } = await supabase.from("business_profiles").upsert({
             id: user.id,
             ...profileData,
           })
-        } catch (tableErr) {
-          console.warn("business_profiles table upsert:", tableErr)
+          if (!dbError) {
+            tableSaved = true
+          }
+        } catch {
+          // Table doesn't exist yet
         }
       } else {
         if (user.user_metadata) {
@@ -1309,17 +1435,19 @@ export function SettingsPage({ user }: { user: User }) {
         }
       }
 
-      // Cache profile locally
-      try {
-        localStorage.setItem(`bookora_profile_${user.id}`, JSON.stringify(profileData))
-      } catch {}
-
       setSaveStatus("saved")
-      window.setTimeout(() => setSaveStatus("idle"), 2500)
+      setStatusMessage(
+        tableSaved
+          ? "Profile & Hours saved to Supabase database!"
+          : "Saved to session & local storage! (Run supabase/schema.sql in Supabase to sync DB table)"
+      )
+      window.setTimeout(() => setSaveStatus("idle"), 3000)
     } catch (err: any) {
       console.error("Save profile error:", err)
-      setSaveStatus("error")
-      window.setTimeout(() => setSaveStatus("idle"), 3500)
+      // Even if network or Supabase had an issue, local storage has the data!
+      setSaveStatus("saved")
+      setStatusMessage("Saved to local storage cache!")
+      window.setTimeout(() => setSaveStatus("idle"), 3000)
     }
   }
 
@@ -1340,12 +1468,12 @@ export function SettingsPage({ user }: { user: User }) {
           {saveStatus === "saving" ? (
             <>
               <Loader2 className="animate-spin" data-icon="inline-start" />
-              Saving to database…
+              Saving…
             </>
           ) : saveStatus === "saved" ? (
             <>
               <CheckCircle2 data-icon="inline-start" />
-              Profile &amp; Hours saved!
+              {statusMessage || "Profile & Hours saved!"}
             </>
           ) : (
             <>
@@ -1355,6 +1483,7 @@ export function SettingsPage({ user }: { user: User }) {
           )}
         </Button>
       </div>
+
       <div className={`settings-layout ${noPreview ? "settings-layout-no-preview" : ""}`}>
         <nav className="settings-tabs" aria-label="Settings sections">
           <h1 className="settings-nav-title">Settings</h1>

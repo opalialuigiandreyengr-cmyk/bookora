@@ -756,8 +756,8 @@ svg { stroke-width: 1.8; }
 .settings-outline-action, .settings-primary-action, .settings-danger-action { padding: 9px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; }
 .settings-outline-action { border: 1px solid var(--border); background: var(--card); color: var(--foreground); }
 .settings-primary-action { border: 1px solid var(--primary); background: var(--primary); color: var(--primary-foreground); }
-.settings-danger-action { border: 1px solid oklch(0.65 0.18 20 / .35); background: oklch(0.97 0.03 20); color: oklch(0.5 0.15 20); }
-.security-danger { border-color: oklch(0.65 0.18 20 / .25); }
+.security-danger { border-color: oklch(0.65 0.18 20 / .35); }
+.account-danger-notice { padding: 10px 14px; margin: 12px 0 16px; border: 1px solid oklch(0.65 0.18 20 / .3); border-radius: 9px; background: oklch(0.98 0.02 25); color: oklch(0.48 0.18 25); font-size: 13px; line-height: 1.45; }
 .preferences-settings-stack { display: grid; gap: 16px; max-width: 880px; }
 .preference-card { padding: 22px 24px; }
 .preference-form-grid { margin-top: 6px; }
