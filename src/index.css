@@ -1368,7 +1368,9 @@ svg { stroke-width: 1.8; }
   .services-main-heading > div { position: absolute; z-index: 2; top: 10px; right: 14px; display: flex; align-items: center; gap: 8px; }
   .services-library-section:not(.active) { margin-top: 8px; }
   .services-main { padding: 2px 14px 80px; }
+  .services-toolbar { margin-top: 6px; }
   .services-toolbar { grid-template-columns: auto minmax(0, 1fr); }
+  .services-search input { font-size: 14px !important; }
   .services-booking-link { grid-column: 1 / -1; }
   .service-copy-link { padding: 3px 14px; }
   .settings-form-grid:not(.contact-form-grid),
