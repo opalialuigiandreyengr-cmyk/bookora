@@ -571,6 +571,28 @@ svg { stroke-width: 1.8; }
 .dashboard-page-heading p:not(.dashboard-kicker), .dashboard-placeholder > p:not(.dashboard-kicker) { margin: 0; color: var(--muted-foreground); font-size: 13px; }
 .dashboard-kicker { margin: 0; color: var(--primary); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 800; }
 .dashboard-page-heading [data-slot="button"] { white-space: nowrap; }
+.services-page { max-width: 1100px; }
+.services-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+.services-summary > div { display: grid; gap: 4px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.services-summary strong { font-size: 22px; letter-spacing: -.04em; }
+.services-summary span { color: var(--muted-foreground); font-size: 13px; }
+.services-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.service-card { display: flex; gap: 14px; min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 5px 14px oklch(0.2 0.03 255 / .04); }
+.service-card-icon { width: 42px; height: 42px; display: grid; flex: 0 0 42px; place-items: center; border-radius: 11px; color: var(--foreground); }
+.service-card-icon svg { width: 19px; }
+.service-card-icon.coral { background: oklch(0.94 0.055 18); color: var(--primary); }
+.service-card-icon.lavender { background: oklch(0.94 0.035 300); color: oklch(0.45 0.12 300); }
+.service-card-icon.mint { background: oklch(0.94 0.05 160); color: oklch(0.4 0.1 160); }
+.service-card-icon.peach { background: oklch(0.95 0.05 55); color: oklch(0.48 0.12 55); }
+.service-card-body { min-width: 0; flex: 1; }
+.service-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.service-card-top span { color: var(--muted-foreground); font-size: 12px; }
+.service-card h2 { margin: 4px 0 0; font-size: 16px; letter-spacing: -.02em; }
+.service-card-top button { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 17px; line-height: 1; }
+.service-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 18px; color: var(--muted-foreground); font-size: 13px; }
+.service-card-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.service-card-meta svg { width: 14px; }
+.service-card-meta strong { color: var(--foreground); font-size: 15px; }
 .dashboard-welcome { display: flex; align-items: center; justify-content: space-between; gap: 30px; min-height: 194px; padding: 30px 34px; margin-bottom: 22px; overflow: hidden; border-radius: 16px; background: linear-gradient(108deg, oklch(0.30 0.06 255), oklch(0.38 0.08 20)); color: var(--primary-foreground); }
 .dashboard-welcome-label { color: oklch(0.88 0.04 20); text-transform: uppercase; letter-spacing: .16em; font-size: 9px; font-weight: 800; }
 .dashboard-welcome h2 { margin: 10px 0 7px; font-size: clamp(22px, 2.5vw, 30px); letter-spacing: -.05em; }
@@ -647,6 +669,9 @@ svg { stroke-width: 1.8; }
 .settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 600; opacity: 1; }
 .settings-tab-label svg { width: 19px; height: 19px; flex-shrink: 0; }
 .settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); font-weight: 700; }
+.settings-column-signout { display: flex; align-items: center; gap: 11px; width: 100%; margin-top: auto; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font: inherit; font-size: 14px; font-weight: 600; }
+.settings-column-signout:hover { background: oklch(0.97 0.025 18); color: var(--primary); }
+.settings-column-signout svg { width: 19px; height: 19px; }
 .settings-note { display: grid; gap: 6px; padding: 14px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
 .settings-note svg { width: 17px; color: var(--primary); }
 .settings-note strong { font-size: 14px; }
@@ -1194,6 +1219,7 @@ svg { stroke-width: 1.8; }
   .settings-tabs > button { min-height: 44px; padding: 10px 12px; font-size: 14px; }
   .settings-tabs > button .settings-tab-label { gap: 8px; font-size: 14px; }
   .settings-tabs > button span:last-child { font-size: 16px; }
+  .settings-column-signout { grid-column: 1 / -1; }
   .settings-content { min-width: 0; overflow: visible; padding: 0 0 64px; }
   .settings-float-save { left: 12px; right: 12px; bottom: 12px; }
   .settings-float-save [data-slot="button"] { width: 100%; min-height: 44px; }
@@ -1203,6 +1229,7 @@ svg { stroke-width: 1.8; }
   .settings-card-heading { gap: 10px; }
   .settings-card-heading h2 { font-size: 15px; }
   .settings-card-heading p { font-size: 14px; }
+  .services-summary, .services-grid { grid-template-columns: 1fr; }
   .settings-form-grid:not(.contact-form-grid),
   .account-profile-grid { grid-template-columns: 1fr; gap: 13px; }
   .contact-form-grid { display: grid !important; grid-template-columns: 78px minmax(0, 1fr) !important; gap: 13px 8px !important; }

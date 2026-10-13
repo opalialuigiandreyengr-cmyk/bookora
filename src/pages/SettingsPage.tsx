@@ -12,6 +12,7 @@ import {
   KeyRound,
   Loader2,
   LockKeyhole,
+  LogOut,
   Moon,
   Monitor,
   Save,
@@ -1116,20 +1117,10 @@ function AvailabilityPanel({ type, onClose }: { type: "breaks" | "time-off"; onC
   )
 }
 
-function AccountSettings({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+function AccountSettings({ user }: { user: User }) {
   const [panel, setPanel] = useState<"breaks" | "time-off" | null>(null)
   return (
     <div className="security-settings-stack">
-      <section className="settings-card security-card">
-        <div className="settings-card-heading">
-          <div>
-            <h2>Sign out</h2>
-            <p>Sign out of this Bookora workspace on the current device.</p>
-          </div>
-        </div>
-        <button className="settings-outline-action" onClick={onSignOut}>Sign out</button>
-      </section>
-
       <section className="settings-card security-card">
         <div className="settings-card-heading">
           <div>
@@ -1537,6 +1528,10 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             </button>
           ))}
         </nav>
+        <button className="settings-column-signout" onClick={onSignOut}>
+          <LogOut />
+          <span>Sign out</span>
+        </button>
         <div className="settings-content">
           {active === "Business profile" ? (
             <Profile
@@ -1583,7 +1578,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           ) : active === "Notifications" ? (
             <NotificationsSettings />
           ) : active === "Account" ? (
-            <AccountSettings user={user} onSignOut={onSignOut} />
+            <AccountSettings user={user} />
           ) : active === "Security" ? (
             <SecuritySettings user={user} />
           ) : (

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, CreditCard, Home, ListChecks, Menu, Plus, Search, Scissors, Settings2, Store, Users } from "lucide-react"
+import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, Clock3, CreditCard, Home, ListChecks, Menu, Plus, Search, Scissors, Settings2, Store, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/brand/Logo"
 import { dashboardNav, upcomingAppointments } from "@/data/mock"
@@ -18,7 +18,23 @@ export function DashboardPage({ user, onSignOut }: { user: User; onSignOut: () =
     setOpen(false)
     window.history.replaceState({}, "", item === "Settings" ? "/settings" : "/dashboard")
   }
-  return <div className="dashboard-shell">{open && <button className="dashboard-scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}<aside className={`dashboard-sidebar ${open ? "open" : ""}`}><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = icons[index]; return <button key={item} className={active === item ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div></div></aside><div className="dashboard-content"><header className="dashboard-header"><button className="dashboard-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu /></button><div className="dashboard-search"><Search /><input aria-label="Search" placeholder="Search anything..." /></div><div className="dashboard-header-actions"><button className="dashboard-icon-button" aria-label="Notifications"><Bell /><i /></button><span className="dashboard-divider" /><span className="user-avatar">{firstName.slice(0, 2).toUpperCase()}</span></div></header><main className="dashboard-main">{active === "Settings" ? <SettingsPage user={user} onSignOut={onSignOut} /> : <Overview name={name} firstName={firstName} onNavigate={select} />}</main></div></div>
+  return <div className="dashboard-shell">{open && <button className="dashboard-scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}<aside className={`dashboard-sidebar ${open ? "open" : ""}`}><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = icons[index]; return <button key={item} className={active === item ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div></div></aside><div className="dashboard-content"><header className="dashboard-header"><button className="dashboard-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu /></button><div className="dashboard-search"><Search /><input aria-label="Search" placeholder="Search anything..." /></div><div className="dashboard-header-actions"><button className="dashboard-icon-button" aria-label="Notifications"><Bell /><i /></button><span className="dashboard-divider" /><span className="user-avatar">{firstName.slice(0, 2).toUpperCase()}</span></div></header><main className="dashboard-main">{active === "Settings" ? <SettingsPage user={user} onSignOut={onSignOut} /> : active === "Services" ? <ServicesPage /> : <Overview name={name} firstName={firstName} onNavigate={select} />}</main></div></div>
+}
+
+type Service = { name: string; category: string; duration: string; price: string; color: string }
+
+function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([
+    { name: "Gel Manicure", category: "Nails", duration: "60 min", price: "₱650", color: "coral" },
+    { name: "Hair Treatment", category: "Hair", duration: "90 min", price: "₱1,200", color: "lavender" },
+    { name: "Classic Facial", category: "Skin care", duration: "60 min", price: "₱900", color: "mint" },
+  ])
+
+  const addService = () => {
+    setServices((current) => [...current, { name: "New service", category: "General", duration: "60 min", price: "₱0", color: "peach" }])
+  }
+
+  return <div className="services-page"><div className="dashboard-page-heading"><div><p className="dashboard-kicker">Your offerings</p><h1>Services</h1><p>Manage what clients can book and see your pricing at a glance.</p></div><Button onClick={addService}><Plus data-icon="inline-start" /> Add service</Button></div><div className="services-summary"><div><strong>{services.length}</strong><span>Active services</span></div><div><strong>₱917</strong><span>Average price</span></div><div><strong>60 min</strong><span>Average duration</span></div></div><section className="services-grid">{services.map((service, index) => <article className="service-card" key={`${service.name}-${index}`}><div className={`service-card-icon ${service.color}`}><Scissors /></div><div className="service-card-body"><div className="service-card-top"><div><span>{service.category}</span><h2>{service.name}</h2></div><button aria-label={`More options for ${service.name}`}>•••</button></div><div className="service-card-meta"><span><Clock3 /> {service.duration}</span><strong>{service.price}</strong></div></div></article>)}</section></div>
 }
 
 function Overview({ name, firstName, onNavigate }: { name: string; firstName: string; onNavigate: (item: string) => void }) {
