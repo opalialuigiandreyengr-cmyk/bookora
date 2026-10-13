@@ -697,7 +697,7 @@ svg { stroke-width: 1.8; }
 .service-crop-heading p { display: none; }
 .service-crop-heading button { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 20px; line-height: 1; }
 .service-crop-stage { position: relative; height: 300px; display: grid; place-items: center; margin-top: 18px; overflow: hidden; border-radius: 8px; background: #575757; }
-.service-crop-stage img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; transform-origin: center center; transition: transform .15s ease; }
+.service-crop-stage img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; transition: transform .15s ease; }
 .service-crop-window { position: absolute; width: 220px; height: 220px; border: 2px solid #1687ff; border-radius: 16px; box-shadow: 0 0 0 999px oklch(0.12 0.01 255 / .38); cursor: grab; touch-action: none; }
 .service-crop-window:active { cursor: grabbing; }
 .service-crop-controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 22px 0; color: var(--muted-foreground); }
