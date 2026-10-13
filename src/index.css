@@ -599,13 +599,13 @@ svg { stroke-width: 1.8; }
 .services-library-nav { padding: 24px 16px; border-right: 1px solid var(--border); }
 .services-library-nav h1 { margin: 0 10px 20px; font-size: 16px; font-weight: 800; letter-spacing: -.02em; }
 .services-library-section { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; font-size: 13px; font-weight: 600; }
-.services-library-section.active { background: var(--secondary); font-weight: 800; }
+.services-library-section.active { background: var(--secondary); font-weight: 600; }
 .services-library-section svg { width: 14px; }
 .services-category-add { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font: inherit; font-size: 13px; }
 .services-category-add svg { width: 14px; }
 .services-library-section:not(.active) { margin-top: 26px; }
 .services-main { min-width: 0; padding: 24px 32px; }
-.services-main-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.services-main-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 18px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
 .services-main-heading h2 { margin: 0; font-size: 18px; font-weight: 800; }
 .services-main-heading > div { display: flex; align-items: center; gap: 12px; }
 .services-main-heading [data-slot="button"] { width: 34px; min-width: 34px; height: 34px; padding: 0; border-radius: 50%; }
@@ -637,6 +637,15 @@ svg { stroke-width: 1.8; }
 .service-copy-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 12px; }
 .service-copy-link svg { width: 14px; }
 .service-row-menu svg { width: 16px; }
+.services-modal-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 20px; background: oklch(0.15 0.02 255 / .32); }
+.services-modal { width: min(420px, 100%); display: grid; gap: 16px; padding: 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .2); }
+.services-modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.services-modal-heading h2 { margin: 0; font-size: 18px; }
+.services-modal-heading button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 20px; line-height: 1; }
+.services-modal label { display: grid; gap: 7px; color: var(--muted-foreground); font-size: 13px; font-weight: 700; }
+.services-modal input, .services-modal select { width: 100%; height: 42px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--card); color: var(--foreground); font: inherit; font-size: 14px; }
+.services-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 2px; }
+.services-modal-actions > button:not([data-slot="button"]) { padding: 9px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 13px; }
 .dashboard-welcome { display: flex; align-items: center; justify-content: space-between; gap: 30px; min-height: 194px; padding: 30px 34px; margin-bottom: 22px; overflow: hidden; border-radius: 16px; background: linear-gradient(108deg, oklch(0.30 0.06 255), oklch(0.38 0.08 20)); color: var(--primary-foreground); }
 .dashboard-welcome-label { color: oklch(0.88 0.04 20); text-transform: uppercase; letter-spacing: .16em; font-size: 9px; font-weight: 800; }
 .dashboard-welcome h2 { margin: 10px 0 7px; font-size: clamp(22px, 2.5vw, 30px); letter-spacing: -.05em; }
