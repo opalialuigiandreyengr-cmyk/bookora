@@ -52,7 +52,9 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     } else {
       setStatus("success")
       setMessage("Signed in successfully! Opening your workspace…")
-      // Auth state change in App.tsx will automatically transition into Dashboard
+      window.setTimeout(() => {
+        onClose()
+      }, 500)
     }
   }
 
