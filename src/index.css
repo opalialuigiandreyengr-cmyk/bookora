@@ -1350,7 +1350,7 @@ svg { stroke-width: 1.8; }
   .settings-card-heading p { font-size: 14px; }
   .services-summary, .services-grid { grid-template-columns: 1fr; }
   .services-page { grid-template-columns: 1fr; margin: -12px -14px; }
-  .services-standalone { grid-template-columns: 1fr; }
+  .services-standalone { grid-template-columns: 1fr; min-height: 0; align-items: start; }
   .services-modal { width: min(100%, 640px); padding: 20px 16px; }
   .services-modal-backdrop:has(.services-service-modal) { padding: 0; place-items: stretch; }
   .services-service-modal { width: 100%; max-width: none; max-height: none; height: 100dvh; border: 0; border-radius: 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
@@ -1358,7 +1358,7 @@ svg { stroke-width: 1.8; }
   .services-image-field { align-items: flex-start; }
   .service-crop-dialog { padding: 18px 16px; }
   .service-crop-stage { height: min(62vw, 300px); }
-  .services-library-nav { display: block; padding: 14px 14px 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .services-library-nav { display: block; align-self: start; height: auto; min-height: 0; padding: 14px 14px 0; border-right: 0; border-bottom: 1px solid var(--border); }
   .services-standalone { position: relative; }
   .services-library-nav h1 { margin: 0 10px 12px; font-size: 16px; }
   .services-library-nav > .services-library-section { padding: 6px 4px; line-height: 16px; }
@@ -1367,7 +1367,7 @@ svg { stroke-width: 1.8; }
   .services-main-heading h2 { display: none; }
   .services-main-heading > div { position: absolute; z-index: 2; top: 10px; right: 14px; display: flex; align-items: center; gap: 8px; }
   .services-library-section:not(.active) { margin-top: 8px; }
-  .services-main { padding: 20px 14px 80px; }
+  .services-main { padding: 0 14px 80px; }
   .services-toolbar { grid-template-columns: auto minmax(0, 1fr); }
   .services-booking-link { grid-column: 1 / -1; }
   .service-copy-link { padding: 3px 14px; }
