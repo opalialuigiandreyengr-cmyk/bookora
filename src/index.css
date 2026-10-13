@@ -1358,8 +1358,10 @@ svg { stroke-width: 1.8; }
   .services-image-field { align-items: flex-start; }
   .service-crop-dialog { padding: 18px 16px; }
   .service-crop-stage { height: min(62vw, 300px); }
-  .services-library-nav { padding: 18px 14px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .services-library-nav h1 { margin-bottom: 12px; }
+  .services-library-nav { display: block; padding: 14px 14px 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .services-library-nav h1 { margin: 0 10px 10px; }
+  .services-library-nav > .services-library-section.active { margin: 0; }
+  .services-library-nav > .services-category-add { margin: 0; padding: 7px 12px 10px; }
   .services-library-section:not(.active) { margin-top: 8px; }
   .services-main { padding: 20px 14px 80px; }
   .services-toolbar { grid-template-columns: auto minmax(0, 1fr); }
