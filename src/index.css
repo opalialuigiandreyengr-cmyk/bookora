@@ -1359,17 +1359,13 @@ svg { stroke-width: 1.8; }
   .service-crop-dialog { padding: 18px 16px; }
   .service-crop-stage { height: min(62vw, 300px); }
   .services-library-nav { display: block; padding: 14px 14px 12px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .services-library-nav h1 { margin: 0 4px 10px; font-size: 0; }
-  .services-library-nav h1::after { content: "Services & classes"; font-size: 12px; }
+  .services-library-nav h1 { margin: 0 10px 12px; font-size: 16px; }
   .services-library-nav > .services-library-section { padding: 6px 4px; line-height: 16px; }
-  .services-library-nav > .services-library-section.active { margin: 0; background: transparent; }
-  .services-library-nav > .services-category-add,
-  .services-library-nav > .services-library-section:not(.active) { display: none; }
-  .services-main-heading { display: none; }
+  .services-library-nav > .services-library-section.active { margin: 0; background: var(--secondary); }
   .services-library-section:not(.active) { margin-top: 8px; }
-  .services-main { padding: 0 14px 80px; }
+  .services-main { padding: 20px 14px 80px; }
   .services-toolbar { grid-template-columns: auto minmax(0, 1fr); }
-  .services-booking-link { display: none; }
+  .services-booking-link { grid-column: 1 / -1; }
   .service-copy-link { padding: 3px 14px; }
   .settings-form-grid:not(.contact-form-grid),
   .account-profile-grid { grid-template-columns: 1fr; gap: 13px; }
