@@ -736,7 +736,6 @@ svg { stroke-width: 1.8; }
 .theme-select-row > span { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-foreground); font-size: 13px; font-weight: 700; }
 .theme-select-row svg { width: 16px; color: var(--primary); }
 .theme-select-row select { width: 160px; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 13.5px; }
-.contact-form-grid { grid-template-columns: minmax(0, 1fr) 100px minmax(150px, 1.2fr); }
 .links-grid { grid-template-columns: 1fr; }
 .hours-row { grid-template-columns: 34px minmax(100px, 1fr) 104px 18px 104px !important; gap: 8px; min-height: 52px !important; padding: 0 10px; }
 .hours-row strong { font-size: 13.5px; }
@@ -845,8 +844,12 @@ svg { stroke-width: 1.8; }
 .hours-toggle input:checked + i::after { transform: translateX(11px); }
 .hours-toggle svg { display: none; }
 .hours-more { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; }
-.contact-form-grid { grid-template-columns: 120px minmax(160px, 1fr); }
+.contact-form-grid { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 16px 12px; }
 .contact-form-grid .contact-email { grid-column: 1 / -1; }
+.contact-country-code { width: 80px; min-width: 0; }
+.contact-country-code select { width: 100%; height: 42px; padding: 0 6px 0 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.contact-country-code .code-label-short { display: none; }
+.contact-phone-number { min-width: 0; width: 100%; }
 .theme-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
 .theme-options button { position: relative; min-height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--foreground); cursor: pointer; }
 .theme-options button.selected { border-color: var(--foreground); box-shadow: 0 0 0 1px var(--foreground); }
@@ -1146,8 +1149,12 @@ svg { stroke-width: 1.8; }
   .settings-tabs { position: static; height: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding-right: 0; border-right: 0; }
   .settings-tabs > p, .settings-note { grid-column: 1 / -1; }
   .settings-note { margin-top: 10px; }
-  .settings-card { padding: 18px 16px; }
-  .settings-form-grid { grid-template-columns: 1fr; gap: 13px; }
+  .settings-form-grid:not(.contact-form-grid) { grid-template-columns: 1fr; gap: 13px; }
+  .contact-form-grid { display: grid !important; grid-template-columns: 78px minmax(0, 1fr) !important; gap: 13px 8px !important; }
+  .contact-form-grid .contact-email { grid-column: 1 / -1 !important; }
+  .contact-country-code { width: 78px !important; }
+  .contact-country-code .code-label-full { display: none; }
+  .contact-country-code .code-label-short { display: inline; }
   .brand-assets { grid-template-columns: 1fr; }
   .brand-upload.banner-upload { grid-column: auto; }
   .appearance-settings-grid { grid-template-columns: 1fr; }
@@ -1166,9 +1173,9 @@ svg { stroke-width: 1.8; }
   .settings-nav-title { grid-column: 1 / -1; margin: 0 0 8px; font-size: 20px; }
   .settings-tabs > p,
   .settings-note { grid-column: 1 / -1; }
-  .settings-tabs > button { min-height: 44px; padding: 10px; font-size: 11px; }
-  .settings-tabs > button .settings-tab-label { gap: 6px; font-size: 11px; }
-  .settings-tabs > button span:last-child { font-size: 15px; }
+  .settings-tabs > button { min-height: 44px; padding: 10px 12px; font-size: 13.5px; }
+  .settings-tabs > button .settings-tab-label { gap: 8px; font-size: 13.5px; }
+  .settings-tabs > button span:last-child { font-size: 16px; }
   .settings-content { min-width: 0; overflow: visible; padding: 0; }
   .settings-float-save { left: 12px; right: 12px; bottom: 12px; }
   .settings-float-save [data-slot="button"] { width: 100%; min-height: 44px; }
@@ -1178,9 +1185,13 @@ svg { stroke-width: 1.8; }
   .settings-card-heading { gap: 10px; }
   .settings-card-heading h2 { font-size: 15px; }
   .settings-card-heading p { font-size: 12px; }
-  .settings-form-grid,
-  .contact-form-grid,
+  .settings-form-grid:not(.contact-form-grid),
   .account-profile-grid { grid-template-columns: 1fr; gap: 13px; }
+  .contact-form-grid { display: grid !important; grid-template-columns: 78px minmax(0, 1fr) !important; gap: 13px 8px !important; }
+  .contact-form-grid .contact-email { grid-column: 1 / -1 !important; }
+  .contact-country-code { width: 78px !important; }
+  .contact-country-code .code-label-full { display: none; }
+  .contact-country-code .code-label-short { display: inline; }
   .appearance-settings-grid { grid-template-columns: 1fr; }
   .brand-assets { grid-template-columns: 1fr; }
   .brand-upload.banner-upload { grid-column: auto; }
