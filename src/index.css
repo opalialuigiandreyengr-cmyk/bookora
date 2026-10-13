@@ -651,7 +651,7 @@ svg { stroke-width: 1.8; }
 .settings-note svg { width: 17px; color: var(--primary); }
 .settings-note strong { font-size: 14px; }
 .settings-note span { color: var(--muted-foreground); font-size: 14px; line-height: 1.45; }
-.settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding: 0 7px 112px 0; background: var(--card); }
+.settings-content { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding: 0 7px 64px 0; background: var(--card); }
 .settings-content { scrollbar-width: none; -ms-overflow-style: none; }
 .settings-content::-webkit-scrollbar { display: none; }
 .settings-float-save { position: fixed; right: 32px; bottom: 24px; z-index: 55; }
@@ -1188,7 +1188,7 @@ svg { stroke-width: 1.8; }
   .settings-tabs > button { min-height: 44px; padding: 10px 12px; font-size: 14px; }
   .settings-tabs > button .settings-tab-label { gap: 8px; font-size: 14px; }
   .settings-tabs > button span:last-child { font-size: 16px; }
-  .settings-content { min-width: 0; overflow: visible; padding: 0 0 112px; }
+  .settings-content { min-width: 0; overflow: visible; padding: 0 0 64px; }
   .settings-float-save { left: 12px; right: 12px; bottom: 12px; }
   .settings-float-save [data-slot="button"] { width: 100%; min-height: 44px; }
   .settings-card,
