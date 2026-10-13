@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
+import { showToast } from "@/components/ui/toast"
 
 interface ChangePasswordModalProps {
   user: User
@@ -92,6 +93,7 @@ export function ChangePasswordModal({ user, onClose, onSuccess }: ChangePassword
           // If in demo/preview mode without active session, complete gracefully
           if (user.id.startsWith("preview-") || error.message.includes("session missing")) {
             setStatus("success")
+            showToast("Password updated")
             user.user_metadata = {
               ...user.user_metadata,
               password_updated_at: updateTimestamp,
@@ -116,11 +118,13 @@ export function ChangePasswordModal({ user, onClose, onSuccess }: ChangePassword
         }
 
         setStatus("success")
+        showToast("Password updated")
         onSuccess?.(data.user ?? undefined)
       } else {
         // Fallback demo mode if supabase environment is not configured
         await new Promise((resolve) => setTimeout(resolve, 800))
         setStatus("success")
+        showToast("Password updated")
         onSuccess?.()
       }
     } catch (err: any) {

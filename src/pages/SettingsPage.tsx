@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { ChangePasswordModal } from "@/pages/ChangePasswordModal"
 import { supabase } from "@/lib/supabase"
+import { showToast } from "@/components/ui/toast"
 
 const tabs = [
   ["Business profile", Building2],
@@ -1466,12 +1467,14 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           ? "Profile & Hours saved to Supabase database!"
           : "Saved to session & local storage! (Run supabase/schema.sql in Supabase to sync DB table)"
       )
+      showToast(tableSaved ? "Settings saved" : "Settings saved locally")
       window.setTimeout(() => setSaveStatus("idle"), 3000)
     } catch (err: any) {
       console.error("Save profile error:", err)
       // Even if network or Supabase had an issue, local storage has the data!
       setSaveStatus("saved")
       setStatusMessage("Saved to local storage cache!")
+      showToast("Settings saved locally")
       window.setTimeout(() => setSaveStatus("idle"), 3000)
     }
   }

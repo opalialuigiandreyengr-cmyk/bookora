@@ -6,6 +6,7 @@ import { LandingPage } from "@/pages/LandingPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { PasskeyModal } from "@/pages/PasskeyModal"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
+import { ToastViewport } from "@/components/ui/toast"
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -25,8 +26,8 @@ export default function App() {
     if (window.location.pathname !== destination) window.history.replaceState({}, "", destination)
   }, [user, onboardingDone])
 
-  if (user && !onboardingDone) return <OnboardingPage user={user} onComplete={() => { setOnboardingDone(true); if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskey(true) }} />
-  if (user && onboardingDone) return window.location.pathname === "/services" ? <ServicesPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} /> : <><DashboardPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />{showPasskey && <PasskeyModal onClose={(dontAskAgain) => { if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true"); setShowPasskey(false) }} />}</>
+  if (user && !onboardingDone) return <><ToastViewport /><OnboardingPage user={user} onComplete={() => { setOnboardingDone(true); if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskey(true) }} /></>
+  if (user && onboardingDone) return <><ToastViewport />{window.location.pathname === "/services" ? <ServicesPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} /> : <><DashboardPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />{showPasskey && <PasskeyModal onClose={(dontAskAgain) => { if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true"); setShowPasskey(false) }} />}</>}</>
 
   const isPreviewPath = window.location.pathname === "/dashboard" || window.location.pathname === "/settings" || window.location.pathname === "/services" || window.location.search.includes("demo=true")
   if (isPreviewPath) {
@@ -42,10 +43,10 @@ export default function App() {
       created_at: new Date().toISOString(),
       email: "luigi@bookora.com",
     }
-    return window.location.pathname === "/services" ? <ServicesPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} /> : <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />
+    return <><ToastViewport />{window.location.pathname === "/services" ? <ServicesPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} /> : <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />}</>
   }
 
-  return <LandingPage />
+  return <><ToastViewport /><LandingPage /></>
 }
 
 export { hasSupabaseConfig }
