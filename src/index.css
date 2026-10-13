@@ -635,7 +635,12 @@ svg { stroke-width: 1.8; }
 .service-row-info { min-width: 0; }
 .service-row-info h3 { overflow: hidden; margin: 0 0 4px; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
 .service-row-info p { margin: 0; color: var(--muted-foreground); font-size: 12px; }
-.service-copy-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 12px; }
+.service-copy-link { display: inline-flex; align-items: center; gap: 6px; padding: 3px 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 12px; }
+.service-row-actions { position: relative; display: flex; align-items: center; }
+.service-action-menu { position: absolute; z-index: 20; top: calc(100% + 7px); right: 0; width: 155px; display: grid; gap: 2px; padding: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); box-shadow: 0 12px 30px oklch(0.2 0.03 255 / .16); }
+.service-action-menu button { min-height: 32px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; font-size: 13px; }
+.service-action-menu button:hover, .service-action-menu button:focus-visible { background: var(--muted); outline: 0; }
+.service-action-menu button.danger { color: oklch(0.53 0.16 25); }
 .service-copy-link svg { width: 14px; }
 .service-row-menu svg { width: 16px; }
 .services-modal-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 20px; background: oklch(0.15 0.02 255 / .32); }
@@ -1325,7 +1330,7 @@ svg { stroke-width: 1.8; }
   .services-main { padding: 20px 14px 80px; }
   .services-toolbar { grid-template-columns: auto minmax(0, 1fr); }
   .services-booking-link { grid-column: 1 / -1; }
-  .service-copy-link { padding-inline: 10px; }
+  .service-copy-link { padding: 3px 14px; }
   .settings-form-grid:not(.contact-form-grid),
   .account-profile-grid { grid-template-columns: 1fr; gap: 13px; }
   .contact-form-grid { display: grid !important; grid-template-columns: 78px minmax(0, 1fr) !important; gap: 13px 8px !important; }
