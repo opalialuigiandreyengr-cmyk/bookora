@@ -639,7 +639,7 @@ svg { stroke-width: 1.8; }
 .service-copy-link svg { width: 14px; }
 .service-row-menu svg { width: 16px; }
 .services-modal-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 20px; background: oklch(0.15 0.02 255 / .32); }
-.services-modal { width: min(640px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; display: grid; gap: 16px; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .2); }
+.services-modal { width: min(560px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; display: grid; gap: 16px; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .2); }
 .services-modal::-webkit-scrollbar { display: none; }
 .services-modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .services-modal-heading h2 { margin: 0; font-size: 16px; font-weight: 700; }
