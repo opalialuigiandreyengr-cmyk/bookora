@@ -61,7 +61,7 @@ const defaultHours: DaySchedule[] = days.map((day, i) => ({
   end: "17:00",
 }))
 
-// Compress images in the browser before saving so they fit into Supabase Auth metadata and localStorage without payload errors
+// Compress images before uploading so they stay small enough for fast profile previews.
 function compressImage(file: File, maxWidth: number, maxHeight: number, quality = 0.82): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -97,6 +97,26 @@ function compressImage(file: File, maxWidth: number, maxHeight: number, quality 
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+function dataUrlToBlob(dataUrl: string) {
+  const [header, encoded] = dataUrl.split(",")
+  const mime = header.match(/:(.*?);/)?.[1] ?? "image/jpeg"
+  const bytes = atob(encoded)
+  const array = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i += 1) array[i] = bytes.charCodeAt(i)
+  return new Blob([array], { type: mime })
+}
+
+async function uploadBrandImage(file: File, path: string, maxWidth: number, maxHeight: number, quality: number) {
+  const compressed = await compressImage(file, maxWidth, maxHeight, quality)
+  if (!supabase) return compressed
+
+  const { error } = await supabase.storage
+    .from("brand-assets")
+    .upload(path, dataUrlToBlob(compressed), { contentType: "image/jpeg", cacheControl: "3600", upsert: true })
+  if (error) throw error
+  return supabase.storage.from("brand-assets").getPublicUrl(path).data.publicUrl
 }
 
 function getStoredProfile(userId: string) {
@@ -565,6 +585,7 @@ function NotificationsSettings() {
 }
 
 interface ProfileProps {
+  userId: string
   name: string
   setName: (v: string) => void
   slug: string
@@ -604,6 +625,7 @@ interface ProfileProps {
 }
 
 function Profile({
+  userId,
   name,
   setName,
   slug,
@@ -655,8 +677,8 @@ function Profile({
     }
     setUploadingBanner(true)
     try {
-      const compressed = await compressImage(file, 900, 300, 0.8)
-      setBannerUrl(compressed)
+      const path = `${userId}/banner.jpg`
+      setBannerUrl(await uploadBrandImage(file, path, 900, 300, 0.8))
     } catch {
       alert("Failed to process banner image.")
     } finally {
@@ -673,8 +695,8 @@ function Profile({
     }
     setUploadingLogo(true)
     try {
-      const compressed = await compressImage(file, 200, 200, 0.85)
-      setLogoUrl(compressed)
+      const path = `${userId}/logo.jpg`
+      setLogoUrl(await uploadBrandImage(file, path, 200, 200, 0.85))
     } catch {
       alert("Failed to process logo image.")
     } finally {
@@ -726,18 +748,6 @@ function Profile({
                   </>
                 )}
               </button>
-              {bannerUrl && (
-                <button
-                  type="button"
-                  className="banner-remove-btn"
-                  onClick={() => {
-                    setBannerUrl("")
-                    if (bannerInputRef.current) bannerInputRef.current.value = ""
-                  }}
-                >
-                  Remove
-                </button>
-              )}
             </div>
           </div>
 
@@ -782,18 +792,6 @@ function Profile({
                   "Upload logo"
                 )}
               </button>
-              {logoUrl && (
-                <button
-                  type="button"
-                  className="logo-remove-btn"
-                  onClick={() => {
-                    setLogoUrl("")
-                    if (logoInputRef.current) logoInputRef.current.value = ""
-                  }}
-                >
-                  Remove
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1504,6 +1502,7 @@ export function SettingsPage({ user }: { user: User }) {
         <div className="settings-content">
           {active === "Business profile" ? (
             <Profile
+              userId={user.id}
               name={name}
               setName={setName}
               slug={slug}

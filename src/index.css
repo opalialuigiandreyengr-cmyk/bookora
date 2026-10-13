@@ -738,8 +738,8 @@ svg { stroke-width: 1.8; }
 .theme-select-row select { width: 160px; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 13.5px; }
 .links-grid { grid-template-columns: 1fr; }
 .hours-row { grid-template-columns: 34px minmax(100px, 1fr) 104px 18px 104px !important; gap: 8px; min-height: 52px !important; padding: 0 10px; }
-.hours-row strong { font-size: 13.5px; }
-.hours-row input[type="time"] { width: 104px; height: 38px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 13px; }
+.hours-row strong { font-size: 15px; }
+.hours-row input[type="time"] { width: 104px; height: 42px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 16px; text-align: center; }
 .settings-layout-no-preview { grid-template-columns: 235px minmax(0, 1fr); }
 .security-settings-stack { display: grid; gap: 16px; max-width: 880px; }
 .security-card { padding: 22px 24px; }
@@ -1169,6 +1169,13 @@ svg { stroke-width: 1.8; }
   .settings-public-link button { width: 100%; }
 }
 
+/* iOS Safari zooms controls whose text is smaller than 16px on focus. */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea { font-size: 16px !important; }
+}
+
 @media (max-width: 700px) {
   .settings-page { width: 100%; max-width: none; }
   .settings-layout,
@@ -1208,7 +1215,7 @@ svg { stroke-width: 1.8; }
   .preference-toggle strong { font-size: 13px; }
   .preference-toggle p { font-size: 12px; line-height: 1.45; }
   .hours-row { grid-template-columns: 26px minmax(0, 1fr) 78px 10px 78px !important; gap: 5px; padding: 0 5px; }
-  .hours-row input[type="time"] { width: 78px; padding: 0 5px; font-size: 10px; }
+  .hours-row input[type="time"] { width: 92px; height: 42px; padding: 0 4px; font-size: 16px; text-align: center; }
   .break-row { grid-template-columns: 24px minmax(55px, 1fr) 74px 10px 74px 24px; gap: 4px; }
   .break-row input[type="time"] { min-width: 0; width: 74px; font-size: 10px; }
 }

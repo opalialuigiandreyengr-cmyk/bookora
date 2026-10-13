@@ -138,3 +138,24 @@ create policy "Users can update own business profile"
 
 grant select, insert, update on public.business_profiles to authenticated;
 
+-- Public profile media. Files are scoped to the authenticated user's folder and
+-- the URLs are saved in business_profiles.banner_url / logo_url.
+insert into storage.buckets (id, name, public)
+values ('brand-assets', 'brand-assets', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Users can upload own brand assets" on storage.objects;
+create policy "Users can upload own brand assets"
+    on storage.objects for insert to authenticated
+    with check (bucket_id = 'brand-assets' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Users can update own brand assets" on storage.objects;
+create policy "Users can update own brand assets"
+    on storage.objects for update to authenticated
+    using (bucket_id = 'brand-assets' and (storage.foldername(name))[1] = auth.uid()::text)
+    with check (bucket_id = 'brand-assets' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Anyone can view brand assets" on storage.objects;
+create policy "Anyone can view brand assets"
+    on storage.objects for select to public
+    using (bucket_id = 'brand-assets');
