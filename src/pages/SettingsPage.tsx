@@ -860,8 +860,7 @@ function Profile({
             />
           </label>
           <label className="contact-country-code">
-            <span className="code-label-full">Country code</span>
-            <span className="code-label-short">Code</span>
+            <span>Code</span>
             <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>
               <option value="+63">+63</option>
               <option value="+1">+1</option>
