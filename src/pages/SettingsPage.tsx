@@ -1,23 +1,1447 @@
-import { useState } from "react"
-import type { CSSProperties } from "react"
+import { useState, useEffect, useRef } from "react"
+import type { CSSProperties, ChangeEvent } from "react"
 import type { User } from "@supabase/supabase-js"
-import { Bell, Building2, CalendarDays, Fingerprint, KeyRound, LockKeyhole, Moon, Monitor, Save, ShieldCheck, Smartphone, Store, Sun, UserRound, X, Trash2 } from "lucide-react"
+import {
+  Bell,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  Fingerprint,
+  KeyRound,
+  Loader2,
+  LockKeyhole,
+  Moon,
+  Monitor,
+  Save,
+  ShieldCheck,
+  Smartphone,
+  Store,
+  Sun,
+  UserRound,
+  X,
+  Trash2,
+  UploadCloud,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChangePasswordModal } from "@/pages/ChangePasswordModal"
+import { supabase } from "@/lib/supabase"
 
-const tabs = [["Business profile", Building2], ["Booking preferences", CalendarDays], ["Notifications", Bell], ["Account", UserRound], ["Security", LockKeyhole]] as const
+const tabs = [
+  ["Business profile", Building2],
+  ["Booking preferences", CalendarDays],
+  ["Notifications", Bell],
+  ["Account", UserRound],
+  ["Security", LockKeyhole],
+] as const
+
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-const palette: Record<string, string> = { coral: "oklch(0.64 0.17 19)", rose: "oklch(0.67 0.14 355)", orange: "oklch(0.70 0.14 55)", navy: "oklch(0.25 0.04 255)", sage: "oklch(0.62 0.08 160)", sky: "oklch(0.65 0.12 235)", plum: "oklch(0.43 0.10 320)", ink: "oklch(0.25 0.03 255)" }
-function Preview({ name, about, industry, color, theme }: { name: string; about: string; industry: string; color: string; theme: string }) { const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-"); return <aside className={`settings-preview preview-theme-${theme.toLowerCase()}`} style={{ "--preview-accent": palette[color] ?? palette.coral } as CSSProperties}><div className="preview-heading"><strong>Preview</strong><div><button className="active" aria-label="Mobile preview"><Smartphone /></button><button aria-label="Desktop preview"><Monitor /></button></div></div><div className="preview-card"><div className="preview-url">https://{slug || "your-business"}.bookora.com <span>↗</span></div><div className="preview-stage"><div className="preview-phone"><span className="preview-phone-notch" /><strong>{name || "Your business"}</strong><span>{industry}</span><span>{about || "Book your appointment"}</span><i /><i /><i /><button>Book now</button></div></div></div><div className="preview-help"><div className="preview-avatars"><span>LU</span><span>MA</span><span>JO</span></div><strong>Need help with your Booking Page?</strong><p>We're real people here to help you 24/7</p><button>● &nbsp;Connect with us</button></div></aside> }
-function Appearance({ color, setColor, theme, setTheme }: any) { const colors = ["coral", "rose", "orange", "navy", "sage", "sky", "plum", "ink"]; return <><div className="appearance-colors"><strong>Brand color</strong><div>{colors.map((item) => <button key={item} type="button" className={`color-swatch ${item} ${color === item ? "active" : ""}`} aria-label={item} aria-pressed={color === item} onClick={() => setColor(item)} />)}</div></div><div className="theme-options">{[["System", Monitor], ["Light", Sun], ["Dark", Moon]].map(([label, Icon]: any) => <button key={label} type="button" className={theme === label ? "selected" : ""} onClick={() => setTheme(label)}><span className="theme-radio" /><Icon /><strong>{label}</strong></button>)}</div></> }
-function Hours() { const [open, setOpen] = useState(days.map((_, i) => i < 5)); return <section className="settings-card"><div className="settings-card-heading"><h2>Business hours</h2></div><div className="hours-list">{days.map((day, i) => <div className="hours-row" key={day}><label className="hours-toggle"><input type="checkbox" checked={open[i]} onChange={() => setOpen((current) => current.map((value, index) => index === i ? !value : value))} /><i /></label><strong>{day}</strong>{open[i] ? <><input type="time" defaultValue="09:00" /><span>—</span><input type="time" defaultValue="17:00" /></> : <em>Closed</em>}</div>)}</div></section> }
+const palette: Record<string, string> = {
+  coral: "oklch(0.64 0.17 19)",
+  rose: "oklch(0.67 0.14 355)",
+  orange: "oklch(0.70 0.14 55)",
+  navy: "oklch(0.25 0.04 255)",
+  sage: "oklch(0.62 0.08 160)",
+  sky: "oklch(0.65 0.12 235)",
+  plum: "oklch(0.43 0.10 320)",
+  ink: "oklch(0.25 0.03 255)",
+}
 
-function BookingPreferences() { const [visible, setVisible] = useState(true); const [reminders, setReminders] = useState(true); const [buffer, setBuffer] = useState(true); const [policy, setPolicy] = useState(""); const [fields, setFields] = useState({ phone: true, notes: false, address: false }); return <div className="preferences-settings-stack"><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Booking page</h2><p>Control how clients discover and book your services.</p></div></div><div className="preference-toggle"><div><strong>Accept online bookings</strong><p>Let clients book appointments from your public booking page.</p></div><label className="settings-switch"><input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} /><i /></label></div><div className="preference-toggle"><div><strong>Show available staff</strong><p>Let clients choose a preferred team member when booking.</p></div><label className="settings-switch"><input type="checkbox" defaultChecked /><i /></label></div></section><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Booking rules</h2><p>Set boundaries that keep your schedule manageable.</p></div></div><div className="settings-form-grid preference-form-grid"><label><span>Minimum notice</span><select defaultValue="2"><option value="0">No minimum</option><option value="2">2 hours</option><option value="24">24 hours</option><option value="48">48 hours</option></select></label><label><span>How far ahead clients can book</span><select defaultValue="60"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label><label><span>Cancellation notice</span><select defaultValue="24"><option value="0">Anytime</option><option value="24">24 hours</option><option value="48">48 hours</option></select></label><label><span>Time between appointments</span><select defaultValue="0"><option value="0">No buffer</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option></select></label></div></section><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Reminders &amp; confirmations</h2><p>Keep clients informed without manual follow-up.</p></div></div><div className="preference-toggle"><div><strong>Automatic booking confirmation</strong><p>Send a confirmation as soon as an appointment is booked.</p></div><label className="settings-switch"><input type="checkbox" defaultChecked /><i /></label></div><div className="preference-toggle"><div><strong>Appointment reminders</strong><p>Send a reminder before each upcoming appointment.</p></div><label className="settings-switch"><input type="checkbox" checked={reminders} onChange={(event) => setReminders(event.target.checked)} /><i /></label></div><div className="preference-toggle"><div><strong>Buffer after each appointment</strong><p>Automatically reserve a short cleanup or reset period.</p></div><label className="settings-switch"><input type="checkbox" checked={buffer} onChange={(event) => setBuffer(event.target.checked)} /><i /></label></div></section><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Booking policy</h2><p>Share need-to-know details about amending bookings, refunds and more before customers confirm their bookings.</p></div></div><label className="preference-policy-field"><span>Booking policy</span><textarea value={policy} onChange={(event) => setPolicy(event.target.value)} placeholder="Add your booking, cancellation, and refund policy" /></label></section><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Contact fields</h2><p>What form fields will display when customers book online?</p></div></div><div className="contact-field-list">{[["phone", "Phone number", "Ask customers for a phone number"], ["notes", "Booking notes", "Let customers add a note to their booking"], ["address", "Address", "Collect a customer address when needed"]].map(([key, label, description]) => <div className="preference-toggle" key={key}><div><strong>{label}</strong><p>{description}</p></div><label className="settings-switch"><input type="checkbox" checked={fields[key as keyof typeof fields]} onChange={(event) => setFields((current) => ({ ...current, [key]: event.target.checked }))} /><i /></label></div>)}</div></section></div> }
+export interface DaySchedule {
+  day: string
+  open: boolean
+  start: string
+  end: string
+}
 
-function NotificationsSettings() { const [email, setEmail] = useState(true); const [sms, setSms] = useState(false); const [clientUpdates, setClientUpdates] = useState(true); const [teamUpdates, setTeamUpdates] = useState(true); return <div className="preferences-settings-stack"><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Notification channels</h2><p>Choose where Bookora should send workspace updates.</p></div></div><div className="preference-toggle"><div><strong>Email notifications</strong><p>Receive booking and account updates in your inbox.</p></div><label className="settings-switch"><input type="checkbox" checked={email} onChange={(event) => setEmail(event.target.checked)} /><i /></label></div><div className="preference-toggle"><div><strong>SMS notifications</strong><p>Get important schedule changes by text message.</p></div><label className="settings-switch"><input type="checkbox" checked={sms} onChange={(event) => setSms(event.target.checked)} /><i /></label></div></section><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Client notifications</h2><p>Keep customers informed throughout their booking.</p></div></div><div className="preference-toggle"><div><strong>New booking confirmations</strong><p>Notify clients when their appointment is successfully booked.</p></div><label className="settings-switch"><input type="checkbox" checked={clientUpdates} onChange={(event) => setClientUpdates(event.target.checked)} /><i /></label></div><div className="preference-toggle"><div><strong>Changes and cancellations</strong><p>Send an update when an appointment changes or is cancelled.</p></div><label className="settings-switch"><input type="checkbox" defaultChecked /><i /></label></div><div className="settings-form-grid preference-form-grid"><label><span>Reminder timing</span><select defaultValue="24"><option value="2">2 hours before</option><option value="24">24 hours before</option><option value="48">48 hours before</option></select></label></div></section><section className="settings-card preference-card"><div className="settings-card-heading"><div><h2>Team notifications</h2><p>Help your staff stay in sync with the schedule.</p></div></div><div className="preference-toggle"><div><strong>New and changed appointments</strong><p>Notify team members when their schedule changes.</p></div><label className="settings-switch"><input type="checkbox" checked={teamUpdates} onChange={(event) => setTeamUpdates(event.target.checked)} /><i /></label></div><div className="preference-toggle"><div><strong>Daily schedule summary</strong><p>Send a morning summary of each team member’s appointments.</p></div><label className="settings-switch"><input type="checkbox" defaultChecked /><i /></label></div></section></div> }
-function Profile({ user, name, setName, about, setAbout, industry, setIndustry, color, setColor, theme, setTheme }: any) { return <div className="profile-settings-stack"><section className="settings-card"><div className="settings-card-heading"><h2>Brand details</h2></div><div className="brand-assets"><div className="brand-upload banner-upload"><button>Upload banner image</button></div><div className="brand-upload logo-upload"><span className="brand-logo-preview"><Store /></span><div><strong>Brand logo</strong><small>Select a 200 × 200 px image, up to 2 MB in size</small></div><button>Upload logo</button></div></div><div className="settings-form-grid profile-form-grid"><label><span>Business name</span><input value={name} onChange={(e) => setName(e.target.value)} /></label><label><span>Your Booking Page URL</span><input defaultValue={name.toLowerCase().replace(/[^a-z0-9]+/g, "-")} /></label><label><span>Industry</span><select value={industry} onChange={(e) => setIndustry(e.target.value)}><option>Nail salon</option><option>Hair salon</option><option>Barbershop</option></select></label><label className="settings-field-wide"><span>About</span><textarea className="settings-textarea" value={about} onChange={(e) => setAbout(e.target.value)} placeholder="Tell clients about your business" /></label></div></section><section className="settings-card"><div className="settings-card-heading"><h2>Appearance</h2></div><Appearance color={color} setColor={setColor} theme={theme} setTheme={setTheme} /></section><section className="settings-card"><div className="settings-card-heading"><h2>Contact details</h2></div><div className="settings-form-grid contact-form-grid"><label className="contact-email"><span>Primary email</span><input type="email" defaultValue={user.email ?? ""} /></label><label className="contact-country-code"><span className="code-label-full">Country code</span><span className="code-label-short">Code</span><select defaultValue="+63"><option>+63</option><option>+1</option></select></label><label className="contact-phone-number"><span>Phone number</span><input defaultValue="0912 840 6176" placeholder="0912 840 6176" /></label></div></section><section className="settings-card"><div className="settings-card-heading"><h2>Location</h2></div><div className="settings-form-grid"><label className="settings-field-wide"><span>Address</span><input placeholder="Business name, street name, apt, suite, floor" /></label><label><span>City</span><input placeholder="San Francisco" /></label><label><span>Country</span><select defaultValue="Philippines"><option>Philippines</option><option>Singapore</option></select></label></div></section><Hours /><section className="settings-card"><div className="settings-card-heading"><h2>Your links</h2></div><div className="settings-form-grid links-grid"><label><span>Website</span><input placeholder="https://yourbusiness.com" /></label><label><span>Instagram</span><input placeholder="@yourbusiness" /></label><label><span>Facebook</span><input placeholder="facebook.com/yourbusiness" /></label></div></section></div> }
+function Preview({
+  name,
+  about,
+  industry,
+  color,
+  theme,
+  bannerUrl,
+  logoUrl,
+}: {
+  name: string
+  about: string
+  industry: string
+  color: string
+  theme: string
+  bannerUrl?: string
+  logoUrl?: string
+}) {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+  return (
+    <aside
+      className={`settings-preview preview-theme-${theme.toLowerCase()}`}
+      style={{ "--preview-accent": palette[color] ?? palette.coral } as CSSProperties}
+    >
+      <div className="preview-heading">
+        <strong>Preview</strong>
+        <div>
+          <button className="active" aria-label="Mobile preview">
+            <Smartphone />
+          </button>
+          <button aria-label="Desktop preview">
+            <Monitor />
+          </button>
+        </div>
+      </div>
+      <div className="preview-card">
+        <div className="preview-url">
+          https://{slug || "your-business"}.bookora.com <span>↗</span>
+        </div>
+        <div
+          className="preview-stage"
+          style={
+            bannerUrl
+              ? {
+                  backgroundImage: `url(${bannerUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        >
+          <div className="preview-phone">
+            <span className="preview-phone-notch" />
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt=""
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  alignSelf: "center",
+                  border: "1.5px solid white",
+                  marginTop: "2px",
+                }}
+              />
+            )}
+            <strong>{name || "Your business"}</strong>
+            <span>{industry}</span>
+            <span>{about || "Book your appointment"}</span>
+            <i />
+            <i />
+            <i />
+            <button>Book now</button>
+          </div>
+        </div>
+      </div>
+      <div className="preview-help">
+        <div className="preview-avatars">
+          <span>LU</span>
+          <span>MA</span>
+          <span>JO</span>
+        </div>
+        <strong>Need help with your Booking Page?</strong>
+        <p>We're real people here to help you 24/7</p>
+        <button>● &nbsp;Connect with us</button>
+      </div>
+    </aside>
+  )
+}
 
-function AvailabilityPanel({ type, onClose }: { type: "breaks" | "time-off"; onClose: () => void }) { const isBreaks = type === "breaks"; const [enabled, setEnabled] = useState(days.map((_, index) => index === 0)); const [breakCounts, setBreakCounts] = useState<Record<string, number>>({ Monday: 1 }); const [allDay, setAllDay] = useState(true); return <div className={`availability-panel availability-${type}`} role="dialog" aria-modal="true" aria-labelledby="availability-title"><div className="availability-panel-heading"><div><h3 id="availability-title">Manage {isBreaks ? "breaks" : "time off"}</h3><p>{isBreaks ? "Set recurring break times for each working day." : "Block time when your business is unavailable."}</p></div><button type="button" aria-label="Close" onClick={onClose}><X /></button></div>{isBreaks ? <div className="breaks-editor"><div className="breaks-heading"><strong>Manage breaks</strong><small>Choose which days have recurring breaks.</small></div>{days.map((day, index) => <div className="break-day-group" key={day}><div className="break-row"><label className="hours-toggle"><input type="checkbox" checked={enabled[index]} onChange={() => setEnabled((current) => current.map((value, itemIndex) => itemIndex === index ? !value : value))} /><i /></label><span>{day}</span>{enabled[index] ? <><input type="time" defaultValue="12:00" /><b>–</b><input type="time" defaultValue="13:00" /><button type="button" className="break-add" aria-label={`Add break on ${day}`} onClick={() => setBreakCounts((current) => ({ ...current, [day]: (current[day] ?? 1) + 1 }))}>+</button></> : <em>{index > 4 ? "Day off" : "No breaks"}</em>}</div>{enabled[index] && Array.from({ length: Math.max(0, (breakCounts[day] ?? 1) - 1) }).map((_, extraIndex) => <div className="break-row break-extra-row" key={`${day}-${extraIndex}`}><span /><span /><input type="time" placeholder="h:mm a" /><b>–</b><input type="time" placeholder="h:mm a" /><button type="button" className="break-remove" aria-label={`Remove break on ${day}`} onClick={() => setBreakCounts((current) => ({ ...current, [day]: Math.max(1, (current[day] ?? 1) - 1) }))}><Trash2 /></button></div>)}</div>)}</div> : <div className="timeoff-editor"><label><span>Title</span><input autoFocus placeholder="e.g. Vacation, Doctor's appointment" /></label><div className="timeoff-dates"><label><span>Start date</span><input type="date" defaultValue="2026-10-11" /></label>{!allDay && <label><span>Start time</span><input type="time" defaultValue="00:00" /></label>}<label><span>End date</span><input type="date" defaultValue="2026-10-11" /></label>{!allDay && <label><span>End time</span><input type="time" defaultValue="00:00" /></label>}</div><div className="timeoff-options"><label className="checkbox-label"><input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} /> <span>All day</span></label><select defaultValue="none"><option value="none">Does not repeat</option><option value="weekly">Every week</option><option value="monthly">Every month</option></select></div><div className="timeoff-actions"><button type="button" onClick={onClose}>Cancel</button><button type="button" className="settings-primary-action">Add</button></div></div>}</div> }
-function AccountSettings({ user }: { user: User }) { const [panel, setPanel] = useState<"breaks" | "time-off" | null>(null); return <div className="security-settings-stack"><section className="settings-card security-card"><div className="settings-card-heading"><div><h2>Your profile</h2><p>Keep your personal details up to date.</p></div><span className="security-heading-icon"><UserRound /></span></div><div className="account-profile-grid"><label><span>Full name</span><input defaultValue={String(user.user_metadata?.full_name ?? "Luigi Opalia")} /></label><label><span>Email address</span><input type="email" defaultValue={user.email ?? ""} /></label><label><span>Role</span><input className="locked-field" readOnly value="Owner" aria-readonly="true" /></label><label><span>Phone number</span><input defaultValue="912 840 6176" /></label></div></section><section className="settings-card security-card"><div className="settings-card-heading"><div><h2>Availability</h2><p>Set time away from your workspace and booking schedule.</p></div></div><div className="security-item"><span className="security-item-icon"><CalendarDays /></span><div><strong>Breaks</strong><p>Add recurring breaks between working hours.</p></div><button className="settings-outline-action" onClick={() => setPanel("breaks")}>Manage breaks</button></div><div className="security-item"><span className="security-item-icon"><CalendarDays /></span><div><strong>Time off</strong><p>Block holidays, leave, and one-off unavailable dates.</p></div><button className="settings-outline-action" onClick={() => setPanel("time-off")}>Manage time off</button></div>{panel && <AvailabilityPanel type={panel} onClose={() => setPanel(null)} />}</section></div> }
-function SecuritySettings({ user }: { user: User }) { const [showChangePassword, setShowChangePassword] = useState(false); const lastUpdated = user.user_metadata?.password_updated_at ? new Date(user.user_metadata.password_updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null; return <div className="security-settings-stack"><section className="settings-card security-card"><div className="settings-card-heading"><div><h2>Security</h2><p>Manage your sign-in details and keep your account protected.</p></div><span className="security-heading-icon"><ShieldCheck /></span></div><div className="security-item"><span className="security-item-icon"><KeyRound /></span><div><strong>Password</strong><p>{lastUpdated ? `Last updated on ${lastUpdated}` : "Use a strong password that you do not reuse elsewhere."}</p></div><button type="button" className="settings-outline-action" onClick={() => setShowChangePassword(true)}>Change password</button></div><div className="security-item"><span className="security-item-icon"><LockKeyhole /></span><div><strong>Email address</strong><p>{user.email || "Your email address"}</p></div><button className="settings-outline-action">Update email</button></div></section><section className="settings-card security-card"><div className="settings-card-heading"><h2>Passkeys</h2><p>Sign in securely with Face ID, fingerprint, or your device PIN.</p></div><div className="security-item"><span className="security-item-icon"><Fingerprint /></span><div><strong>Passwordless sign-in</strong><p>Passkeys make signing in faster and more secure.</p></div><button className="settings-primary-action">Add passkey</button></div></section><section className="settings-card security-card"><div className="settings-card-heading"><h2>Sessions</h2><p>Review where your account is currently signed in.</p></div><div className="security-item"><span className="security-item-icon"><LockKeyhole /></span><div><strong>This device</strong><p>Active now · Browser session</p></div><button className="settings-outline-action">Sign out other devices</button></div></section><section className="settings-card security-card security-danger"><div className="settings-card-heading"><h2>Danger zone</h2><p>These actions can permanently affect your account.</p></div><button className="settings-danger-action">Delete account</button></section>{showChangePassword && <ChangePasswordModal user={user} onClose={() => setShowChangePassword(false)} />}</div> }
-export function SettingsPage({ user }: { user: User }) { const [active, setActive] = useState("Business profile"); const [name, setName] = useState(String(user.user_metadata?.business_name ?? "Your business")); const [about, setAbout] = useState(""); const [industry, setIndustry] = useState("Nail salon"); const [color, setColor] = useState("coral"); const [theme, setTheme] = useState("Light"); const [saved, setSaved] = useState(false); const noPreview = active === "Account" || active === "Security" || active === "Booking preferences" || active === "Notifications"; return <div className="settings-page"><div className="settings-float-save"><Button onClick={() => { setSaved(true); window.setTimeout(() => setSaved(false), 2000) }}><Save data-icon="inline-start" /> {saved ? "Changes saved" : "Save changes"}</Button></div><div className={`settings-layout ${noPreview ? "settings-layout-no-preview" : ""}`}><nav className="settings-tabs" aria-label="Settings sections"><h1 className="settings-nav-title">Settings</h1>{tabs.map(([label, Icon]) => <button key={label} className={active === label ? "active" : ""} onClick={() => setActive(label)}><span className="settings-tab-label"><Icon />{label}</span><span>›</span></button>)}</nav><div className="settings-content">{active === "Business profile" ? <Profile user={user} name={name} setName={setName} about={about} setAbout={setAbout} industry={industry} setIndustry={setIndustry} color={color} setColor={setColor} theme={theme} setTheme={setTheme} /> : active === "Booking preferences" ? <BookingPreferences /> : active === "Notifications" ? <NotificationsSettings /> : active === "Account" ? <AccountSettings user={user} /> : active === "Security" ? <SecuritySettings user={user} /> : <section className="dashboard-placeholder"><span className="placeholder-icon"><Fingerprint /></span><h1>{active}</h1><p>This workspace is ready for your {active.toLowerCase()} workflow.</p></section>}</div>{!noPreview && <Preview name={name} about={about} industry={industry} color={color} theme={theme} />}</div></div> }
+function Appearance({ color, setColor, theme, setTheme }: any) {
+  const colors = ["coral", "rose", "orange", "navy", "sage", "sky", "plum", "ink"]
+  return (
+    <>
+      <div className="appearance-colors">
+        <strong>Brand color</strong>
+        <div>
+          {colors.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={`color-swatch ${item} ${color === item ? "active" : ""}`}
+              aria-label={item}
+              aria-pressed={color === item}
+              onClick={() => setColor(item)}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="theme-options">
+        {[
+          ["System", Monitor],
+          ["Light", Sun],
+          ["Dark", Moon],
+        ].map(([label, Icon]: any) => (
+          <button
+            key={label}
+            type="button"
+            className={theme === label ? "selected" : ""}
+            onClick={() => setTheme(label)}
+          >
+            <span className="theme-radio" />
+            <Icon />
+            <strong>{label}</strong>
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function Hours({
+  hours,
+  setHours,
+}: {
+  hours: DaySchedule[]
+  setHours: React.Dispatch<React.SetStateAction<DaySchedule[]>>
+}) {
+  const updateDay = (index: number, updates: Partial<DaySchedule>) => {
+    setHours((current) => current.map((item, idx) => (idx === index ? { ...item, ...updates } : item)))
+  }
+
+  return (
+    <section className="settings-card">
+      <div className="settings-card-heading">
+        <h2>Business hours</h2>
+      </div>
+      <div className="hours-list">
+        {hours.map((schedule, i) => (
+          <div className="hours-row" key={schedule.day}>
+            <label className="hours-toggle">
+              <input
+                type="checkbox"
+                checked={schedule.open}
+                onChange={(event) => updateDay(i, { open: event.target.checked })}
+              />
+              <i />
+            </label>
+            <strong>{schedule.day}</strong>
+            {schedule.open ? (
+              <>
+                <input
+                  type="time"
+                  value={schedule.start}
+                  onChange={(event) => updateDay(i, { start: event.target.value })}
+                />
+                <span>—</span>
+                <input
+                  type="time"
+                  value={schedule.end}
+                  onChange={(event) => updateDay(i, { end: event.target.value })}
+                />
+              </>
+            ) : (
+              <em>Closed</em>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function BookingPreferences() {
+  const [visible, setVisible] = useState(true)
+  const [reminders, setReminders] = useState(true)
+  const [buffer, setBuffer] = useState(true)
+  const [policy, setPolicy] = useState("")
+  const [fields, setFields] = useState({ phone: true, notes: false, address: false })
+  return (
+    <div className="preferences-settings-stack">
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Booking page</h2>
+            <p>Control how clients discover and book your services.</p>
+          </div>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Accept online bookings</strong>
+            <p>Let clients book appointments from your public booking page.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Show available staff</strong>
+            <p>Let clients choose a preferred team member when booking.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" defaultChecked />
+            <i />
+          </label>
+        </div>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Booking rules</h2>
+            <p>Set boundaries that keep your schedule manageable.</p>
+          </div>
+        </div>
+        <div className="settings-form-grid preference-form-grid">
+          <label>
+            <span>Minimum notice</span>
+            <select defaultValue="2">
+              <option value="0">No minimum</option>
+              <option value="2">2 hours</option>
+              <option value="24">24 hours</option>
+              <option value="48">48 hours</option>
+            </select>
+          </label>
+          <label>
+            <span>How far ahead clients can book</span>
+            <select defaultValue="60">
+              <option value="30">30 days</option>
+              <option value="60">60 days</option>
+              <option value="90">90 days</option>
+            </select>
+          </label>
+          <label>
+            <span>Cancellation notice</span>
+            <select defaultValue="24">
+              <option value="0">Anytime</option>
+              <option value="24">24 hours</option>
+              <option value="48">48 hours</option>
+            </select>
+          </label>
+          <label>
+            <span>Time between appointments</span>
+            <select defaultValue="0">
+              <option value="0">No buffer</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="15">15 minutes</option>
+            </select>
+          </label>
+        </div>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Reminders &amp; confirmations</h2>
+            <p>Keep clients informed without manual follow-up.</p>
+          </div>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Automatic booking confirmation</strong>
+            <p>Send a confirmation as soon as an appointment is booked.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" defaultChecked />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Appointment reminders</strong>
+            <p>Send a reminder before each upcoming appointment.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={reminders} onChange={(event) => setReminders(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Buffer after each appointment</strong>
+            <p>Automatically reserve a short cleanup or reset period.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={buffer} onChange={(event) => setBuffer(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Booking policy</h2>
+            <p>Share need-to-know details about amending bookings, refunds and more before customers confirm their bookings.</p>
+          </div>
+        </div>
+        <label className="preference-policy-field">
+          <span>Booking policy</span>
+          <textarea
+            value={policy}
+            onChange={(event) => setPolicy(event.target.value)}
+            placeholder="Add your booking, cancellation, and refund policy"
+          />
+        </label>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Contact fields</h2>
+            <p>What form fields will display when customers book online?</p>
+          </div>
+        </div>
+        <div className="contact-field-list">
+          {[
+            ["phone", "Phone number", "Ask customers for a phone number"],
+            ["notes", "Booking notes", "Let customers add a note to their booking"],
+            ["address", "Address", "Collect a customer address when needed"],
+          ].map(([key, label, description]) => (
+            <div className="preference-toggle" key={key}>
+              <div>
+                <strong>{label}</strong>
+                <p>{description}</p>
+              </div>
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  checked={fields[key as keyof typeof fields]}
+                  onChange={(event) => setFields((current) => ({ ...current, [key]: event.target.checked }))}
+                />
+                <i />
+              </label>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function NotificationsSettings() {
+  const [email, setEmail] = useState(true)
+  const [sms, setSms] = useState(false)
+  const [clientUpdates, setClientUpdates] = useState(true)
+  const [teamUpdates, setTeamUpdates] = useState(true)
+  return (
+    <div className="preferences-settings-stack">
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Notification channels</h2>
+            <p>Choose where Bookora should send workspace updates.</p>
+          </div>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Email notifications</strong>
+            <p>Receive booking and account updates in your inbox.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={email} onChange={(event) => setEmail(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>SMS notifications</strong>
+            <p>Get important schedule changes by text message.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={sms} onChange={(event) => setSms(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Client notifications</h2>
+            <p>Keep customers informed throughout their booking.</p>
+          </div>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>New booking confirmations</strong>
+            <p>Notify clients when their appointment is successfully booked.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={clientUpdates} onChange={(event) => setClientUpdates(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Changes and cancellations</strong>
+            <p>Send an update when an appointment changes or is cancelled.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" defaultChecked />
+            <i />
+          </label>
+        </div>
+        <div className="settings-form-grid preference-form-grid">
+          <label>
+            <span>Reminder timing</span>
+            <select defaultValue="24">
+              <option value="2">2 hours before</option>
+              <option value="24">24 hours before</option>
+              <option value="48">48 hours before</option>
+            </select>
+          </label>
+        </div>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Team notifications</h2>
+            <p>Help your staff stay in sync with the schedule.</p>
+          </div>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>New and changed appointments</strong>
+            <p>Notify team members when their schedule changes.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={teamUpdates} onChange={(event) => setTeamUpdates(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Daily schedule summary</strong>
+            <p>Send a morning summary of each team member’s appointments.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" defaultChecked />
+            <i />
+          </label>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+interface ProfileProps {
+  name: string
+  setName: (v: string) => void
+  slug: string
+  setSlug: (v: string) => void
+  about: string
+  setAbout: (v: string) => void
+  industry: string
+  setIndustry: (v: string) => void
+  color: string
+  setColor: (v: string) => void
+  theme: string
+  setTheme: (v: string) => void
+  email: string
+  setEmail: (v: string) => void
+  countryCode: string
+  setCountryCode: (v: string) => void
+  phone: string
+  setPhone: (v: string) => void
+  address: string
+  setAddress: (v: string) => void
+  city: string
+  setCity: (v: string) => void
+  country: string
+  setCountry: (v: string) => void
+  hours: DaySchedule[]
+  setHours: React.Dispatch<React.SetStateAction<DaySchedule[]>>
+  website: string
+  setWebsite: (v: string) => void
+  instagram: string
+  setInstagram: (v: string) => void
+  facebook: string
+  setFacebook: (v: string) => void
+  bannerUrl: string
+  setBannerUrl: (v: string) => void
+  logoUrl: string
+  setLogoUrl: (v: string) => void
+}
+
+function Profile({
+  name,
+  setName,
+  slug,
+  setSlug,
+  about,
+  setAbout,
+  industry,
+  setIndustry,
+  color,
+  setColor,
+  theme,
+  setTheme,
+  email,
+  setEmail,
+  countryCode,
+  setCountryCode,
+  phone,
+  setPhone,
+  address,
+  setAddress,
+  city,
+  setCity,
+  country,
+  setCountry,
+  hours,
+  setHours,
+  website,
+  setWebsite,
+  instagram,
+  setInstagram,
+  facebook,
+  setFacebook,
+  bannerUrl,
+  setBannerUrl,
+  logoUrl,
+  setLogoUrl,
+}: ProfileProps) {
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  const handleBannerUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload a valid image file (PNG, JPG, WebP).")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setBannerUrl(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload a valid image file (PNG, JPG, WebP).")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setLogoUrl(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div className="profile-settings-stack">
+      <section className="settings-card">
+        <div className="settings-card-heading">
+          <h2>Brand details</h2>
+        </div>
+        <div className="brand-assets">
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleBannerUpload}
+          />
+          <div
+            className={`brand-upload banner-upload ${bannerUrl ? "has-banner" : ""}`}
+            style={
+              bannerUrl
+                ? {
+                    backgroundImage: `url(${bannerUrl})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : undefined
+            }
+          >
+            <div className="banner-actions">
+              <button type="button" onClick={() => bannerInputRef.current?.click()}>
+                <UploadCloud style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "middle", marginRight: 5 }} />
+                {bannerUrl ? "Change banner image" : "Upload banner image"}
+              </button>
+              {bannerUrl && (
+                <button
+                  type="button"
+                  className="banner-remove-btn"
+                  onClick={() => {
+                    setBannerUrl("")
+                    if (bannerInputRef.current) bannerInputRef.current.value = ""
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleLogoUpload}
+          />
+          <div className="brand-upload logo-upload">
+            <span
+              className="brand-logo-preview"
+              onClick={() => logoInputRef.current?.click()}
+              style={{ cursor: "pointer" }}
+              title="Click to upload logo"
+            >
+              {logoUrl ? (
+                <img src={logoUrl} alt="Brand logo" className="brand-logo-img" />
+              ) : (
+                <Store />
+              )}
+            </span>
+            <div>
+              <strong>Brand logo</strong>
+              <small>Select a 200 × 200 px image, up to 3 MB in size</small>
+            </div>
+            <div className="logo-actions">
+              <button type="button" onClick={() => logoInputRef.current?.click()}>
+                {logoUrl ? "Change logo" : "Upload logo"}
+              </button>
+              {logoUrl && (
+                <button
+                  type="button"
+                  className="logo-remove-btn"
+                  onClick={() => {
+                    setLogoUrl("")
+                    if (logoInputRef.current) logoInputRef.current.value = ""
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-form-grid profile-form-grid">
+          <label>
+            <span>Business name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Glow Studio"
+            />
+          </label>
+          <label>
+            <span>Your Booking Page URL</span>
+            <input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder={name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "your-business"}
+            />
+          </label>
+          <label>
+            <span>Industry</span>
+            <select value={industry} onChange={(e) => setIndustry(e.target.value)}>
+              <option>Nail salon</option>
+              <option>Hair salon</option>
+              <option>Barbershop</option>
+              <option>Facial &amp; spa</option>
+              <option>Makeup studio</option>
+              <option>Beauty clinic</option>
+            </select>
+          </label>
+          <label className="settings-field-wide">
+            <span>About</span>
+            <textarea
+              className="settings-textarea"
+              value={about}
+              onChange={(e) => setAbout(e.target.value)}
+              placeholder="Tell clients about your business"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <div className="settings-card-heading">
+          <h2>Appearance</h2>
+        </div>
+        <Appearance color={color} setColor={setColor} theme={theme} setTheme={setTheme} />
+      </section>
+
+      <section className="settings-card">
+        <div className="settings-card-heading">
+          <h2>Contact details</h2>
+        </div>
+        <div className="settings-form-grid contact-form-grid">
+          <label className="contact-email">
+            <span>Primary email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="contact@yourbusiness.com"
+            />
+          </label>
+          <label className="contact-country-code">
+            <span className="code-label-full">Country code</span>
+            <span className="code-label-short">Code</span>
+            <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>
+              <option value="+63">+63</option>
+              <option value="+1">+1</option>
+              <option value="+65">+65</option>
+              <option value="+81">+81</option>
+              <option value="+44">+44</option>
+              <option value="+61">+61</option>
+            </select>
+          </label>
+          <label className="contact-phone-number">
+            <span>Phone number</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. 0912 345 6789"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <div className="settings-card-heading">
+          <h2>Location</h2>
+        </div>
+        <div className="settings-form-grid">
+          <label className="settings-field-wide">
+            <span>Address</span>
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Business name, street name, apt, suite, floor"
+            />
+          </label>
+          <label>
+            <span>City</span>
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. San Francisco or Manila"
+            />
+          </label>
+          <label>
+            <span>Country</span>
+            <select value={country} onChange={(e) => setCountry(e.target.value)}>
+              <option>Philippines</option>
+              <option>Singapore</option>
+              <option>United States</option>
+              <option>Australia</option>
+              <option>United Kingdom</option>
+              <option>Japan</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <Hours hours={hours} setHours={setHours} />
+
+      <section className="settings-card">
+        <div className="settings-card-heading">
+          <h2>Your links</h2>
+        </div>
+        <div className="settings-form-grid links-grid">
+          <label>
+            <span>Website</span>
+            <input
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://yourbusiness.com"
+            />
+          </label>
+          <label>
+            <span>Instagram</span>
+            <input
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              placeholder="@yourbusiness"
+            />
+          </label>
+          <label>
+            <span>Facebook</span>
+            <input
+              value={facebook}
+              onChange={(e) => setFacebook(e.target.value)}
+              placeholder="facebook.com/yourbusiness"
+            />
+          </label>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function AvailabilityPanel({ type, onClose }: { type: "breaks" | "time-off"; onClose: () => void }) {
+  const isBreaks = type === "breaks"
+  const [enabled, setEnabled] = useState(days.map((_, index) => index === 0))
+  const [breakCounts, setBreakCounts] = useState<Record<string, number>>({ Monday: 1 })
+  const [allDay, setAllDay] = useState(true)
+  return (
+    <div
+      className={`availability-panel availability-${type}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="availability-title"
+    >
+      <div className="availability-panel-heading">
+        <div>
+          <h3 id="availability-title">Manage {isBreaks ? "breaks" : "time off"}</h3>
+          <p>{isBreaks ? "Set recurring break times for each working day." : "Block time when your business is unavailable."}</p>
+        </div>
+        <button type="button" aria-label="Close" onClick={onClose}>
+          <X />
+        </button>
+      </div>
+      {isBreaks ? (
+        <div className="breaks-editor">
+          <div className="breaks-heading">
+            <strong>Manage breaks</strong>
+            <small>Choose which days have recurring breaks.</small>
+          </div>
+          {days.map((day, index) => (
+            <div className="break-day-group" key={day}>
+              <div className="break-row">
+                <label className="hours-toggle">
+                  <input
+                    type="checkbox"
+                    checked={enabled[index]}
+                    onChange={() =>
+                      setEnabled((current) => current.map((value, itemIndex) => (itemIndex === index ? !value : value)))
+                    }
+                  />
+                  <i />
+                </label>
+                <span>{day}</span>
+                {enabled[index] ? (
+                  <>
+                    <input type="time" defaultValue="12:00" />
+                    <b>–</b>
+                    <input type="time" defaultValue="13:00" />
+                    <button
+                      type="button"
+                      className="break-add"
+                      aria-label={`Add break on ${day}`}
+                      onClick={() =>
+                        setBreakCounts((current) => ({ ...current, [day]: (current[day] ?? 1) + 1 }))
+                      }
+                    >
+                      +
+                    </button>
+                  </>
+                ) : (
+                  <em>{index > 4 ? "Day off" : "No breaks"}</em>
+                )}
+              </div>
+              {enabled[index] &&
+                Array.from({ length: Math.max(0, (breakCounts[day] ?? 1) - 1) }).map((_, extraIndex) => (
+                  <div className="break-row break-extra-row" key={`${day}-${extraIndex}`}>
+                    <span />
+                    <span />
+                    <input type="time" placeholder="h:mm a" />
+                    <b>–</b>
+                    <input type="time" placeholder="h:mm a" />
+                    <button
+                      type="button"
+                      className="break-remove"
+                      aria-label={`Remove break on ${day}`}
+                      onClick={() =>
+                        setBreakCounts((current) => ({ ...current, [day]: Math.max(1, (current[day] ?? 1) - 1) }))
+                      }
+                    >
+                      <Trash2 />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="timeoff-editor">
+          <label>
+            <span>Title</span>
+            <input autoFocus placeholder="e.g. Vacation, Doctor's appointment" />
+          </label>
+          <div className="timeoff-dates">
+            <label>
+              <span>Start date</span>
+              <input type="date" defaultValue="2026-10-11" />
+            </label>
+            {!allDay && (
+              <label>
+                <span>Start time</span>
+                <input type="time" defaultValue="00:00" />
+              </label>
+            )}
+            <label>
+              <span>End date</span>
+              <input type="date" defaultValue="2026-10-11" />
+            </label>
+            {!allDay && (
+              <label>
+                <span>End time</span>
+                <input type="time" defaultValue="00:00" />
+              </label>
+            )}
+          </div>
+          <div className="timeoff-options">
+            <label className="checkbox-label">
+              <input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} />{" "}
+              <span>All day</span>
+            </label>
+            <select defaultValue="none">
+              <option value="none">Does not repeat</option>
+              <option value="weekly">Every week</option>
+              <option value="monthly">Every month</option>
+            </select>
+          </div>
+          <div className="timeoff-actions">
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="settings-primary-action">
+              Add
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AccountSettings({ user }: { user: User }) {
+  const [panel, setPanel] = useState<"breaks" | "time-off" | null>(null)
+  return (
+    <div className="security-settings-stack">
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Your profile</h2>
+            <p>Keep your personal details up to date.</p>
+          </div>
+          <span className="security-heading-icon">
+            <UserRound />
+          </span>
+        </div>
+        <div className="account-profile-grid">
+          <label>
+            <span>Full name</span>
+            <input defaultValue={String(user.user_metadata?.full_name ?? "Luigi Opalia")} />
+          </label>
+          <label>
+            <span>Email address</span>
+            <input type="email" defaultValue={user.email ?? ""} />
+          </label>
+          <label>
+            <span>Role</span>
+            <input className="locked-field" readOnly value="Owner" aria-readonly="true" />
+          </label>
+          <label>
+            <span>Phone number</span>
+            <input
+              type="tel"
+              defaultValue={String(user.user_metadata?.phone ?? "")}
+              placeholder="Enter phone number"
+            />
+          </label>
+        </div>
+      </section>
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Availability</h2>
+            <p>Set time away from your workspace and booking schedule.</p>
+          </div>
+        </div>
+        <div className="security-item">
+          <span className="security-item-icon">
+            <CalendarDays />
+          </span>
+          <div>
+            <strong>Breaks</strong>
+            <p>Add recurring breaks between working hours.</p>
+          </div>
+          <button className="settings-outline-action" onClick={() => setPanel("breaks")}>
+            Manage breaks
+          </button>
+        </div>
+        <div className="security-item">
+          <span className="security-item-icon">
+            <CalendarDays />
+          </span>
+          <div>
+            <strong>Time off</strong>
+            <p>Block holidays, leave, and one-off unavailable dates.</p>
+          </div>
+          <button className="settings-outline-action" onClick={() => setPanel("time-off")}>
+            Manage time off
+          </button>
+        </div>
+        {panel && <AvailabilityPanel type={panel} onClose={() => setPanel(null)} />}
+      </section>
+    </div>
+  )
+}
+
+function SecuritySettings({ user }: { user: User }) {
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const lastUpdated = user.user_metadata?.password_updated_at
+    ? new Date(user.user_metadata.password_updated_at).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null
+
+  return (
+    <div className="security-settings-stack">
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Security</h2>
+            <p>Manage your sign-in details and keep your account protected.</p>
+          </div>
+          <span className="security-heading-icon">
+            <ShieldCheck />
+          </span>
+        </div>
+        <div className="security-item">
+          <span className="security-item-icon">
+            <KeyRound />
+          </span>
+          <div>
+            <strong>Password</strong>
+            <p>{lastUpdated ? `Last updated on ${lastUpdated}` : "Use a strong password that you do not reuse elsewhere."}</p>
+          </div>
+          <button type="button" className="settings-outline-action" onClick={() => setShowChangePassword(true)}>
+            Change password
+          </button>
+        </div>
+        <div className="security-item">
+          <span className="security-item-icon">
+            <LockKeyhole />
+          </span>
+          <div>
+            <strong>Email address</strong>
+            <p>{user.email || "Your email address"}</p>
+          </div>
+          <button className="settings-outline-action">Update email</button>
+        </div>
+      </section>
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <h2>Passkeys</h2>
+          <p>Sign in securely with Face ID, fingerprint, or your device PIN.</p>
+        </div>
+        <div className="security-item">
+          <span className="security-item-icon">
+            <Fingerprint />
+          </span>
+          <div>
+            <strong>Passwordless sign-in</strong>
+            <p>Passkeys make signing in faster and more secure.</p>
+          </div>
+          <button className="settings-primary-action">Add passkey</button>
+        </div>
+      </section>
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <h2>Sessions</h2>
+          <p>Review where your account is currently signed in.</p>
+        </div>
+        <div className="security-item">
+          <span className="security-item-icon">
+            <LockKeyhole />
+          </span>
+          <div>
+            <strong>This device</strong>
+            <p>Active now · Browser session</p>
+          </div>
+          <button className="settings-outline-action">Sign out other devices</button>
+        </div>
+      </section>
+      <section className="settings-card security-card security-danger">
+        <div className="settings-card-heading">
+          <h2>Danger zone</h2>
+          <p>These actions can permanently affect your account.</p>
+        </div>
+        <button className="settings-danger-action">Delete account</button>
+      </section>
+      {showChangePassword && <ChangePasswordModal user={user} onClose={() => setShowChangePassword(false)} />}
+    </div>
+  )
+}
+
+export function SettingsPage({ user }: { user: User }) {
+  const [active, setActive] = useState("Business profile")
+
+  // Business profile form state
+  const [name, setName] = useState(String(user.user_metadata?.business_name ?? "Your business"))
+  const [slug, setSlug] = useState(String(user.user_metadata?.slug ?? ""))
+  const [about, setAbout] = useState(String(user.user_metadata?.about ?? ""))
+  const [industry, setIndustry] = useState(String(user.user_metadata?.industry ?? "Nail salon"))
+  const [color, setColor] = useState(String(user.user_metadata?.brand_color ?? "coral"))
+  const [theme, setTheme] = useState(String(user.user_metadata?.theme ?? "Light"))
+  const [email, setEmail] = useState(String(user.email ?? ""))
+  const [countryCode, setCountryCode] = useState(String(user.user_metadata?.country_code ?? "+63"))
+  // Phone number initialized to user's saved phone or empty string (never hardcoded!)
+  const [phone, setPhone] = useState(String(user.user_metadata?.phone ?? ""))
+  const [address, setAddress] = useState(String(user.user_metadata?.address ?? ""))
+  const [city, setCity] = useState(String(user.user_metadata?.city ?? ""))
+  const [country, setCountry] = useState(String(user.user_metadata?.country ?? "Philippines"))
+  const [hours, setHours] = useState<DaySchedule[]>(() => {
+    if (user.user_metadata?.business_hours && Array.isArray(user.user_metadata.business_hours)) {
+      return user.user_metadata.business_hours
+    }
+    return days.map((day, i) => ({
+      day,
+      open: i < 5,
+      start: "09:00",
+      end: "17:00",
+    }))
+  })
+  const [website, setWebsite] = useState(String(user.user_metadata?.website ?? ""))
+  const [instagram, setInstagram] = useState(String(user.user_metadata?.instagram ?? ""))
+  const [facebook, setFacebook] = useState(String(user.user_metadata?.facebook ?? ""))
+  const [bannerUrl, setBannerUrl] = useState(String(user.user_metadata?.banner_url ?? ""))
+  const [logoUrl, setLogoUrl] = useState(String(user.user_metadata?.logo_url ?? ""))
+
+  // Save operation state
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+
+  // Load existing profile from public.business_profiles table if present
+  useEffect(() => {
+    if (!supabase || !user.id || user.id.startsWith("preview-")) return
+
+    async function fetchProfile() {
+      if (!supabase) return
+      try {
+        const { data, error } = await supabase
+          .from("business_profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+
+        if (!error && data) {
+          if (data.business_name) setName(data.business_name)
+          if (data.slug) setSlug(data.slug)
+          if (data.about !== undefined) setAbout(data.about || "")
+          if (data.industry) setIndustry(data.industry)
+          if (data.brand_color) setColor(data.brand_color)
+          if (data.theme) setTheme(data.theme)
+          if (data.email) setEmail(data.email)
+          if (data.country_code) setCountryCode(data.country_code)
+          if (data.phone !== undefined) setPhone(data.phone || "")
+          if (data.address !== undefined) setAddress(data.address || "")
+          if (data.city !== undefined) setCity(data.city || "")
+          if (data.country) setCountry(data.country)
+          if (data.business_hours && Array.isArray(data.business_hours)) setHours(data.business_hours)
+          if (data.website !== undefined) setWebsite(data.website || "")
+          if (data.instagram !== undefined) setInstagram(data.instagram || "")
+          if (data.facebook !== undefined) setFacebook(data.facebook || "")
+          if (data.banner_url) setBannerUrl(data.banner_url)
+          if (data.logo_url) setLogoUrl(data.logo_url)
+        }
+      } catch {
+        // Table may not exist yet; user_metadata is already loaded
+      }
+    }
+
+    fetchProfile()
+  }, [user.id])
+
+  const handleSaveProfile = async () => {
+    setSaveStatus("saving")
+
+    const profileData = {
+      business_name: name.trim() || "Your business",
+      slug: slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      industry,
+      about: about.trim(),
+      brand_color: color,
+      theme,
+      email: email.trim(),
+      country_code: countryCode,
+      phone: phone.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      country,
+      business_hours: hours,
+      website: website.trim(),
+      instagram: instagram.trim(),
+      facebook: facebook.trim(),
+      banner_url: bannerUrl,
+      logo_url: logoUrl,
+      updated_at: new Date().toISOString(),
+    }
+
+    try {
+      if (supabase && user.id && !user.id.startsWith("preview-")) {
+        // 1. Save to Supabase auth user_metadata
+        const { data: authData, error: authErr } = await supabase.auth.updateUser({
+          data: {
+            business_name: profileData.business_name,
+            industry: profileData.industry,
+            phone: profileData.phone,
+            business_hours: profileData.business_hours,
+            business_profile: profileData,
+            banner_url: profileData.banner_url,
+            logo_url: profileData.logo_url,
+          },
+        })
+        if (!authErr && authData?.user) {
+          user.user_metadata = authData.user.user_metadata
+        }
+
+        // 2. Save directly to public.business_profiles table
+        try {
+          await supabase.from("business_profiles").upsert({
+            id: user.id,
+            ...profileData,
+          })
+        } catch (tableErr) {
+          console.warn("business_profiles table upsert:", tableErr)
+        }
+      } else {
+        if (user.user_metadata) {
+          user.user_metadata = {
+            ...user.user_metadata,
+            ...profileData,
+            business_profile: profileData,
+          }
+        }
+      }
+
+      // Cache profile locally
+      try {
+        localStorage.setItem(`bookora_profile_${user.id}`, JSON.stringify(profileData))
+      } catch {}
+
+      setSaveStatus("saved")
+      window.setTimeout(() => setSaveStatus("idle"), 2500)
+    } catch (err: any) {
+      console.error("Save profile error:", err)
+      setSaveStatus("error")
+      window.setTimeout(() => setSaveStatus("idle"), 3500)
+    }
+  }
+
+  const noPreview =
+    active === "Account" ||
+    active === "Security" ||
+    active === "Booking preferences" ||
+    active === "Notifications"
+
+  return (
+    <div className="settings-page">
+      <div className="settings-float-save">
+        <Button
+          onClick={handleSaveProfile}
+          disabled={saveStatus === "saving"}
+          className={saveStatus === "saved" ? "save-success-button" : ""}
+        >
+          {saveStatus === "saving" ? (
+            <>
+              <Loader2 className="animate-spin" data-icon="inline-start" />
+              Saving to database…
+            </>
+          ) : saveStatus === "saved" ? (
+            <>
+              <CheckCircle2 data-icon="inline-start" />
+              Profile &amp; Hours saved!
+            </>
+          ) : (
+            <>
+              <Save data-icon="inline-start" />
+              Save changes
+            </>
+          )}
+        </Button>
+      </div>
+      <div className={`settings-layout ${noPreview ? "settings-layout-no-preview" : ""}`}>
+        <nav className="settings-tabs" aria-label="Settings sections">
+          <h1 className="settings-nav-title">Settings</h1>
+          {tabs.map(([label, Icon]) => (
+            <button
+              key={label}
+              className={active === label ? "active" : ""}
+              onClick={() => setActive(label)}
+            >
+              <span className="settings-tab-label">
+                <Icon />
+                {label}
+              </span>
+              <span>›</span>
+            </button>
+          ))}
+        </nav>
+        <div className="settings-content">
+          {active === "Business profile" ? (
+            <Profile
+              name={name}
+              setName={setName}
+              slug={slug}
+              setSlug={setSlug}
+              about={about}
+              setAbout={setAbout}
+              industry={industry}
+              setIndustry={setIndustry}
+              color={color}
+              setColor={setColor}
+              theme={theme}
+              setTheme={setTheme}
+              email={email}
+              setEmail={setEmail}
+              countryCode={countryCode}
+              setCountryCode={setCountryCode}
+              phone={phone}
+              setPhone={setPhone}
+              address={address}
+              setAddress={setAddress}
+              city={city}
+              setCity={setCity}
+              country={country}
+              setCountry={setCountry}
+              hours={hours}
+              setHours={setHours}
+              website={website}
+              setWebsite={setWebsite}
+              instagram={instagram}
+              setInstagram={setInstagram}
+              facebook={facebook}
+              setFacebook={setFacebook}
+              bannerUrl={bannerUrl}
+              setBannerUrl={setBannerUrl}
+              logoUrl={logoUrl}
+              setLogoUrl={setLogoUrl}
+            />
+          ) : active === "Booking preferences" ? (
+            <BookingPreferences />
+          ) : active === "Notifications" ? (
+            <NotificationsSettings />
+          ) : active === "Account" ? (
+            <AccountSettings user={user} />
+          ) : active === "Security" ? (
+            <SecuritySettings user={user} />
+          ) : (
+            <section className="dashboard-placeholder">
+              <span className="placeholder-icon">
+                <Fingerprint />
+              </span>
+              <h1>{active}</h1>
+              <p>This workspace is ready for your {active.toLowerCase()} workflow.</p>
+            </section>
+          )}
+        </div>
+        {!noPreview && (
+          <Preview
+            name={name}
+            about={about}
+            industry={industry}
+            color={color}
+            theme={theme}
+            bannerUrl={bannerUrl}
+            logoUrl={logoUrl}
+          />
+        )}
+      </div>
+    </div>
+  )
+}

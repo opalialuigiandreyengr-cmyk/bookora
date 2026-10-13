@@ -74,3 +74,67 @@ create trigger on_auth_user_password_change
 
 -- 7. Grant access to authenticated users
 grant select, insert on public.user_security_logs to authenticated;
+
+-- ==============================================================================
+-- 8. Business Profiles Table & Policies
+-- ==============================================================================
+create table if not exists public.business_profiles (
+    id uuid references auth.users(id) on delete cascade primary key,
+    business_name text not null default 'Your business',
+    slug text,
+    industry text default 'Nail salon',
+    about text default '',
+    brand_color text default 'coral',
+    theme text default 'Light',
+    email text default '',
+    country_code text default '+63',
+    phone text default '',
+    address text default '',
+    city text default '',
+    country text default 'Philippines',
+    business_hours jsonb default '[
+        {"day": "Monday", "open": true, "start": "09:00", "end": "17:00"},
+        {"day": "Tuesday", "open": true, "start": "09:00", "end": "17:00"},
+        {"day": "Wednesday", "open": true, "start": "09:00", "end": "17:00"},
+        {"day": "Thursday", "open": true, "start": "09:00", "end": "17:00"},
+        {"day": "Friday", "open": true, "start": "09:00", "end": "17:00"},
+        {"day": "Saturday", "open": false, "start": "09:00", "end": "17:00"},
+        {"day": "Sunday", "open": false, "start": "09:00", "end": "17:00"}
+    ]'::jsonb,
+    website text default '',
+    instagram text default '',
+    facebook text default '',
+    banner_url text default '',
+    logo_url text default '',
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Index for id lookup
+create index if not exists idx_business_profiles_id on public.business_profiles (id);
+
+-- Enable RLS
+alter table public.business_profiles enable row level security;
+
+-- Policies
+drop policy if exists "Users can view own business profile" on public.business_profiles;
+create policy "Users can view own business profile"
+    on public.business_profiles
+    for select
+    using (auth.uid() = id);
+
+drop policy if exists "Users can insert own business profile" on public.business_profiles;
+create policy "Users can insert own business profile"
+    on public.business_profiles
+    for insert
+    with check (auth.uid() = id);
+
+drop policy if exists "Users can update own business profile" on public.business_profiles;
+create policy "Users can update own business profile"
+    on public.business_profiles
+    for update
+    using (auth.uid() = id)
+    with check (auth.uid() = id);
+
+grant select, insert, update on public.business_profiles to authenticated;
+
