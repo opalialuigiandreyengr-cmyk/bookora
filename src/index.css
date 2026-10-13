@@ -665,7 +665,7 @@ svg { stroke-width: 1.8; }
 .settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 14px; font-weight: 800; }
 .settings-nav-title { margin: 0 12px 14px; font-size: 22px; font-weight: 700; letter-spacing: -.04em; line-height: 1.1; }
 .settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 14px; font-weight: 600; transition: background 0.15s ease, color 0.15s ease; }
-.settings-tabs > button > span:last-child { font-size: 18px; line-height: 1; opacity: .5; margin-left: auto; }
+.settings-tabs > button > span:last-child { font-size: 14px; line-height: 1; opacity: .5; margin-left: auto; }
 .settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 600; opacity: 1; }
 .settings-tab-label svg { width: 19px; height: 19px; flex-shrink: 0; }
 .settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); font-weight: 700; }
@@ -1218,7 +1218,7 @@ svg { stroke-width: 1.8; }
   .settings-note { grid-column: 1 / -1; }
   .settings-tabs > button { min-height: 44px; padding: 10px 12px; font-size: 14px; }
   .settings-tabs > button .settings-tab-label { gap: 8px; font-size: 14px; }
-  .settings-tabs > button span:last-child { font-size: 16px; }
+  .settings-tabs > button span:last-child { font-size: 14px; }
   .settings-column-signout { grid-column: 1 / -1; }
   .settings-content { min-width: 0; overflow: visible; padding: 0 0 64px; }
   .settings-float-save { left: 12px; right: 12px; bottom: 12px; }
