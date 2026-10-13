@@ -634,19 +634,19 @@ svg { stroke-width: 1.8; }
 
 /* Settings */
 .settings-page { max-width: 1260px; }
-.settings-heading { position: sticky; top: 74px; z-index: 30; display: grid; grid-template-columns: 200px minmax(0, 1fr) 270px; align-items: center; gap: 22px; padding: 0 0 14px; margin-bottom: 0; background: oklch(0.975 0.009 35); }
+.settings-heading { position: sticky; top: 74px; z-index: 30; display: grid; grid-template-columns: 235px minmax(0, 1fr) 270px; align-items: center; gap: 22px; padding: 0 0 14px; margin-bottom: 0; background: oklch(0.975 0.009 35); }
 .settings-heading h1 { font-size: clamp(18px, 1.7vw, 21px); }
 .settings-heading > div { grid-column: 1; }
 .settings-heading > [data-slot="button"] { grid-column: 2 / 4; justify-self: end; }
-.settings-layout { height: calc(100dvh - 104px); min-height: 420px; display: grid; grid-template-columns: 200px minmax(420px, 1fr) 270px; align-items: stretch; gap: 22px; overflow: hidden; }
-.settings-tabs { position: sticky; top: 0; z-index: 10; align-self: start; height: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 4px; overflow: visible; padding: 0 20px 12px 0; background: var(--card); border-right: 2px solid var(--border); }
-.settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 13.5px; font-weight: 800; }
-.settings-nav-title { margin: 0 12px 12px; font-size: 20px; font-weight: 600; letter-spacing: -.05em; line-height: 1; }
-.settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 13px; border: 0; border-radius: 9px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 13.5px; font-weight: 700; }
-.settings-tabs > button span { font-size: 17px; line-height: 1; opacity: .6; }
-.settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 10px; font-size: 13.5px; opacity: 1; }
-.settings-tab-label svg { width: 17px; height: 17px; }
-.settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); }
+.settings-layout { height: calc(100dvh - 104px); min-height: 420px; display: grid; grid-template-columns: 235px minmax(420px, 1fr) 270px; align-items: stretch; gap: 22px; overflow: hidden; }
+.settings-tabs { position: sticky; top: 0; z-index: 10; align-self: start; height: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 6px; overflow: visible; padding: 0 16px 12px 0; background: var(--card); border-right: 2px solid var(--border); }
+.settings-tabs > p { margin: 0 12px 9px; color: var(--muted-foreground); font-size: 14px; font-weight: 800; }
+.settings-nav-title { margin: 0 12px 14px; font-size: 22px; font-weight: 700; letter-spacing: -.04em; line-height: 1.1; }
+.settings-tabs > button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 13px; border: 0; border-radius: 10px; background: transparent; color: var(--muted-foreground); cursor: pointer; text-align: left; font-size: 15px; font-weight: 600; transition: background 0.15s ease, color 0.15s ease; }
+.settings-tabs > button > span:last-child { font-size: 18px; line-height: 1; opacity: .5; margin-left: auto; }
+.settings-tabs > button .settings-tab-label { display: inline-flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 600; opacity: 1; }
+.settings-tab-label svg { width: 19px; height: 19px; flex-shrink: 0; }
+.settings-tabs > button:hover, .settings-tabs > button.active { background: var(--accent); color: var(--accent-foreground); font-weight: 700; }
 .settings-note { display: grid; gap: 6px; padding: 14px; margin-top: 25px; border-radius: 10px; background: oklch(0.97 0.025 18); }
 .settings-note svg { width: 17px; color: var(--primary); }
 .settings-note strong { font-size: 14px; }
@@ -741,7 +741,7 @@ svg { stroke-width: 1.8; }
 .hours-row { grid-template-columns: 34px minmax(100px, 1fr) 104px 18px 104px !important; gap: 8px; min-height: 52px !important; padding: 0 10px; }
 .hours-row strong { font-size: 13.5px; }
 .hours-row input[type="time"] { width: 104px; height: 38px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-size: 13px; }
-.settings-layout-no-preview { grid-template-columns: 210px minmax(0, 1fr); }
+.settings-layout-no-preview { grid-template-columns: 235px minmax(0, 1fr); }
 .security-settings-stack { display: grid; gap: 16px; max-width: 880px; }
 .security-card { padding: 22px 24px; }
 .security-heading-icon, .security-item-icon { display: grid; place-items: center; border-radius: 10px; background: var(--accent); color: var(--primary); }
