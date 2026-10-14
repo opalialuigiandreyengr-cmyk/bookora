@@ -1328,6 +1328,16 @@ svg { stroke-width: 1.8; }
   .settings-public-link button { width: 100%; }
 }
 
+/* Customer booking readability */
+.customer-booking-page { font-size: 14px; }
+.customer-booking-page .business-description,
+.customer-booking-page .booking-policy-card li,
+.customer-booking-page .business-note { font-size: 14px; }
+.customer-booking-page .booking-banner-overlay span,
+.customer-booking-page .booking-banner-overlay small { color: rgba(255,255,255,.9); font-size: 14px; line-height: 1.45; }
+.customer-booking-page .booking-banner-overlay small { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+.customer-booking-page .booking-banner-overlay small svg { flex: 0 0 auto; }
+
 /* Public customer booking */
 .customer-booking-page { min-height: 100dvh; background: #f8f6f3; color: #172236; }
 .booking-header { height: 70px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(20px, 5vw, 72px); background: rgba(255,255,255,.72); border-bottom: 1px solid #e9e3dd; }
