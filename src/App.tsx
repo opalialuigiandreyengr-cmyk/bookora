@@ -7,8 +7,13 @@ import { OnboardingPage } from "@/pages/OnboardingPage"
 import { PasskeyModal } from "@/pages/PasskeyModal"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 import { ToastViewport } from "@/components/ui/toast"
+import { CustomerBookingPage } from "@/pages/CustomerBookingPage"
 
 export default function App() {
+  const isPublicBookingHost = window.location.hostname.endsWith(".bookora.com") && !window.location.hostname.startsWith("www.")
+  const isCustomerBooking = window.location.pathname === "/booking" || window.location.pathname === "/book" || isPublicBookingHost
+  if (isCustomerBooking) return <CustomerBookingPage />
+
   const [user, setUser] = useState<User | null>(null)
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [showPasskey, setShowPasskey] = useState(false)

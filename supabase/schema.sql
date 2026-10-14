@@ -218,6 +218,42 @@ create policy "Users can delete own services" on public.services for delete usin
 grant select, insert, update, delete on public.service_categories to authenticated;
 grant select, insert, update, delete on public.services to authenticated;
 
+-- Public booking pages: only explicitly published profiles and booking-visible
+-- services are readable without signing in. Private owner data remains protected.
+drop policy if exists "Public can view published booking profiles" on public.business_profiles;
+create policy "Public can view published booking profiles"
+    on public.business_profiles for select to anon, authenticated
+    using (slug is not null and length(trim(slug)) > 0);
+
+drop policy if exists "Public can view booking services" on public.services;
+create policy "Public can view booking services"
+    on public.services for select to anon, authenticated
+    using (
+        show_on_booking_page = true
+        and exists (
+            select 1 from public.business_profiles profile
+            where profile.id = services.business_id
+              and profile.slug is not null
+              and length(trim(profile.slug)) > 0
+        )
+    );
+
+grant select on public.business_profiles to anon;
+drop policy if exists "Public can view booking service categories" on public.service_categories;
+create policy "Public can view booking service categories"
+    on public.service_categories for select to anon, authenticated
+    using (
+        exists (
+            select 1 from public.business_profiles profile
+            where profile.id = service_categories.business_id
+              and profile.slug is not null
+              and length(trim(profile.slug)) > 0
+        )
+    );
+
+grant select on public.service_categories to anon;
+grant select on public.services to anon;
+
 insert into storage.buckets (id, name, public)
 values ('service-assets', 'service-assets', true)
 on conflict (id) do update set public = true;
