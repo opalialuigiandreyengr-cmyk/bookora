@@ -95,7 +95,7 @@ export function CustomerBookingPage() {
   const calendarMonthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(calendarMonth)
   const businessName = profile?.business_name || ""
   const businessAbout = profile?.about || ""
-  const businessLocation = [profile?.city, profile?.country].filter(Boolean).join(", ")
+  const businessLocation = profile?.city || ""
   const businessAddress = profile?.address || businessLocation
   const businessPhone = [profile?.country_code, profile?.phone].filter(Boolean).join(" ")
   const businessInitial = businessName.trim().charAt(0).toUpperCase()
