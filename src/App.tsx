@@ -10,7 +10,8 @@ import { ToastViewport } from "@/components/ui/toast"
 import { CustomerBookingPage } from "@/pages/CustomerBookingPage"
 
 export default function App() {
-  const isPublicBookingHost = window.location.hostname.endsWith(".bookora.com") && !window.location.hostname.startsWith("www.")
+  const hostname = window.location.hostname
+  const isPublicBookingHost = [".bookora.com", ".bookoraph.com"].some((suffix) => hostname.endsWith(suffix)) && !hostname.startsWith("www.")
   const isCustomerBooking = window.location.pathname === "/booking" || window.location.pathname === "/book" || isPublicBookingHost
   if (isCustomerBooking) return <CustomerBookingPage />
 

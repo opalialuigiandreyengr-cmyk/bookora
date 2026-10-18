@@ -9,6 +9,7 @@ import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 import { Logo } from "@/components/brand/Logo"
 import { MarketingSections } from "@/components/marketing/MarketingSections"
 import { LoginModal } from "@/pages/LoginModal"
+import { signInWithGoogle } from "@/lib/googleAuth"
 
 const features = [[CalendarDays, "Online Booking", "Let clients book 24/7 from any device."], [Users, "Manage Staff", "Set schedules, assign services and track availability."], [ListChecks, "Custom Services", "Add services, prices, duration and packages."], [CreditCard, "Accept Payments", "In-salon or online payments, all in one place."], [Bell, "Automated Reminders", "Reduce no-shows with email and SMS reminders."], [BarChart3, "Reports & Growth", "Track bookings, revenue and your best services."]] as const
 
@@ -67,10 +68,18 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
       return
     }
     setStatus("loading")
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/dashboard` },
-    })
+    if (provider === "google") {
+      try {
+        await signInWithGoogle()
+        setStatus("success")
+        setMessage("Signed in successfully! Loading your workspace…")
+      } catch (error) {
+        setStatus("error")
+        setMessage(error instanceof Error ? error.message : "Google sign-in failed.")
+      }
+      return
+    }
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } })
     if (error) {
       setStatus("error")
       setMessage(error.message)

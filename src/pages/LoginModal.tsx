@@ -5,6 +5,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
+import { signInWithGoogle } from "@/lib/googleAuth"
 
 interface LoginModalProps {
   onClose: () => void
@@ -89,10 +90,19 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
       return
     }
     setStatus("loading")
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/dashboard` },
-    })
+    if (provider === "google") {
+      try {
+        await signInWithGoogle()
+        setStatus("success")
+        setMessage("Signed in successfully! Opening your workspace…")
+        window.setTimeout(onClose, 500)
+      } catch (error) {
+        setStatus("error")
+        setMessage(error instanceof Error ? error.message : "Google sign-in failed.")
+      }
+      return
+    }
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } })
     if (error) {
       setStatus("error")
       setMessage(error.message)

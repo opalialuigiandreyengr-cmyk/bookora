@@ -141,7 +141,8 @@ export function CustomerBookingPage() {
   useEffect(() => {
     let active = true
     const hostParts = window.location.hostname.split(".")
-    const hostSlug = hostParts.length >= 3 && hostParts.slice(-2).join(".") === "bookora.com" ? hostParts[0] : ""
+    const hostSuffix = hostParts.slice(-2).join(".")
+    const hostSlug = hostParts.length >= 3 && ["bookora.com", "bookoraph.com"].includes(hostSuffix) ? hostParts[0] : ""
     const bookingSlug = new URLSearchParams(window.location.search).get("slug")?.trim() || hostSlug
     const loadPublicBookingData = async () => {
       if (!supabase) return
