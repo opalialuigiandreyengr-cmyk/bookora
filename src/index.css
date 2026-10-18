@@ -1502,6 +1502,15 @@ svg { stroke-width: 1.8; }
 .booking-banner-overlay a { min-width: 78px; min-height: 40px; padding: 0 15px; border-radius: 22px; background: #fff; color: #354256; line-height: 1; white-space: nowrap; box-shadow: none; }.booking-banner-overlay a:hover { background: #fae9e4; color: #bd554d; transform: none; }
 @media (max-width: 760px) { .booking-banner-overlay a { min-width: 78px; min-height: 36px; padding-inline: 12px; font-size: 10px; } }
 
+/* Booking page readability refinements. */
+.date-time-layout { justify-content: initial; }
+.booking-business-panel .business-description { font-size: 13px; }
+.booking-business-panel .schedule-trigger > span { font-size: 13px; }
+.booking-business-panel .schedule-row,
+.booking-business-panel .schedule-empty { font-size: 13px; }
+.booking-business-panel .booking-policy-card li { font-size: 13px; }
+.service-selection-card .step-heading { margin-bottom: 13px; }
+
 /* iOS Safari zooms controls whose text is smaller than 16px on focus. */
 @media (max-width: 768px) {
   input,
