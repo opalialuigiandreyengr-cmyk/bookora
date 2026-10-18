@@ -1421,7 +1421,7 @@ svg { stroke-width: 1.8; }
 @media (max-width: 760px) { .booking-banner { width: calc(100% - 32px); height: 185px; margin-top: 27px; border-radius: 16px; }.booking-banner-overlay { align-items: end; padding: 22px 19px; }.booking-banner-overlay h2 { font-size: 26px; }.booking-banner-overlay span { font-size: 9px; }.booking-banner-overlay a { min-height: 36px; padding-inline: 12px; font-size: 10px; } }
 .booking-banner { width: 1200px; max-width: 100%; height: 400px; aspect-ratio: 3 / 1; margin: 0 auto; border-radius: 0; box-shadow: none; }
 @media (max-width: 760px) { .booking-banner { width: 100%; height: auto; aspect-ratio: 3 / 1; margin: 0; border-radius: 0; } }
-.booking-banner-overlay { align-items: flex-start; justify-content: center; text-align: left; }.booking-banner-overlay small { display: inline-flex; align-items: center; justify-content: flex-start; gap: 5px; margin-top: 0; color: rgba(255,255,255,.86); font-size: 10px; }.booking-banner-overlay a { margin-top: 8px; }
+.booking-banner-overlay { align-items: flex-start; text-align: left; }.booking-banner-overlay small { display: inline-flex; align-items: center; justify-content: flex-start; gap: 5px; margin-top: 0; color: rgba(255,255,255,.86); font-size: 10px; }.booking-banner-overlay a { margin-top: 8px; }
 .booking-dark .booking-policy-card { border-color: #51433d; background: rgba(48,42,39,.76); }.booking-dark .policy-heading h2, .booking-dark .booking-policy-card li { color: #d5c7bf; }
 .booking-dark .business-rating strong, .booking-dark .schedule-trigger, .booking-dark .schedule-row strong { color: #f1e7e0; }.booking-dark .schedule-trigger, .booking-dark .schedule-dropdown { border-color: #514943; background: #302a27; }.booking-dark .schedule-dropdown { box-shadow: 0 12px 26px rgba(0,0,0,.24); }.booking-dark .schedule-header { background: #3b302c; color: #b9aaa1; }.booking-dark .schedule-row { border-color: #4a403b; color: #baada5; }.booking-dark .schedule-empty { color: #baa9a0; }
 .booking-layout { grid-template-columns: minmax(320px, .72fr) minmax(0, 1fr); }.booking-business-panel { max-width: 350px; }.booking-business-panel .booking-eyebrow { margin-bottom: 12px; font-size: 11px; letter-spacing: .16em; }.booking-business-panel h1 { margin-bottom: 18px; font-size: clamp(34px, 3.4vw, 46px); letter-spacing: -.075em; line-height: 1; }.booking-business-panel .business-description { max-width: 35ch; margin-bottom: 26px; font-size: 16px; line-height: 1.8; }.booking-business-panel .business-meta { align-items: flex-start; gap: 11px; margin: 15px 0; font-size: 12.5px; line-height: 1.45; }.booking-business-panel .business-meta svg { flex: 0 0 auto; margin-top: 2px; }.booking-business-panel .business-divider { margin: 34px 0 20px; }.booking-business-panel .booking-policy-card { margin-top: 22px; }.booking-business-panel .business-note { margin-top: 20px; font-size: 11px; }
@@ -1504,7 +1504,7 @@ svg { stroke-width: 1.8; }
 
 /* Booking page readability refinements. */
 .date-time-layout { justify-content: initial; }
-.booking-business-panel .business-description { font-size: 13px; }
+.booking-business-panel .business-description { max-width: 50ch; font-size: 13px; }
 .booking-business-panel .schedule-trigger > span { font-size: 13px; }
 .booking-business-panel .schedule-row,
 .booking-business-panel .schedule-empty { font-size: 13px; }
