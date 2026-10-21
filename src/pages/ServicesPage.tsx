@@ -198,7 +198,7 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
       if (!active) return
       if (profileRow?.slug) setBusinessSlug(profileRow.slug)
 
-      let serviceRows = serviceResWithDesc.data
+      let serviceRows: any[] | null = serviceResWithDesc.data
       let serviceError = serviceResWithDesc.error
 
       // If querying with 'description' returns 400 (column missing in Supabase), fallback to query without it

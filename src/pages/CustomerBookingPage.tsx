@@ -264,7 +264,7 @@ export function CustomerBookingPage() {
       ])
       if (!active) return
 
-      let serviceRows = serviceRes.data
+      let serviceRows: any[] | null = serviceRes.data
       if (serviceRes.error) {
         const fallbackRes = await supabase.from("services").select("id, name, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at")
         serviceRows = fallbackRes.data ?? []
