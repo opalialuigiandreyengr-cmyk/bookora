@@ -119,10 +119,6 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     setStatus("loading")
     if (provider === "google") {
       try {
-        localStorage.setItem("bookora_auth_intent", "business")
-        localStorage.removeItem("bookora_client_slug")
-      } catch {}
-      try {
         await signInWithGoogle()
         if (supabase) {
           const { data } = await supabase.auth.getSession()

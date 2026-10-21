@@ -373,3 +373,54 @@ create policy "Public can insert business reviews"
 -- Business owners can manage reviews
 grant select, update, delete on public.business_reviews to authenticated;
 grant select, insert on public.business_reviews to anon, authenticated;
+
+-- ============================================================================
+-- Registered Business Clients Table & Policies
+-- Stores client accounts directly in Supabase per business slug
+-- ============================================================================
+create table if not exists public.clients (
+    id uuid default gen_random_uuid() primary key,
+    user_id uuid references auth.users(id) on delete cascade not null,
+    business_id uuid references auth.users(id) on delete cascade not null,
+    business_slug text not null,
+    full_name text not null,
+    email text not null,
+    phone text default '',
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    unique (user_id, business_id)
+);
+
+create index if not exists idx_clients_business_id on public.clients (business_id);
+create index if not exists idx_clients_user_id on public.clients (user_id);
+create index if not exists idx_clients_email on public.clients (email);
+
+alter table public.clients enable row level security;
+
+-- Authenticated clients and business owners can view client records
+drop policy if exists "Users and salon owners can view client records" on public.clients;
+create policy "Users and salon owners can view client records"
+    on public.clients for select to authenticated
+    using (auth.uid() = user_id or auth.uid() = business_id);
+
+-- Clients can register / insert their client record
+drop policy if exists "Clients can insert own client profile" on public.clients;
+create policy "Clients can insert own client profile"
+    on public.clients for insert to authenticated
+    with check (auth.uid() = user_id);
+
+-- Clients can update their own client record
+drop policy if exists "Clients can update own client profile" on public.clients;
+create policy "Clients can update own client profile"
+    on public.clients for update to authenticated
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
+-- Business owners can manage clients for their salon
+drop policy if exists "Business owners can manage their clients" on public.clients;
+create policy "Business owners can manage their clients"
+    on public.clients for all to authenticated
+    using (auth.uid() = business_id);
+
+grant select, insert, update on public.clients to authenticated;
+

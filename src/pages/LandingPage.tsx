@@ -101,10 +101,6 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
     setStatus("loading")
     if (provider === "google") {
       try {
-        localStorage.setItem("bookora_auth_intent", "business")
-        localStorage.removeItem("bookora_client_slug")
-      } catch {}
-      try {
         await signInWithGoogle()
         if (supabase) {
           const { data } = await supabase.auth.getSession()

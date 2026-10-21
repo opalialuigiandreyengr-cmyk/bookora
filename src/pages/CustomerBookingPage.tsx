@@ -159,7 +159,7 @@ export function CustomerBookingPage() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewFilter, setReviewFilter] = useState<"all" | "5" | "4" | "recent">("all")
 
-  // Listen to Supabase auth state & pre-fill customer details as Client
+  // Listen to Supabase auth state & persist client details directly in Supabase
   useEffect(() => {
     if (!supabase) return
 
@@ -169,34 +169,45 @@ export function CustomerBookingPage() {
         return
       }
 
-      const intent = localStorage.getItem("bookora_auth_intent")
-      const pendingSlug = localStorage.getItem("bookora_client_slug") || bookingSlug
-      const pendingBusId = localStorage.getItem("bookora_client_business_id") || profile?.id || ""
-      const pendingBusName = localStorage.getItem("bookora_client_business_name") || profile?.business_name || ""
-
       let activeUser = user
       const isAlreadyClient = activeUser.user_metadata?.account_type === "client" || activeUser.user_metadata?.role === "client"
-      const needsSlugSync = Boolean(pendingSlug && activeUser.user_metadata?.client_slug !== pendingSlug)
+      const needsSlugSync = Boolean(bookingSlug && activeUser.user_metadata?.client_slug !== bookingSlug)
 
-      if (intent === "client" || !isAlreadyClient || needsSlugSync) {
+      // When signed in on a custom slug booking page, persist client data directly in Supabase
+      if (!isAlreadyClient || needsSlugSync) {
         try {
           const client = supabase
           if (client) {
+            // 1. Save directly in Supabase Auth user_metadata
             const { data: updated } = await client.auth.updateUser({
               data: {
                 account_type: "client",
                 role: "client",
-                client_slug: pendingSlug || activeUser.user_metadata?.client_slug || "",
-                client_business_id: pendingBusId || activeUser.user_metadata?.client_business_id || "",
-                client_business_name: pendingBusName || activeUser.user_metadata?.client_business_name || "",
+                client_slug: bookingSlug || activeUser.user_metadata?.client_slug || "",
+                client_business_id: profile?.id || activeUser.user_metadata?.client_business_id || "",
+                client_business_name: profile?.business_name || activeUser.user_metadata?.client_business_name || "",
               },
             })
             if (updated?.user) activeUser = updated.user
+
+            // 2. Save directly in Supabase Database table `public.clients`
+            if (profile?.id && activeUser.id) {
+              await client.from("clients").upsert(
+                {
+                  user_id: activeUser.id,
+                  business_id: profile.id,
+                  business_slug: bookingSlug,
+                  full_name: String(activeUser.user_metadata?.full_name ?? activeUser.email?.split("@")[0] ?? "Client"),
+                  email: activeUser.email || "",
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id,business_id" }
+              )
+            }
           }
         } catch (e) {
-          console.warn("Client metadata sync error:", e)
+          console.warn("Supabase client sync error:", e)
         }
-        try { localStorage.removeItem("bookora_auth_intent") } catch {}
       }
 
       setCurrentUser(activeUser)
@@ -1746,38 +1757,43 @@ function CustomerAuthModal({
     setStatus("loading")
     setMessage("")
 
-    // Save client intent and slug in localStorage so after redirect/reload the user is stamped as client
-    try {
-      localStorage.setItem("bookora_auth_intent", "client")
-      localStorage.setItem("bookora_client_slug", businessSlug || "")
-      localStorage.setItem("bookora_client_business_id", businessId || "")
-      localStorage.setItem("bookora_client_business_name", businessName || "")
-    } catch {}
-
     try {
       await signInWithGoogle()
       if (supabase) {
         const { data } = await supabase.auth.getSession()
         if (data.session?.user) {
           let user = data.session.user
-          // Guarantee metadata is stamped as client
-          if (user.user_metadata?.account_type !== "client" || user.user_metadata?.client_slug !== businessSlug) {
-            try {
-              const { data: updated } = await supabase.auth.updateUser({
-                data: {
-                  account_type: "client",
-                  role: "client",
-                  client_slug: businessSlug,
-                  client_business_id: businessId || "",
-                  client_business_name: businessName,
+          // Guarantee metadata and database record are saved directly in Supabase
+          try {
+            const { data: updated } = await supabase.auth.updateUser({
+              data: {
+                account_type: "client",
+                role: "client",
+                client_slug: businessSlug,
+                client_business_id: businessId || "",
+                client_business_name: businessName,
+              },
+            })
+            if (updated?.user) user = updated.user
+
+            // Save in Supabase database table `public.clients`
+            if (businessId && user.id) {
+              await supabase.from("clients").upsert(
+                {
+                  user_id: user.id,
+                  business_id: businessId,
+                  business_slug: businessSlug,
+                  full_name: String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Client"),
+                  email: user.email || "",
+                  updated_at: new Date().toISOString(),
                 },
-              })
-              if (updated?.user) user = updated.user
-            } catch (updateErr) {
-              console.warn("Client tag error:", updateErr)
+                { onConflict: "user_id,business_id" }
+              )
             }
+          } catch (updateErr) {
+            console.warn("Client Supabase save error:", updateErr)
           }
-          try { localStorage.removeItem("bookora_auth_intent") } catch {}
+
           onSuccess(user)
           return
         }
@@ -1848,6 +1864,22 @@ function CustomerAuthModal({
         setAuthMethod(null)
         setMessage(error.message)
       } else if (data.user) {
+        // Also save client record in Supabase database
+        if (businessId && data.user.id) {
+          try {
+            await supabase.from("clients").upsert(
+              {
+                user_id: data.user.id,
+                business_id: businessId,
+                business_slug: businessSlug,
+                full_name: fullName.trim() || email.split("@")[0],
+                email: email.trim(),
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "user_id,business_id" }
+            )
+          } catch {}
+        }
         onSuccess(data.user)
       }
     } else {
@@ -1861,22 +1893,35 @@ function CustomerAuthModal({
         setMessage(error.message)
       } else if (data.user) {
         let user = data.user
-        // Ensure user is tagged as client for this custom business
-        if (user.user_metadata?.account_type !== "client" || (!user.user_metadata?.client_slug && businessSlug)) {
-          try {
-            const { data: updated } = await supabase.auth.updateUser({
-              data: {
-                account_type: "client",
-                role: "client",
-                client_slug: businessSlug || user.user_metadata?.client_slug || "",
-                client_business_id: businessId || user.user_metadata?.client_business_id || "",
-                client_business_name: businessName || user.user_metadata?.client_business_name || "",
+        // Ensure user is tagged as client in Supabase
+        try {
+          const { data: updated } = await supabase.auth.updateUser({
+            data: {
+              account_type: "client",
+              role: "client",
+              client_slug: businessSlug || user.user_metadata?.client_slug || "",
+              client_business_id: businessId || user.user_metadata?.client_business_id || "",
+              client_business_name: businessName || user.user_metadata?.client_business_name || "",
+            },
+          })
+          if (updated?.user) user = updated.user
+
+          // Upsert client record into Supabase
+          if (businessId && user.id) {
+            await supabase.from("clients").upsert(
+              {
+                user_id: user.id,
+                business_id: businessId,
+                business_slug: businessSlug,
+                full_name: String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Client"),
+                email: user.email || "",
+                updated_at: new Date().toISOString(),
               },
-            })
-            if (updated?.user) user = updated.user
-          } catch (updateErr) {
-            console.warn("Client tag error:", updateErr)
+              { onConflict: "user_id,business_id" }
+            )
           }
+        } catch (updateErr) {
+          console.warn("Client Supabase tag error:", updateErr)
         }
         onSuccess(user)
       }
