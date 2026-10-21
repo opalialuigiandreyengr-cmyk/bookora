@@ -8,6 +8,7 @@ import { PasskeyModal } from "@/pages/PasskeyModal"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 import { ToastViewport } from "@/components/ui/toast"
 import { CustomerBookingPage } from "@/pages/CustomerBookingPage"
+import { getCrossSubdomainCookie, clearCrossSubdomainCookie } from "@/lib/domain"
 
 export default function App() {
   const hostname = window.location.hostname
@@ -25,10 +26,12 @@ export default function App() {
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [showPasskey, setShowPasskey] = useState(false)
 
+  const cookieSlug = getCrossSubdomainCookie("bookora_client_slug")
+  const clientSlug = user?.user_metadata?.client_slug || cookieSlug
   const isClient = Boolean(
     user?.user_metadata?.account_type === "client" ||
     user?.user_metadata?.role === "client" ||
-    user?.user_metadata?.client_slug
+    clientSlug
   )
 
   useEffect(() => {
@@ -48,11 +51,28 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return
+    const isRootDomain =
+      hostname === "bookoraph.com" ||
+      hostname === "www.bookoraph.com" ||
+      hostname === "bookora.com" ||
+      hostname === "www.bookora.com"
+
+    const returnUrl = getCrossSubdomainCookie("bookora_client_return")
+
     if (isClient) {
+      if (returnUrl) {
+        clearCrossSubdomainCookie("bookora_client_return")
+        window.location.replace(returnUrl)
+        return
+      }
+      if (isRootDomain && clientSlug) {
+        const rootDomain = hostname.includes("bookoraph.com") ? "bookoraph.com" : "bookora.com"
+        window.location.replace(`https://${clientSlug}.${rootDomain}/`)
+        return
+      }
       // Clients should never be redirected to business onboarding or salon dashboard
       const internalBusinessRoutes = ["/dashboard", "/onboarding", "/services", "/settings"]
       if (internalBusinessRoutes.includes(window.location.pathname)) {
-        const clientSlug = user.user_metadata?.client_slug
         const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
         window.history.replaceState({}, "", destination)
         window.location.href = destination
@@ -61,11 +81,22 @@ export default function App() {
     }
     const destination = onboardingDone ? (window.location.pathname === "/services" ? "/services" : "/dashboard") : "/onboarding"
     if (window.location.pathname !== destination) window.history.replaceState({}, "", destination)
-  }, [user, onboardingDone, isClient])
+  }, [user, onboardingDone, isClient, clientSlug, hostname])
 
   // If user is a verified client from a custom slug business
   if (user && isClient) {
-    const clientSlug = user.user_metadata?.client_slug
+    const isRootDomain =
+      hostname === "bookoraph.com" ||
+      hostname === "www.bookoraph.com" ||
+      hostname === "bookora.com" ||
+      hostname === "www.bookora.com"
+
+    if (isRootDomain && clientSlug) {
+      const rootDomain = hostname.includes("bookoraph.com") ? "bookoraph.com" : "bookora.com"
+      window.location.replace(`https://${clientSlug}.${rootDomain}/`)
+      return null
+    }
+
     const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
     if (["/dashboard", "/onboarding", "/services", "/settings"].includes(pathname)) {
       window.location.replace(destination)

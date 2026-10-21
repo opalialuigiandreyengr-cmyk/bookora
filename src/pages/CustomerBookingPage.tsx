@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { signInWithGoogle } from "@/lib/googleAuth"
 import { showToast } from "@/components/ui/toast"
+import { setCrossSubdomainCookie } from "@/lib/domain"
 
 type Service = {
   id: string
@@ -1767,6 +1768,8 @@ function CustomerAuthModal({
       if (supabase) {
         try {
           const cleanRedirectUrl = window.location.href.split("#")[0]
+          setCrossSubdomainCookie("bookora_client_return", cleanRedirectUrl, 600)
+          setCrossSubdomainCookie("bookora_client_slug", businessSlug, 600)
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
@@ -1809,10 +1812,14 @@ function CustomerAuthModal({
     setMessage("")
 
     if (authMode === "signup") {
+      const cleanRedirectUrl = window.location.href.split("#")[0]
+      setCrossSubdomainCookie("bookora_client_return", cleanRedirectUrl, 600)
+      setCrossSubdomainCookie("bookora_client_slug", businessSlug, 600)
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
+          emailRedirectTo: cleanRedirectUrl,
           data: {
             full_name: fullName.trim() || email.split("@")[0],
             account_type: "client",
