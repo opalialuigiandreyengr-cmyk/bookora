@@ -145,7 +145,7 @@ export function CustomerBookingPage() {
   const [showMyBookings, setShowMyBookings] = useState(false)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
 
-  // Real Reviews state
+  // Real Reviews state (no fake reviews)
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewFilter, setReviewFilter] = useState<"all" | "5" | "4" | "recent">("all")
 
@@ -346,7 +346,7 @@ export function CustomerBookingPage() {
     return `${firstOpen.day.slice(0, 3)}–${lastOpen.day.slice(0, 3)} · ${timeRange}`
   }, [schedule])
 
-  // Real Reviews calculations
+  // Real Reviews calculations (zero fake reviews)
   const totalReviews = reviews.length
   const averageRating = useMemo(() => {
     if (totalReviews === 0) return "5.0"
@@ -437,13 +437,13 @@ export function CustomerBookingPage() {
     return () => { active = false }
   }, [])
 
-  // Load reviews from Supabase and localStorage fallback
+  // Load reviews from Supabase and localStorage fallback (no fake reviews)
   const loadReviews = async (businessId: string) => {
     const localKey = `bookora_reviews_${businessId}`
-    let initialReviews: Review[] = []
+    let realReviews: Review[] = []
     try {
       const cached = localStorage.getItem(localKey)
-      if (cached) initialReviews = JSON.parse(cached)
+      if (cached) realReviews = JSON.parse(cached)
     } catch {}
 
     if (supabase) {
@@ -461,54 +461,7 @@ export function CustomerBookingPage() {
       } catch {}
     }
 
-    if (!initialReviews.length) {
-      initialReviews = [
-        {
-          id: "rev-seed-1",
-          business_id: businessId,
-          customer_name: "Andrea Morales",
-          customer_email: "andrea.m@gmail.com",
-          rating: 5,
-          comment: `The calmest and most thoughtful appointment I've ever experienced! ${ownerFirstName} understood exactly what I wanted from my peg and the cuticle care was so gentle. My set lasted 4+ weeks with zero lifting.`,
-          service_name: "Softgel Extension",
-          created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-        },
-        {
-          id: "rev-seed-2",
-          business_id: businessId,
-          customer_name: "Camille Reyes",
-          customer_email: "camille.r@outlook.com",
-          rating: 5,
-          comment: `Beautiful artistry, hygienic workspace, and very kind energy. The studio smells amazing and the nail prep was so thorough. Already booked my next fill!`,
-          service_name: "Manicure Gel Polish",
-          created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-        },
-        {
-          id: "rev-seed-3",
-          business_id: businessId,
-          customer_name: "Sophia Chen",
-          customer_email: "sophia.c@gmail.com",
-          rating: 5,
-          comment: `Cleanest lines and most durable gel set I've had in the area. 10/10 recommendation for anyone who values attention to detail.`,
-          service_name: "Gel Polish Removal & New Set",
-          created_at: new Date(Date.now() - 9 * 24 * 3600 * 1000).toISOString(),
-        },
-        {
-          id: "rev-seed-4",
-          business_id: businessId,
-          customer_name: "Bea Ramos",
-          customer_email: "bea.ramos@yahoo.com",
-          rating: 5,
-          comment: `Such a smooth online booking process! Uploaded my nail art peg here and it was replicated to perfection. Love ${businessName}!`,
-          service_name: "Home Service (Minimum of 2pax)",
-          created_at: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
-        },
-      ]
-      try {
-        localStorage.setItem(localKey, JSON.stringify(initialReviews))
-      } catch {}
-    }
-    setReviews(initialReviews)
+    setReviews(realReviews)
   }
 
   // Load user appointments
@@ -581,7 +534,7 @@ export function CustomerBookingPage() {
 
         <nav className="booking-nav" aria-label="Main navigation">
           <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
-          <a href="#team" onClick={() => setMenuOpen(false)}>Team</a>
+          <a href="#team" onClick={() => setMenuOpen(false)}>Artist</a>
           <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>
           <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
         </nav>
@@ -712,7 +665,7 @@ export function CustomerBookingPage() {
             Services <ArrowRight size={16} />
           </a>
           <a href="#team" onClick={() => setMenuOpen(false)}>
-            Meet the team <ArrowRight size={16} />
+            Meet your artist <ArrowRight size={16} />
           </a>
           <a href="#reviews" onClick={() => setMenuOpen(false)}>
             Guest reviews ({totalReviews}) <ArrowRight size={16} />
@@ -793,10 +746,10 @@ export function CustomerBookingPage() {
           {/* Real Dynamic Business Rating */}
           <div className="business-rating">
             <span className="rating-stars" style={{ color: "#f59e0b" }}>
-              {"★".repeat(Math.round(Number(averageRating)))}
+              {"★".repeat(totalReviews > 0 ? Math.round(Number(averageRating)) : 5)}
             </span>
-            <strong>{averageRating}</strong>
-            <span>({totalReviews} client reviews)</span>
+            <strong>{totalReviews > 0 ? averageRating : "New"}</strong>
+            <span>{totalReviews > 0 ? `(${totalReviews} client reviews)` : "Verified studio"}</span>
           </div>
 
           <div className="schedule-control">
@@ -1415,26 +1368,26 @@ export function CustomerBookingPage() {
         </div>
       </section>
 
-      {/* Team Section (Real based on Owner's Full Name) */}
+      {/* Team Section (Only Real Owner/Artist, No Fake Staff) */}
       <section className="team-section" id="team" aria-labelledby="team-title">
         <div className="section-intro">
           <div>
-            <p className="booking-eyebrow">Meet your artist &amp; team</p>
+            <p className="booking-eyebrow">Meet your artist</p>
             <h2 id="team-title">Good hands, good energy</h2>
           </div>
           <a href="#choose-service">
             Book an appointment <ArrowRight size={15} />
           </a>
         </div>
-        <div className="team-grid">
-          {/* Card 1: The Business Owner / Founder */}
+        <div className="team-grid single-artist-grid">
+          {/* Real Business Owner / Founder Artist Card */}
           <article className="team-card team-founder-card">
             <div className="team-avatar team-founder-avatar">{ownerInitials}</div>
             <div className="team-card-copy">
               <strong>{ownerFullName}</strong>
               <span className="team-role-tag">{ownerRole}</span>
               <small>
-                <Star size={12} fill="currentColor" /> {averageRating} · {totalReviews} reviews
+                <Star size={12} fill="currentColor" /> {totalReviews > 0 ? `${averageRating} · ${totalReviews} reviews` : "Verified Artist"}
               </small>
               <p className="team-card-bio">
                 Founder of {businessName}. Specializes in high-precision artistry, bespoke styling, and mindful self-care.
@@ -1448,50 +1401,6 @@ export function CustomerBookingPage() {
               </a>
             </div>
           </article>
-
-          {/* Card 2: Senior Specialist */}
-          <article className="team-card">
-            <div className="team-avatar team-zoe">Z</div>
-            <div className="team-card-copy">
-              <strong>Zoe Ramirez</strong>
-              <span className="team-role-tag">Senior Gel &amp; Extension Specialist</span>
-              <small>
-                <Star size={12} fill="currentColor" /> 4.98 · 86 reviews
-              </small>
-              <p className="team-card-bio">
-                Expert in gentle cuticle prep, durable structured overlays, and smooth natural nail maintenance.
-              </p>
-              <a
-                href="#choose-service"
-                className="team-book-btn"
-                onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
-              >
-                Book with Zoe <ArrowRight size={13} />
-              </a>
-            </div>
-          </article>
-
-          {/* Card 3: Creative Specialist */}
-          <article className="team-card">
-            <div className="team-avatar team-mika">M</div>
-            <div className="team-card-copy">
-              <strong>Mika Dela Cruz</strong>
-              <span className="team-role-tag">Creative Nail Art Specialist</span>
-              <small>
-                <Star size={12} fill="currentColor" /> 4.96 · 64 reviews
-              </small>
-              <p className="team-card-bio">
-                Bringing design pegs to life with 3D accents, French chrome effects, and custom hand-painted details.
-              </p>
-              <a
-                href="#choose-service"
-                className="team-book-btn"
-                onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
-              >
-                Book with Mika <ArrowRight size={13} />
-              </a>
-            </div>
-          </article>
         </div>
       </section>
 
@@ -1499,7 +1408,7 @@ export function CustomerBookingPage() {
       <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
         <div className="section-intro">
           <div>
-            <p className="booking-eyebrow">Loved by our clients</p>
+            <p className="booking-eyebrow">Client reviews</p>
             <h2 id="reviews-title">
               Small details.
               <br />
@@ -1512,18 +1421,20 @@ export function CustomerBookingPage() {
           {/* Left Column: Overall Score & Breakdown */}
           <div className="reviews-summary-card">
             <div className="reviews-overall-score">
-              <span className="reviews-big-number">{averageRating}</span>
+              <span className="reviews-big-number">{totalReviews > 0 ? averageRating : "New"}</span>
               <div>
                 <div className="reviews-stars-visual">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
                       size={18}
-                      fill={star <= Math.round(Number(averageRating)) ? "currentColor" : "none"}
+                      fill={star <= (totalReviews > 0 ? Math.round(Number(averageRating)) : 5) ? "currentColor" : "none"}
                     />
                   ))}
                 </div>
-                <span className="reviews-count-caption">{totalReviews} verified client reviews</span>
+                <span className="reviews-count-caption">
+                  {totalReviews > 0 ? `${totalReviews} verified client reviews` : "Be the first to leave a review!"}
+                </span>
               </div>
             </div>
 
@@ -1557,36 +1468,38 @@ export function CustomerBookingPage() {
 
           {/* Right Column: Filter Pills and Real Reviews Stream */}
           <div className="reviews-stream">
-            <div className="reviews-filter-bar">
-              <button
-                type="button"
-                className={`review-filter-pill ${reviewFilter === "all" ? "active" : ""}`}
-                onClick={() => setReviewFilter("all")}
-              >
-                All reviews ({totalReviews})
-              </button>
-              <button
-                type="button"
-                className={`review-filter-pill ${reviewFilter === "5" ? "active" : ""}`}
-                onClick={() => setReviewFilter("5")}
-              >
-                5 Stars ({ratingCounts[5]})
-              </button>
-              <button
-                type="button"
-                className={`review-filter-pill ${reviewFilter === "4" ? "active" : ""}`}
-                onClick={() => setReviewFilter("4")}
-              >
-                4 Stars ({ratingCounts[4]})
-              </button>
-              <button
-                type="button"
-                className={`review-filter-pill ${reviewFilter === "recent" ? "active" : ""}`}
-                onClick={() => setReviewFilter("recent")}
-              >
-                Most recent
-              </button>
-            </div>
+            {totalReviews > 0 && (
+              <div className="reviews-filter-bar">
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "all" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("all")}
+                >
+                  All reviews ({totalReviews})
+                </button>
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "5" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("5")}
+                >
+                  5 Stars ({ratingCounts[5]})
+                </button>
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "4" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("4")}
+                >
+                  4 Stars ({ratingCounts[4]})
+                </button>
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "recent" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("recent")}
+                >
+                  Most recent
+                </button>
+              </div>
+            )}
 
             {filteredReviews.length ? (
               filteredReviews.map((review) => {
@@ -1643,9 +1556,17 @@ export function CustomerBookingPage() {
               })
             ) : (
               <div className="reviews-empty-state">
-                <Star size={32} style={{ color: "#d1d5db" }} />
-                <h3>No reviews found</h3>
-                <p>Be the first to leave a review for this category!</p>
+                <Star size={32} style={{ color: "#f59e0b" }} />
+                <h3>No reviews yet</h3>
+                <p>Have you booked with {businessName}? Share your experience with our artist!</p>
+                <button
+                  type="button"
+                  className="write-review-btn"
+                  onClick={() => setShowReviewModal(true)}
+                  style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
+                >
+                  <Star size={16} /> Write the first review
+                </button>
               </div>
             )}
           </div>
@@ -1658,13 +1579,13 @@ export function CustomerBookingPage() {
           Powered by <strong>bookora</strong>
         </span>
         <a href="#services">Services</a>
-        <a href="#team">Team</a>
+        <a href="#team">Artist</a>
         <a href="#reviews">Reviews</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
       </footer>
 
-      {/* MODAL 1: Customer Auth Modal (Sign in with Google / Email) */}
+      {/* MODAL 1: Customer Auth Modal (Sign in with Google / Email - Bottom sheet on mobile) */}
       {showAuthModal && (
         <CustomerAuthModal
           onClose={() => setShowAuthModal(false)}
@@ -1682,7 +1603,7 @@ export function CustomerBookingPage() {
         />
       )}
 
-      {/* MODAL 2: Write a Review Modal */}
+      {/* MODAL 2: Write a Review Modal (Bottom sheet on mobile) */}
       {showReviewModal && (
         <WriteReviewModal
           onClose={() => setShowReviewModal(false)}
@@ -1711,7 +1632,7 @@ export function CustomerBookingPage() {
 }
 
 // ============================================================================
-// Subcomponent: Customer Auth Modal
+// Subcomponent: Customer Auth Modal (Bottom sheet on mobile)
 // ============================================================================
 function CustomerAuthModal({
   onClose,
@@ -1824,7 +1745,7 @@ function CustomerAuthModal({
           <p>
             {authMode === "signin"
               ? `Sign in to autofill details and book with ${businessName}`
-              : "Register to manage appointments and save your preferred artists"}
+              : "Register to manage appointments and save your preferred artist"}
           </p>
         </div>
 
@@ -1943,7 +1864,7 @@ function CustomerAuthModal({
 }
 
 // ============================================================================
-// Subcomponent: Write a Review Modal
+// Subcomponent: Write a Review Modal (Bottom sheet on mobile)
 // ============================================================================
 function WriteReviewModal({
   onClose,
