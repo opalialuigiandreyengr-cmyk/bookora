@@ -1397,151 +1397,208 @@ export function CustomerBookingPage() {
         </div>
       </section>
 
-      {/* Team Section (Only Real Owner/Artist, No Fake Staff) */}
+      {/* Team Section (Simplified Owner Showcase) */}
       <section className="team-section" id="team" aria-labelledby="team-title">
         <div className="section-intro">
           <div>
             <p className="booking-eyebrow">Meet your artist</p>
             <h2 id="team-title">Good hands, good energy</h2>
           </div>
-          <a href="#choose-service">
-            Book an appointment <ArrowRight size={15} />
-          </a>
         </div>
         <div className="team-grid single-artist-grid">
-          {/* Real Business Owner / Founder Artist Card */}
-          <article className="team-card team-founder-card">
-            <div className="team-avatar team-founder-avatar">{ownerInitials}</div>
-            <div className="team-card-copy">
-              <strong>{ownerFullName}</strong>
-              <span className="team-role-tag">{ownerRole}</span>
-              <small>
-                <Star size={12} fill="currentColor" /> {totalReviews > 0 ? `${averageRating} · ${totalReviews} reviews` : "Verified Artist"}
-              </small>
-              <p className="team-card-bio">
-                Founder of {businessName}. Specializes in high-precision artistry, bespoke styling, and mindful self-care.
-              </p>
-              <a
-                href="#choose-service"
-                className="team-book-btn"
-                onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
-              >
-                Book with {ownerFirstName} <ArrowRight size={13} />
-              </a>
+          <article className="team-card team-simplified-card">
+            <div className="team-avatar team-simplified-avatar">{ownerInitials}</div>
+            <div className="team-simplified-info">
+              <strong className="team-simplified-name">{ownerFullName}</strong>
+              <span className="team-simplified-role">Owner</span>
             </div>
+            <a
+              href="#choose-service"
+              className="team-book-pill"
+              onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
+            >
+              Book with {ownerFirstName} <ArrowRight size={13} />
+            </a>
           </article>
         </div>
       </section>
 
-      {/* Real Reviews Section: Showcase Layout (Top 3 Recent Reviews + Show All Modal) */}
-      <section className="reviews-section reviews-section-showcase" id="reviews" aria-labelledby="reviews-title">
-        <div className="section-intro reviews-intro-showcase">
+      {/* Real Reviews Section: Rating Box + Filters + Top 3 Stream + Show All Modal */}
+      <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
+        <div className="section-intro">
           <div>
-            <p className="booking-eyebrow">Client feedback</p>
-            <h2 id="reviews-title">Loved by our clients</h2>
-          </div>
-
-          <div className="reviews-intro-actions">
-            {totalReviews > 0 && (
-              <div className="reviews-score-badge">
-                <Star size={15} fill="#f59e0b" color="#f59e0b" />
-                <strong>{averageRating}</strong>
-                <span>· {totalReviews} {totalReviews === 1 ? "review" : "reviews"}</span>
-              </div>
-            )}
-            <button
-              type="button"
-              className="write-review-compact-btn"
-              onClick={() => setShowReviewModal(true)}
-            >
-              <Star size={14} /> Write a review
-            </button>
+            <p className="booking-eyebrow">Client reviews</p>
+            <h2 id="reviews-title">
+              Small details.
+              <br />
+              Big feeling.
+            </h2>
           </div>
         </div>
 
-        {totalReviews > 0 ? (
-          <div className="reviews-showcase-container">
-            {/* Top 3 Recent Reviews Card Grid */}
-            <div className="reviews-cards-grid">
-              {topRecentReviews.map((review) => {
-                const initials = review.customer_name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()
-                const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })
+        <div className="reviews-layout-grid">
+          {/* Left Column: Overall Score & Breakdown Box */}
+          <div className="reviews-summary-card">
+            <div className="reviews-overall-score">
+              <span className="reviews-big-number">{totalReviews > 0 ? averageRating : "New"}</span>
+              <div>
+                <div className="reviews-stars-visual">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={18}
+                      fill={star <= (totalReviews > 0 ? Math.round(Number(averageRating)) : 5) ? "currentColor" : "none"}
+                    />
+                  ))}
+                </div>
+                <span className="reviews-count-caption">
+                  {totalReviews > 0 ? `${totalReviews} verified client ${totalReviews === 1 ? "review" : "reviews"}` : "Be the first to leave a review!"}
+                </span>
+              </div>
+            </div>
+
+            {/* Rating breakdown bars */}
+            <div className="reviews-breakdown">
+              {[5, 4, 3, 2, 1].map((rating) => {
+                const count = ratingCounts[rating as keyof typeof ratingCounts] || 0
+                const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0
                 return (
-                  <article className="review-showcase-card" key={review.id}>
-                    <div className="review-card-topline">
-                      <div className="review-stars-inline">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            size={14}
-                            fill={star <= review.rating ? "#f59e0b" : "none"}
-                            color={star <= review.rating ? "#f59e0b" : "#d1d5db"}
-                          />
-                        ))}
-                      </div>
-                      <span className="review-date-pill">{formattedDate}</span>
+                  <div className="review-breakdown-row" key={rating}>
+                    <span className="breakdown-label">
+                      {rating} <Star size={11} fill="currentColor" />
+                    </span>
+                    <div className="breakdown-bar-wrap">
+                      <div className="breakdown-bar-fill" style={{ width: `${percent}%` }} />
                     </div>
-
-                    <p className="review-showcase-quote">“{review.comment}”</p>
-
-                    <div className="review-card-bottomline">
-                      <div className="review-client-meta">
-                        <div className="review-avatar-small">{initials}</div>
-                        <div>
-                          <strong>{review.customer_name}</strong>
-                          <span className="review-verified-text">
-                            <Check size={10} /> Verified client
-                          </span>
-                        </div>
-                      </div>
-
-                      {review.service_name && (
-                        <span className="review-chip-service">
-                          <Scissors size={11} /> {review.service_name}
-                        </span>
-                      )}
-                    </div>
-                  </article>
+                    <span className="breakdown-count">{count}</span>
+                  </div>
                 )
               })}
             </div>
 
-            {/* Bottom Button to View All Reviews */}
-            <div className="reviews-showcase-footer">
-              <button
-                type="button"
-                className="show-all-reviews-btn"
-                onClick={() => setShowAllReviewsModal(true)}
-              >
-                <span>View all reviews ({totalReviews})</span>
-                <ArrowRight size={15} />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="reviews-empty-state">
-            <Star size={32} style={{ color: "#f59e0b" }} />
-            <h3>No reviews yet</h3>
-            <p>Have you booked with {businessName}? Be the first to share your experience!</p>
             <button
               type="button"
               className="write-review-btn"
               onClick={() => setShowReviewModal(true)}
-              style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
             >
-              <Star size={16} /> Write the first review
+              <Star size={16} /> Write a review
             </button>
           </div>
-        )}
+
+          {/* Right Column: Filter Pills and Top 3 Reviews Stream */}
+          <div className="reviews-stream">
+            {totalReviews > 0 && (
+              <div className="reviews-filter-bar">
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "all" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("all")}
+                >
+                  All reviews ({totalReviews})
+                </button>
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "5" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("5")}
+                >
+                  5 Stars ({ratingCounts[5] || 0})
+                </button>
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "4" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("4")}
+                >
+                  4 Stars ({ratingCounts[4] || 0})
+                </button>
+                <button
+                  type="button"
+                  className={`review-filter-pill ${reviewFilter === "recent" ? "active" : ""}`}
+                  onClick={() => setReviewFilter("recent")}
+                >
+                  Most recent
+                </button>
+              </div>
+            )}
+
+            {filteredReviews.length ? (
+              <>
+                {filteredReviews.slice(0, 3).map((review) => {
+                  const initials = review.customer_name
+                    .split(" ")
+                    .map((w) => w[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                  const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                  return (
+                    <article className="review-card-item" key={review.id}>
+                      <div className="review-card-header">
+                        <div className="review-card-user">
+                          <div className="review-user-avatar">{initials}</div>
+                          <div className="review-user-info">
+                            <strong>{review.customer_name}</strong>
+                            <span className="review-date">{formattedDate}</span>
+                          </div>
+                        </div>
+                        <div className="review-card-stars-row">
+                          <div style={{ display: "flex", gap: 2, color: "#f59e0b" }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                size={14}
+                                fill={star <= review.rating ? "currentColor" : "none"}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {review.service_name && (
+                        <div>
+                          <span className="review-service-tag">
+                            <Scissors size={12} /> {review.service_name}
+                          </span>
+                        </div>
+                      )}
+
+                      <p className="review-card-text">“{review.comment}”</p>
+                    </article>
+                  )
+                })}
+
+                {/* Button below to show all reviews */}
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="show-all-reviews-btn"
+                    onClick={() => setShowAllReviewsModal(true)}
+                  >
+                    <span>View all reviews ({totalReviews})</span>
+                    <ArrowRight size={15} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="reviews-empty-state">
+                <Star size={32} style={{ color: "#f59e0b" }} />
+                <h3>No reviews yet</h3>
+                <p>Have you booked with {businessName}? Share your experience with our artist!</p>
+                <button
+                  type="button"
+                  className="write-review-btn"
+                  onClick={() => setShowReviewModal(true)}
+                  style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
+                >
+                  <Star size={16} /> Write the first review
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Footer */}
@@ -2242,9 +2299,6 @@ function AllReviewsModal({
                       <div className="review-avatar-small">{initials}</div>
                       <div>
                         <strong>{review.customer_name}</strong>
-                        <span className="review-verified-text">
-                          <Check size={9} /> Verified client
-                        </span>
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
