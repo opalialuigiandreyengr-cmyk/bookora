@@ -179,6 +179,7 @@ create table if not exists public.services (
     business_id uuid references auth.users(id) on delete cascade not null,
     category_id uuid references public.service_categories(id) on delete set null,
     name text not null,
+    description text default '',
     duration_minutes integer,
     buffer_minutes integer not null default 0,
     price text not null default 'Free',
@@ -189,6 +190,8 @@ create table if not exists public.services (
     constraint services_duration_nonnegative check (duration_minutes is null or duration_minutes >= 0),
     constraint services_buffer_nonnegative check (buffer_minutes >= 0)
 );
+
+alter table public.services add column if not exists description text default '';
 
 create index if not exists idx_service_categories_business_id on public.service_categories (business_id);
 create index if not exists idx_services_business_id on public.services (business_id);
@@ -268,3 +271,51 @@ create policy "Users can update own service assets" on storage.objects for updat
 drop policy if exists "Anyone can view service assets" on storage.objects;
 create policy "Anyone can view service assets" on storage.objects for select to public
     using (bucket_id = 'service-assets');
+
+-- ============================================================================
+-- Customer Appointments Table & Policies
+-- ============================================================================
+create table if not exists public.appointments (
+    id uuid default gen_random_uuid() primary key,
+    business_id uuid references auth.users(id) on delete cascade not null,
+    customer_name text not null,
+    customer_email text not null,
+    customer_phone text not null,
+    customer_note text default '',
+    service_names text not null,
+    total_price text not null default '₱0',
+    appointment_date text not null,
+    appointment_time text not null,
+    status text not null default 'pending',
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_appointments_business_id on public.appointments (business_id);
+
+alter table public.appointments enable row level security;
+
+drop policy if exists "Business owners can view own appointments" on public.appointments;
+create policy "Business owners can view own appointments"
+    on public.appointments for select
+    using (auth.uid() = business_id);
+
+drop policy if exists "Business owners can update own appointments" on public.appointments;
+create policy "Business owners can update own appointments"
+    on public.appointments for update
+    using (auth.uid() = business_id)
+    with check (auth.uid() = business_id);
+
+drop policy if exists "Public can insert appointments" on public.appointments;
+create policy "Public can insert appointments"
+    on public.appointments for insert to anon, authenticated
+    with check (
+        exists (
+            select 1 from public.business_profiles profile
+            where profile.id = appointments.business_id
+              and profile.slug is not null
+              and length(trim(profile.slug)) > 0
+        )
+    );
+
+grant select, update, delete on public.appointments to authenticated;
+grant insert on public.appointments to anon, authenticated;

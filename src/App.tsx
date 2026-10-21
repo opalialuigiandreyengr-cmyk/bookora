@@ -11,8 +11,14 @@ import { CustomerBookingPage } from "@/pages/CustomerBookingPage"
 
 export default function App() {
   const hostname = window.location.hostname
+  const pathname = window.location.pathname
   const isPublicBookingHost = [".bookora.com", ".bookoraph.com"].some((suffix) => hostname.endsWith(suffix)) && !hostname.startsWith("www.")
-  const isCustomerBooking = window.location.pathname === "/booking" || window.location.pathname === "/book" || isPublicBookingHost
+  const isCustomerBooking =
+    pathname === "/booking" ||
+    pathname === "/book" ||
+    pathname.startsWith("/book/") ||
+    pathname.startsWith("/booking/") ||
+    isPublicBookingHost
   if (isCustomerBooking) return <CustomerBookingPage />
 
   const [user, setUser] = useState<User | null>(null)
