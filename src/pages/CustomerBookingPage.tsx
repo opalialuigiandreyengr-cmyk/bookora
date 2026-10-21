@@ -1230,7 +1230,14 @@ export function CustomerBookingPage() {
                 <div className="booking-actions">
                   <span className="secure-note">No payment required today</span>
                   <button className="booking-primary" type="submit" disabled={!canContinue || submittingBooking}>
-                    {submittingBooking ? "Confirming..." : <>Review booking <ArrowRight size={17} /></>}
+                    {submittingBooking ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Confirming...</span>
+                      </>
+                    ) : (
+                      <>Review booking <ArrowRight size={17} /></>
+                    )}
                   </button>
                 </div>
               </form>
@@ -1692,9 +1699,11 @@ function CustomerAuthModal({
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle")
+  const [authMethod, setAuthMethod] = useState<"google" | "email" | null>(null)
   const [message, setMessage] = useState("")
 
   const handleGoogleSignIn = async () => {
+    setAuthMethod("google")
     setStatus("loading")
     setMessage("")
     try {
@@ -1716,13 +1725,19 @@ function CustomerAuthModal({
           })
           if (error) {
             setStatus("error")
+            setAuthMethod(null)
             setMessage(error.message)
             return
           }
         } catch (oauthErr: any) {
           setStatus("error")
+          setAuthMethod(null)
           setMessage(oauthErr?.message || "Google sign-in is currently unavailable.")
         }
+      } else {
+        setStatus("error")
+        setAuthMethod(null)
+        setMessage("Google sign-in is currently unavailable.")
       }
     }
   }
@@ -1731,10 +1746,12 @@ function CustomerAuthModal({
     e.preventDefault()
     if (!supabase) {
       setStatus("error")
+      setAuthMethod(null)
       setMessage("Supabase is not configured.")
       return
     }
 
+    setAuthMethod("email")
     setStatus("loading")
     setMessage("")
 
@@ -1750,6 +1767,7 @@ function CustomerAuthModal({
       })
       if (error) {
         setStatus("error")
+        setAuthMethod(null)
         setMessage(error.message)
       } else if (data.user) {
         onSuccess(data.user)
@@ -1761,6 +1779,7 @@ function CustomerAuthModal({
       })
       if (error) {
         setStatus("error")
+        setAuthMethod(null)
         setMessage(error.message)
       } else if (data.user) {
         onSuccess(data.user)
@@ -1790,6 +1809,39 @@ function CustomerAuthModal({
           <X size={16} />
         </button>
 
+        {/* Centered Loading Spinner Overlay */}
+        {status === "loading" && (
+          <div className="customer-modal-loading-overlay">
+            <div className="customer-modal-loading-card">
+              <div className="customer-modal-spinner-wrap">
+                <Loader2 size={32} className="animate-spin customer-modal-spinner" />
+              </div>
+              <h3>
+                {authMethod === "google"
+                  ? "Connecting to Google"
+                  : authMode === "signup"
+                  ? "Creating your account"
+                  : "Signing in"}
+              </h3>
+              <p>
+                {authMethod === "google"
+                  ? "Please wait while we connect your Google account..."
+                  : "Verifying your details, please wait a moment..."}
+              </p>
+              <button
+                type="button"
+                className="customer-modal-loading-cancel"
+                onClick={() => {
+                  setStatus("idle")
+                  setAuthMethod(null)
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="customer-modal-header">
           <div className="customer-modal-icon">
             <LockKeyhole size={24} />
@@ -1809,25 +1861,34 @@ function CustomerAuthModal({
           onClick={handleGoogleSignIn}
           disabled={status === "loading"}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-            />
-          </svg>
-          <span>Continue with Google</span>
+          {status === "loading" && authMethod === "google" ? (
+            <>
+              <Loader2 size={18} className="animate-spin" style={{ color: "#d85b53" }} />
+              <span>Connecting to Google...</span>
+            </>
+          ) : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              <span>Continue with Google</span>
+            </>
+          )}
         </button>
 
         <div className="auth-modal-divider">or continue with email</div>
@@ -1843,6 +1904,7 @@ function CustomerAuthModal({
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g. Maria Santos"
                 required
+                disabled={status === "loading"}
               />
             </div>
           )}
@@ -1856,6 +1918,7 @@ function CustomerAuthModal({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
+              disabled={status === "loading"}
             />
           </div>
 
@@ -1868,6 +1931,7 @@ function CustomerAuthModal({
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              disabled={status === "loading"}
             />
           </div>
 
@@ -1881,7 +1945,7 @@ function CustomerAuthModal({
             disabled={status === "loading"}
             style={{ width: "100%", height: 44, marginTop: 6 }}
           >
-            {status === "loading" ? (
+            {status === "loading" && authMethod === "email" ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
                 <span>Processing...</span>
@@ -1898,14 +1962,30 @@ function CustomerAuthModal({
           {authMode === "signin" ? (
             <>
               Don’t have an account?
-              <button type="button" className="auth-toggle-btn" onClick={() => setAuthMode("signup")}>
+              <button
+                type="button"
+                className="auth-toggle-btn"
+                disabled={status === "loading"}
+                onClick={() => {
+                  setAuthMode("signup")
+                  setMessage("")
+                }}
+              >
                 Sign up
               </button>
             </>
           ) : (
             <>
               Already have an account?
-              <button type="button" className="auth-toggle-btn" onClick={() => setAuthMode("signin")}>
+              <button
+                type="button"
+                className="auth-toggle-btn"
+                disabled={status === "loading"}
+                onClick={() => {
+                  setAuthMode("signin")
+                  setMessage("")
+                }}
+              >
                 Sign in
               </button>
             </>

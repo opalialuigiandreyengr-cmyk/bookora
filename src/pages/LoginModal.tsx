@@ -17,6 +17,7 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle")
+  const [loadingProvider, setLoadingProvider] = useState<"google" | "apple" | "email" | null>(null)
   const [message, setMessage] = useState("")
   const [isResetView, setIsResetView] = useState(false)
 
@@ -35,20 +36,23 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     event.preventDefault()
     if (!supabase) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage("Connect Supabase first by adding your environment variables.")
       return
     }
 
+    setLoadingProvider("email")
     setStatus("loading")
     setMessage("")
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
 
     if (error) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage(error.message)
     } else {
       setStatus("success")
@@ -63,10 +67,12 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     event.preventDefault()
     if (!supabase) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage("Connect Supabase first by adding your environment variables.")
       return
     }
 
+    setLoadingProvider("email")
     setStatus("loading")
     setMessage("")
 
@@ -76,6 +82,7 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
 
     if (error) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage(error.message)
     } else {
       setStatus("success")
@@ -86,9 +93,11 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
   const oauth = async (provider: "google" | "apple") => {
     if (!supabase) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage("Connect Supabase first by adding your environment variables.")
       return
     }
+    setLoadingProvider(provider)
     setStatus("loading")
     if (provider === "google") {
       try {
@@ -96,15 +105,32 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
         setStatus("success")
         setMessage("Signed in successfully! Opening your workspace…")
         window.setTimeout(onClose, 500)
-      } catch (error) {
-        setStatus("error")
-        setMessage(error instanceof Error ? error.message : "Google sign-in failed.")
+        return
+      } catch {
+        // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: `${window.location.origin}/dashboard` },
+          })
+          if (error) {
+            setStatus("error")
+            setLoadingProvider(null)
+            setMessage(error.message)
+            return
+          }
+        } catch (oauthErr: any) {
+          setStatus("error")
+          setLoadingProvider(null)
+          setMessage(oauthErr?.message || "Google sign-in failed.")
+        }
+        return
       }
-      return
     }
     const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } })
     if (error) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage(error.message)
     }
   }
@@ -134,6 +160,41 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
         >
           <X />
         </button>
+
+        {/* Centered Loading Spinner Overlay */}
+        {status === "loading" && loadingProvider && (
+          <div className="login-modal-loading-overlay">
+            <div className="customer-modal-loading-card">
+              <div className="customer-modal-spinner-wrap">
+                <Loader2 size={32} className="animate-spin customer-modal-spinner" />
+              </div>
+              <h3>
+                {loadingProvider === "google"
+                  ? "Connecting to Google"
+                  : loadingProvider === "apple"
+                  ? "Connecting to Apple"
+                  : isResetView
+                  ? "Sending reset link"
+                  : "Signing in"}
+              </h3>
+              <p>
+                {loadingProvider === "google"
+                  ? "Please wait while we connect your Google account…"
+                  : "Please wait a moment while we process your request…"}
+              </p>
+              <button
+                type="button"
+                className="customer-modal-loading-cancel"
+                onClick={() => {
+                  setStatus("idle")
+                  setLoadingProvider(null)
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {isResetView ? (
           <div>
@@ -174,7 +235,7 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
                 type="submit"
                 disabled={status === "loading"}
               >
-                {status === "loading" ? (
+                {status === "loading" && loadingProvider === "email" ? (
                   <>
                     <Loader2 className="animate-spin" />
                     <span>Sending reset link…</span>
@@ -287,7 +348,7 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
                 type="submit"
                 disabled={status === "loading"}
               >
-                {status === "loading" ? (
+                {status === "loading" && loadingProvider === "email" ? (
                   <>
                     <Loader2 className="animate-spin" />
                     <span>Signing in…</span>
@@ -320,12 +381,21 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
                   onClick={() => oauth("google")}
                   disabled={status === "loading"}
                 >
-                  <img
-                    className="social-logo"
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                    alt=""
-                  />
-                  Continue with Google
+                  {status === "loading" && loadingProvider === "google" ? (
+                    <>
+                      <Loader2 className="animate-spin" />
+                      <span>Connecting to Google…</span>
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className="social-logo"
+                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                        alt=""
+                      />
+                      <span>Continue with Google</span>
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="outline"

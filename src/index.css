@@ -169,7 +169,7 @@ svg { stroke-width: 1.8; }
 .phone-preview > span svg { width: 9px; height: 9px; }
 .phone-preview > button { border: 0; border-radius: 5px; min-height: 31px; margin-top: auto; background: var(--primary); color: var(--primary-foreground); font-size: 7px; font-weight: 700; }
 
-.signup-card { border: 1px solid oklch(0.92 0.012 25); background: oklch(0.997 0.004 35 / .97); box-shadow: 0 18px 48px oklch(0.42 0.04 25 / .11); min-height: 390px; }
+.signup-card { position: relative; border: 1px solid oklch(0.92 0.012 25); background: oklch(0.997 0.004 35 / .97); box-shadow: 0 18px 48px oklch(0.42 0.04 25 / .11); min-height: 390px; }
 .signup-card [data-slot="card-header"] { padding: 22px 24px 0; }
 .signup-card [data-slot="card-title"] { font-size: 1.375rem; line-height: 1.15; letter-spacing: -.035em; }
 .signup-card [data-slot="card-description"] { color: oklch(0.35 0.035 255); font-size: 1rem; line-height: 1.45; }
@@ -3098,6 +3098,93 @@ svg { stroke-width: 1.8; }
   flex: 0 0 auto;
 }
 
+.google-oauth-btn:disabled {
+  opacity: 0.78;
+  cursor: not-allowed;
+}
+
+.google-oauth-btn .animate-spin {
+  flex: 0 0 auto;
+}
+
+/* Centered Loading Overlay for Auth Modals & Cards */
+.customer-modal-loading-overlay,
+.login-modal-loading-overlay,
+.signup-card-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-radius: inherit;
+  animation: cpFadeIn 0.16s ease-out;
+}
+
+.customer-modal-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+  animation: cpScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customer-modal-spinner-wrap {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 20px;
+  background: #fbeee9;
+  color: #d85b53;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 26px rgba(216, 91, 83, 0.2);
+}
+
+.customer-modal-spinner {
+  width: 30px;
+  height: 30px;
+  color: #d85b53;
+}
+
+.customer-modal-loading-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #172236;
+  letter-spacing: -0.02em;
+}
+
+.customer-modal-loading-card p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #697483;
+  line-height: 1.5;
+}
+
+.customer-modal-loading-cancel {
+  border: 1px solid #e2dbd5;
+  background: #fff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.customer-modal-loading-cancel:hover {
+  background: #f4eee9;
+  color: #1f2937;
+  border-color: #d4ccc5;
+}
+
 .auth-modal-divider {
   display: flex;
   align-items: center;
@@ -3375,6 +3462,46 @@ svg { stroke-width: 1.8; }
 
 .booking-dark .google-oauth-btn:hover {
   background: #31343d;
+}
+
+.booking-dark .customer-modal-loading-overlay,
+.landing-dark .signup-card-loading-overlay,
+.dark .login-modal-loading-overlay {
+  background: rgba(22, 24, 29, 0.95);
+}
+
+.booking-dark .customer-modal-spinner-wrap,
+.landing-dark .customer-modal-spinner-wrap,
+.dark .customer-modal-spinner-wrap {
+  background: rgba(216, 91, 83, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.booking-dark .customer-modal-loading-card h3,
+.landing-dark .customer-modal-loading-card h3,
+.dark .customer-modal-loading-card h3 {
+  color: #f3f4f6;
+}
+
+.booking-dark .customer-modal-loading-card p,
+.landing-dark .customer-modal-loading-card p,
+.dark .customer-modal-loading-card p {
+  color: #9ca3af;
+}
+
+.booking-dark .customer-modal-loading-cancel,
+.landing-dark .customer-modal-loading-cancel,
+.dark .customer-modal-loading-cancel {
+  background: #2a2d34;
+  border-color: #3f434c;
+  color: #d1d5db;
+}
+
+.booking-dark .customer-modal-loading-cancel:hover,
+.landing-dark .customer-modal-loading-cancel:hover,
+.dark .customer-modal-loading-cancel:hover {
+  background: #363942;
+  color: #fff;
 }
 
 .booking-dark .customer-modal-close {

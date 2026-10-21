@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
-import { ArrowRight, BarChart3, Bell, CalendarDays, Check, CirclePlay, CreditCard, Eye, EyeOff, Globe2, Home, ListChecks, LockKeyhole, Mail, Menu, Scissors, Settings2, Users, X } from "lucide-react"
+import { ArrowRight, BarChart3, Bell, CalendarDays, Check, CirclePlay, CreditCard, Eye, EyeOff, Globe2, Home, ListChecks, Loader2, LockKeyhole, Mail, Menu, Scissors, Settings2, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -15,6 +15,7 @@ const features = [[CalendarDays, "Online Booking", "Let clients book 24/7 from a
 
 function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "signup" | "login") => void }) {
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle")
+  const [loadingProvider, setLoadingProvider] = useState<"google" | "apple" | "email" | null>(null)
   const [message, setMessage] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const isLogin = mode === "login"
@@ -23,6 +24,7 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
     event.preventDefault()
     if (!supabase) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage("Connect Supabase first by adding your environment variables.")
       return
     }
@@ -30,6 +32,7 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
     const email = String(form.get("email") ?? "").trim()
     const password = String(form.get("password") ?? "")
 
+    setLoadingProvider("email")
     setStatus("loading")
     setMessage("")
 
@@ -40,6 +43,7 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
       })
       if (error) {
         setStatus("error")
+        setLoadingProvider(null)
         setMessage(error.message)
       } else {
         setStatus("success")
@@ -53,6 +57,7 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
       })
       if (error) {
         setStatus("error")
+        setLoadingProvider(null)
         setMessage(error.message)
       } else {
         setStatus("success")
@@ -64,30 +69,84 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
   const oauth = async (provider: "google" | "apple") => {
     if (!supabase) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage("Connect Supabase first by adding your environment variables.")
       return
     }
+    setLoadingProvider(provider)
     setStatus("loading")
     if (provider === "google") {
       try {
         await signInWithGoogle()
         setStatus("success")
         setMessage("Signed in successfully! Loading your workspace…")
-      } catch (error) {
-        setStatus("error")
-        setMessage(error instanceof Error ? error.message : "Google sign-in failed.")
+        return
+      } catch {
+        // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: `${window.location.origin}/dashboard` },
+          })
+          if (error) {
+            setStatus("error")
+            setLoadingProvider(null)
+            setMessage(error.message)
+            return
+          }
+        } catch (oauthErr: any) {
+          setStatus("error")
+          setLoadingProvider(null)
+          setMessage(oauthErr?.message || "Google sign-in failed.")
+        }
+        return
       }
-      return
     }
     const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } })
     if (error) {
       setStatus("error")
+      setLoadingProvider(null)
       setMessage(error.message)
     }
   }
 
   return (
     <Card className="signup-card" id="signup">
+      {/* Centered Loading Spinner Overlay */}
+      {status === "loading" && loadingProvider && (
+        <div className="signup-card-loading-overlay">
+          <div className="customer-modal-loading-card">
+            <div className="customer-modal-spinner-wrap">
+              <Loader2 size={32} className="animate-spin customer-modal-spinner" />
+            </div>
+            <h3>
+              {loadingProvider === "google"
+                ? "Connecting to Google"
+                : loadingProvider === "apple"
+                ? "Connecting to Apple"
+                : isLogin
+                ? "Signing in"
+                : "Creating your account"}
+            </h3>
+            <p>
+              {loadingProvider === "google"
+                ? "Please wait while we connect your Google account…"
+                : "Please wait a moment while we process your request…"}
+            </p>
+            <button
+              type="button"
+              className="customer-modal-loading-cancel"
+              onClick={() => {
+                setStatus("idle")
+                setLoadingProvider(null)
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="auth-card-pills" role="tablist">
         <button
           type="button"
@@ -150,7 +209,16 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
             </Field>
           </FieldGroup>
           <Button className="wide-button" size="lg" type="submit" disabled={status === "loading"}>
-            {status === "loading" ? (isLogin ? "Signing in…" : "Creating account…") : (isLogin ? "Sign in to account" : "Create free account")}
+            {status === "loading" && loadingProvider === "email" ? (
+              <>
+                <Loader2 className="animate-spin" />
+                <span>{isLogin ? "Signing in…" : "Creating account…"}</span>
+              </>
+            ) : isLogin ? (
+              "Sign in to account"
+            ) : (
+              "Create free account"
+            )}
           </Button>
           {(status === "error" || status === "success") && (
             <p className={status === "error" ? "auth-error" : "auth-note"} role={status === "error" ? "alert" : "status"}>
@@ -160,7 +228,17 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
           <div className="or-row"><Separator /><span>or continue with</span><Separator /></div>
           <div className="social-buttons">
             <Button variant="outline" type="button" onClick={() => oauth("google")} disabled={status === "loading"}>
-              <img className="social-logo" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" /> Continue with Google
+              {status === "loading" && loadingProvider === "google" ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  <span>Connecting to Google…</span>
+                </>
+              ) : (
+                <>
+                  <img className="social-logo" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" />
+                  <span>Continue with Google</span>
+                </>
+              )}
             </Button>
             <Button variant="outline" type="button" onClick={() => oauth("apple")} disabled={status === "loading"}>
               <img className="social-logo" src="https://cdn.simpleicons.org/apple/111827" alt="" /> Continue with Apple
