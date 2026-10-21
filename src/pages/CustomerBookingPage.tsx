@@ -121,6 +121,13 @@ const restorePublicServiceOrder = (services: Service[], businessId: string) => {
 }
 
 export function CustomerBookingPage() {
+  const hostParts = typeof window !== "undefined" ? window.location.hostname.split(".") : []
+  const hostSuffix = hostParts.slice(-2).join(".")
+  const hostSlug = hostParts.length >= 3 && ["bookora.com", "bookoraph.com"].includes(hostSuffix) ? hostParts[0] : ""
+  const pathParts = typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean) : []
+  const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
+  const urlSlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug : ""
+
   const [step, setStep] = useState(1)
   const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem("bookora-booking-theme") === "dark")
   const [profile, setProfile] = useState<BusinessProfile | null>(null)
@@ -138,6 +145,8 @@ export function CustomerBookingPage() {
   const [pegImageName, setPegImageName] = useState<string>("")
   const [submittingBooking, setSubmittingBooking] = useState(false)
 
+  const bookingSlug = profile?.slug || urlSlug
+
   // Auth & user states
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -150,33 +159,62 @@ export function CustomerBookingPage() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewFilter, setReviewFilter] = useState<"all" | "5" | "4" | "recent">("all")
 
-  // Listen to Supabase auth state & pre-fill customer details
+  // Listen to Supabase auth state & pre-fill customer details as Client
   useEffect(() => {
     if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => {
-      const user = data.session?.user ?? null
-      setCurrentUser(user)
-      if (user) {
-        setDetails((prev) => ({
-          ...prev,
-          name: prev.name || String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? ""),
-          email: prev.email || user.email || "",
-        }))
+
+    const syncUserAsClient = async (user: User | null) => {
+      if (!user) {
+        setCurrentUser(null)
+        return
       }
+
+      const intent = localStorage.getItem("bookora_auth_intent")
+      const pendingSlug = localStorage.getItem("bookora_client_slug") || bookingSlug
+      const pendingBusId = localStorage.getItem("bookora_client_business_id") || profile?.id || ""
+      const pendingBusName = localStorage.getItem("bookora_client_business_name") || profile?.business_name || ""
+
+      let activeUser = user
+      const isAlreadyClient = activeUser.user_metadata?.account_type === "client" || activeUser.user_metadata?.role === "client"
+      const needsSlugSync = Boolean(pendingSlug && activeUser.user_metadata?.client_slug !== pendingSlug)
+
+      if (intent === "client" || !isAlreadyClient || needsSlugSync) {
+        try {
+          const client = supabase
+          if (client) {
+            const { data: updated } = await client.auth.updateUser({
+              data: {
+                account_type: "client",
+                role: "client",
+                client_slug: pendingSlug || activeUser.user_metadata?.client_slug || "",
+                client_business_id: pendingBusId || activeUser.user_metadata?.client_business_id || "",
+                client_business_name: pendingBusName || activeUser.user_metadata?.client_business_name || "",
+              },
+            })
+            if (updated?.user) activeUser = updated.user
+          }
+        } catch (e) {
+          console.warn("Client metadata sync error:", e)
+        }
+        try { localStorage.removeItem("bookora_auth_intent") } catch {}
+      }
+
+      setCurrentUser(activeUser)
+      setDetails((prev) => ({
+        ...prev,
+        name: prev.name || String(activeUser.user_metadata?.full_name ?? activeUser.email?.split("@")[0] ?? ""),
+        email: prev.email || activeUser.email || "",
+      }))
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      syncUserAsClient(data.session?.user ?? null)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null
-      setCurrentUser(user)
-      if (user) {
-        setDetails((prev) => ({
-          ...prev,
-          name: prev.name || String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? ""),
-          email: prev.email || user.email || "",
-        }))
-      }
+      syncUserAsClient(session?.user ?? null)
     })
     return () => listener.subscription.unsubscribe()
-  }, [])
+  }, [bookingSlug, profile?.id, profile?.business_name])
 
   const handlePegImageUpload = (file: File) => {
     if (!file) return
@@ -414,20 +452,15 @@ export function CustomerBookingPage() {
 
   useEffect(() => {
     let active = true
-    const hostParts = window.location.hostname.split(".")
-    const hostSuffix = hostParts.slice(-2).join(".")
-    const hostSlug = hostParts.length >= 3 && ["bookora.com", "bookoraph.com"].includes(hostSuffix) ? hostParts[0] : ""
-    const pathParts = window.location.pathname.split("/").filter(Boolean)
-    const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
-    const bookingSlug = new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug
+    const activeSlug = bookingSlug
 
     const loadPublicBookingData = async () => {
       if (!supabase) return
       const profileQuery = supabase
         .from("business_profiles")
         .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, business_hours, owner_name")
-      const { data: businesses, error: profileError } = bookingSlug
-        ? await profileQuery.eq("slug", bookingSlug).limit(1)
+      const { data: businesses, error: profileError } = activeSlug
+        ? await profileQuery.eq("slug", activeSlug).limit(1)
         : await profileQuery.order("created_at", { ascending: true }).limit(1)
       const business = businesses?.[0]
       if (!active || profileError || !business) return
@@ -621,7 +654,7 @@ export function CustomerBookingPage() {
                   <div className="account-user-meta">
                     <strong>{String(currentUser.user_metadata?.full_name ?? currentUser.email?.split("@")[0])}</strong>
                     <span>{currentUser.email}</span>
-                    <span className="user-badge-tag">Verified Client</span>
+                    <span className="user-badge-tag">Client · {businessName}</span>
                   </div>
                   <button
                     type="button"
@@ -1625,6 +1658,8 @@ export function CustomerBookingPage() {
         <CustomerAuthModal
           onClose={() => setShowAuthModal(false)}
           businessName={businessName}
+          businessSlug={bookingBrandName}
+          businessId={profile?.id}
           onSuccess={(user) => {
             setCurrentUser(user)
             setDetails((prev) => ({
@@ -1688,10 +1723,14 @@ export function CustomerBookingPage() {
 function CustomerAuthModal({
   onClose,
   businessName,
+  businessSlug,
+  businessId,
   onSuccess,
 }: {
   onClose: () => void
   businessName: string
+  businessSlug: string
+  businessId?: string
   onSuccess: (user: User) => void
 }) {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin")
@@ -1706,12 +1745,40 @@ function CustomerAuthModal({
     setAuthMethod("google")
     setStatus("loading")
     setMessage("")
+
+    // Save client intent and slug in localStorage so after redirect/reload the user is stamped as client
+    try {
+      localStorage.setItem("bookora_auth_intent", "client")
+      localStorage.setItem("bookora_client_slug", businessSlug || "")
+      localStorage.setItem("bookora_client_business_id", businessId || "")
+      localStorage.setItem("bookora_client_business_name", businessName || "")
+    } catch {}
+
     try {
       await signInWithGoogle()
       if (supabase) {
         const { data } = await supabase.auth.getSession()
         if (data.session?.user) {
-          onSuccess(data.session.user)
+          let user = data.session.user
+          // Guarantee metadata is stamped as client
+          if (user.user_metadata?.account_type !== "client" || user.user_metadata?.client_slug !== businessSlug) {
+            try {
+              const { data: updated } = await supabase.auth.updateUser({
+                data: {
+                  account_type: "client",
+                  role: "client",
+                  client_slug: businessSlug,
+                  client_business_id: businessId || "",
+                  client_business_name: businessName,
+                },
+              })
+              if (updated?.user) user = updated.user
+            } catch (updateErr) {
+              console.warn("Client tag error:", updateErr)
+            }
+          }
+          try { localStorage.removeItem("bookora_auth_intent") } catch {}
+          onSuccess(user)
           return
         }
       }
@@ -1722,7 +1789,12 @@ function CustomerAuthModal({
           const cleanRedirectUrl = window.location.href.split("#")[0]
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
-            options: { redirectTo: cleanRedirectUrl },
+            options: {
+              redirectTo: cleanRedirectUrl,
+              queryParams: {
+                prompt: "select_account",
+              },
+            },
           })
           if (error) {
             setStatus("error")
@@ -1763,6 +1835,11 @@ function CustomerAuthModal({
         options: {
           data: {
             full_name: fullName.trim() || email.split("@")[0],
+            account_type: "client",
+            role: "client",
+            client_slug: businessSlug,
+            client_business_id: businessId || "",
+            client_business_name: businessName,
           },
         },
       })
@@ -1783,7 +1860,25 @@ function CustomerAuthModal({
         setAuthMethod(null)
         setMessage(error.message)
       } else if (data.user) {
-        onSuccess(data.user)
+        let user = data.user
+        // Ensure user is tagged as client for this custom business
+        if (user.user_metadata?.account_type !== "client" || (!user.user_metadata?.client_slug && businessSlug)) {
+          try {
+            const { data: updated } = await supabase.auth.updateUser({
+              data: {
+                account_type: "client",
+                role: "client",
+                client_slug: businessSlug || user.user_metadata?.client_slug || "",
+                client_business_id: businessId || user.user_metadata?.client_business_id || "",
+                client_business_name: businessName || user.user_metadata?.client_business_name || "",
+              },
+            })
+            if (updated?.user) user = updated.user
+          } catch (updateErr) {
+            console.warn("Client tag error:", updateErr)
+          }
+        }
+        onSuccess(user)
       }
     }
   }
@@ -1821,13 +1916,13 @@ function CustomerAuthModal({
                 {authMethod === "google"
                   ? "Connecting to Google"
                   : authMode === "signup"
-                  ? "Creating your account"
-                  : "Signing in"}
+                  ? "Creating your client account"
+                  : "Signing in as client"}
               </h3>
               <p>
                 {authMethod === "google"
-                  ? "Please wait while we connect your Google account..."
-                  : "Verifying your details, please wait a moment..."}
+                  ? "Please wait while we connect your Google account…"
+                  : "Verifying your details, please wait a moment…"}
               </p>
               <button
                 type="button"
@@ -1844,14 +1939,20 @@ function CustomerAuthModal({
         )}
 
         <div className="customer-modal-header">
+          <div className="client-auth-pill">
+            <span className="client-auth-dot" />
+            <span>Client Portal · {businessName}</span>
+          </div>
           <div className="customer-modal-icon">
             <LockKeyhole size={24} />
           </div>
-          <h2 id="auth-modal-title">{authMode === "signin" ? "Sign in to Bookora" : "Create your account"}</h2>
+          <h2 id="auth-modal-title">
+            {authMode === "signin" ? `Sign in to ${businessName}` : "Create your client account"}
+          </h2>
           <p>
             {authMode === "signin"
-              ? `Sign in to autofill details and book with ${businessName}`
-              : "Register to manage appointments and save your preferred artist"}
+              ? `Sign in as a client to autofill details, track bookings, and book with ${businessName}.`
+              : `Register as a client of ${businessName} to manage your appointments and preferred services.`}
           </p>
         </div>
 
@@ -1952,9 +2053,9 @@ function CustomerAuthModal({
                 <span>Processing...</span>
               </>
             ) : authMode === "signin" ? (
-              "Sign in"
+              "Sign in as client"
             ) : (
-              "Create account"
+              "Create client account"
             )}
           </button>
         </form>
@@ -1962,7 +2063,7 @@ function CustomerAuthModal({
         <div className="auth-toggle-row">
           {authMode === "signin" ? (
             <>
-              Don’t have an account?
+              Don’t have a client account?
               <button
                 type="button"
                 className="auth-toggle-btn"
@@ -1991,6 +2092,14 @@ function CustomerAuthModal({
               </button>
             </>
           )}
+        </div>
+
+        {/* Business Owner Switcher Note */}
+        <div className="client-auth-business-switch">
+          <span>Salon or studio owner?</span>{" "}
+          <a href="/?login=business" className="auth-business-switch-link">
+            Sign in to Bookora Business →
+          </a>
         </div>
       </div>
     </div>

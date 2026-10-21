@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react"
+import type { User } from "@supabase/supabase-js"
 import { ArrowRight, BarChart3, Bell, CalendarDays, Check, CirclePlay, CreditCard, Eye, EyeOff, Globe2, Home, ListChecks, Loader2, LockKeyhole, Mail, Menu, Scissors, Settings2, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,7 +38,7 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
     setMessage("")
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -46,6 +47,23 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
         setLoadingProvider(null)
         setMessage(error.message)
       } else {
+        const loggedUser = signInData.user
+        const isClient = Boolean(
+          loggedUser?.user_metadata?.account_type === "client" ||
+          loggedUser?.user_metadata?.role === "client" ||
+          loggedUser?.user_metadata?.client_slug
+        )
+        if (isClient) {
+          const clientSlug = loggedUser.user_metadata?.client_slug
+          const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
+          setStatus("success")
+          setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
+          window.setTimeout(() => {
+            const target = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
+            window.location.href = target
+          }, 800)
+          return
+        }
         setStatus("success")
         setMessage("Signed in successfully! Loading your workspace…")
       }
@@ -53,7 +71,13 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/onboarding` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/onboarding`,
+          data: {
+            account_type: "business",
+            role: "business",
+          },
+        },
       })
       if (error) {
         setStatus("error")
@@ -77,7 +101,33 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
     setStatus("loading")
     if (provider === "google") {
       try {
+        localStorage.setItem("bookora_auth_intent", "business")
+        localStorage.removeItem("bookora_client_slug")
+      } catch {}
+      try {
         await signInWithGoogle()
+        if (supabase) {
+          const { data } = await supabase.auth.getSession()
+          const loggedUser = data.session?.user
+          if (loggedUser) {
+            const isClient = Boolean(
+              loggedUser.user_metadata?.account_type === "client" ||
+              loggedUser.user_metadata?.role === "client" ||
+              loggedUser.user_metadata?.client_slug
+            )
+            if (isClient) {
+              const clientSlug = loggedUser.user_metadata?.client_slug
+              const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
+              setStatus("success")
+              setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
+              window.setTimeout(() => {
+                const target = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
+                window.location.href = target
+              }, 800)
+              return
+            }
+          }
+        }
         setStatus("success")
         setMessage("Signed in successfully! Loading your workspace…")
         return
@@ -168,10 +218,17 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
         </button>
       </div>
 
+      <div style={{ textAlign: "center", paddingTop: 14 }}>
+        <div className="business-auth-pill">
+          <span className="business-auth-dot" />
+          <span>Bookora for Business · Salon Workspace</span>
+        </div>
+      </div>
+
       <CardHeader>
         <CardTitle>{isLogin ? "Welcome back" : "Create your account"}</CardTitle>
         <CardDescription>
-          {isLogin ? "Sign in to manage your appointments and salon." : "Start accepting bookings in minutes."}
+          {isLogin ? "Sign in to manage your appointments and salon." : "Start accepting client bookings in minutes."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -321,7 +378,7 @@ function FeatureModal({ feature, onClose }: { feature: typeof features[number]; 
   return <div className="feature-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><section className="feature-modal" role="dialog" aria-modal="true" aria-labelledby="feature-modal-title"><button className="feature-modal-close" type="button" aria-label="Close feature details" onClick={onClose}><X /></button><span className="feature-modal-icon"><Icon /></span><p className="eyebrow">Bookora feature</p><h2 id="feature-modal-title">{title}</h2><p>{copy}</p><p>Keep this part of your business organized in one calm workspace, so you can spend less time on admin and more time with clients.</p><Button asChild><a href="#signup" onClick={onClose}>Get started free <ArrowRight /></a></Button></section></div>
 }
 
-export function LandingPage() {
+export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeFeature, setActiveFeature] = useState<typeof features[number] | null>(null)
   const [loginModalOpen, setLoginModalOpen] = useState(false)
@@ -342,6 +399,37 @@ export function LandingPage() {
 
   return (
     <main id="top">
+      {clientUser && (
+        <div className="client-banner">
+          <div className="client-banner-inner">
+            <span className="client-banner-badge">
+              <span className="client-banner-dot" />
+              Client Account
+            </span>
+            <span className="client-banner-text">
+              Signed in as <strong>{String(clientUser.user_metadata?.full_name ?? clientUser.email?.split("@")[0])}</strong> for <strong>{String(clientUser.user_metadata?.client_business_name ?? clientUser.user_metadata?.client_slug ?? "your salon")}</strong>
+            </span>
+            <div className="client-banner-actions">
+              <a
+                href={clientUser.user_metadata?.client_slug ? `/book?slug=${encodeURIComponent(clientUser.user_metadata.client_slug)}` : "/book"}
+                className="client-banner-cta"
+              >
+                Go to Booking Page →
+              </a>
+              <button
+                type="button"
+                className="client-banner-signout"
+                onClick={async () => {
+                  if (supabase) await supabase.auth.signOut()
+                  window.location.reload()
+                }}
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="site-header">
         <Logo />
         <nav className={menuOpen ? "open" : ""}>

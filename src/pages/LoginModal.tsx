@@ -45,7 +45,7 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     setStatus("loading")
     setMessage("")
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
@@ -55,6 +55,24 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
       setLoadingProvider(null)
       setMessage(error.message)
     } else {
+      const loggedUser = signInData.user
+      const isClient = Boolean(
+        loggedUser?.user_metadata?.account_type === "client" ||
+        loggedUser?.user_metadata?.role === "client" ||
+        loggedUser?.user_metadata?.client_slug
+      )
+      if (isClient) {
+        const clientSlug = loggedUser.user_metadata?.client_slug
+        const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
+        setStatus("success")
+        setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
+        window.setTimeout(() => {
+          onClose()
+          const target = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
+          window.location.href = target
+        }, 800)
+        return
+      }
       setStatus("success")
       setMessage("Signed in successfully! Opening your workspace…")
       window.setTimeout(() => {
@@ -101,7 +119,33 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     setStatus("loading")
     if (provider === "google") {
       try {
+        localStorage.setItem("bookora_auth_intent", "business")
+        localStorage.removeItem("bookora_client_slug")
+      } catch {}
+      try {
         await signInWithGoogle()
+        if (supabase) {
+          const { data } = await supabase.auth.getSession()
+          const loggedUser = data.session?.user
+          if (loggedUser) {
+            const isClient = Boolean(
+              loggedUser.user_metadata?.account_type === "client" ||
+              loggedUser.user_metadata?.role === "client" ||
+              loggedUser.user_metadata?.client_slug
+            )
+            if (isClient) {
+              const clientSlug = loggedUser.user_metadata?.client_slug
+              const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
+              setStatus("success")
+              setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
+              window.setTimeout(() => {
+                onClose()
+                window.location.href = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
+              }, 800)
+              return
+            }
+          }
+        }
         setStatus("success")
         setMessage("Signed in successfully! Opening your workspace…")
         window.setTimeout(onClose, 500)
@@ -271,15 +315,19 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
         ) : (
           <div>
             <div className="login-modal-header">
+              <div className="business-auth-pill">
+                <span className="business-auth-dot" />
+                <span>Bookora for Business · Salon Workspace</span>
+              </div>
               <div className="login-modal-icon">
                 <LockKeyhole />
               </div>
               <p className="eyebrow">
-                <span>Welcome back</span>
+                <span>Salon Owner Login</span>
               </p>
-              <h2 id="login-modal-title">Sign in to Bookora</h2>
+              <h2 id="login-modal-title">Sign in to Bookora Business</h2>
               <p className="login-modal-subtitle">
-                Access your schedule, staff, and bookings.
+                Access your schedule, staff, clients, and salon settings.
               </p>
             </div>
 
@@ -425,6 +473,11 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
                   Create free account <ArrowRight className="inline-arrow" />
                 </button>
               </p>
+
+              <div className="modal-client-notice">
+                <span>Looking to book an appointment with a studio or artist?</span>
+                <p>Please use the direct booking link provided by your business (e.g. <code>bookora.com/book?slug=your-salon</code>).</p>
+              </div>
             </form>
           </div>
         )}
