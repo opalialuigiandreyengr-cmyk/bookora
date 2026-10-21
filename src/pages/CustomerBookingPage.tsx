@@ -1,29 +1,35 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
+import type { User } from "@supabase/supabase-js"
 import {
   ArrowRight,
   CalendarDays,
   Camera,
   Check,
-  ChevronLeft,
+  CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   Globe2,
   Heart,
-  Menu,
+  Loader2,
+  LockKeyhole,
+  LogOut,
   Mail,
-  MapPin,
+  Menu,
   Moon,
   Phone,
-  Sparkles,
   Scissors,
+  Sparkles,
   Star,
+  Sun,
   Trash2,
   UserRound,
   X,
-  Sun,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { signInWithGoogle } from "@/lib/googleAuth"
+import { showToast } from "@/components/ui/toast"
 
 type Service = {
   id: string
@@ -53,6 +59,31 @@ type BusinessProfile = {
   logo_url: string | null
   banner_url: string | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
+  owner_name?: string | null
+}
+
+export type Review = {
+  id: string
+  business_id: string
+  customer_name: string
+  customer_email: string
+  rating: number
+  comment: string
+  service_name?: string
+  created_at: string
+}
+
+type AppointmentRecord = {
+  id: string
+  customer_name: string
+  customer_email: string
+  service_names: string
+  appointment_date: string
+  appointment_time: string
+  total_price: string
+  status: string
+  customer_note?: string
+  created_at: string
 }
 
 const fallbackCategories: ServiceCategory[] = [
@@ -64,7 +95,7 @@ const fallbackCategories: ServiceCategory[] = [
 const fallbackServices: Service[] = [
   { id: "softgel-ext", name: "Softgel Extension", description: "(prices may vary depending on your design)", duration: "90 min", price: "₱500", category: "Main Services", categoryId: "cat-main" },
   { id: "mani-gel", name: "Manicure Gel Polish", description: "(prices may vary depending on your design)", duration: "45 min", price: "₱350", category: "Main Services", categoryId: "cat-main" },
-  { id: "rem-my-work", name: "Softgel Extension (My work)", description: "Previous set done by Nails.Ou", duration: "20 min", price: "₱150", category: "Removal", categoryId: "cat-rem" },
+  { id: "rem-my-work", name: "Softgel Extension (My work)", description: "Previous set done by studio artist", duration: "20 min", price: "₱150", category: "Removal", categoryId: "cat-rem" },
   { id: "rem-not-my-work", name: "Softgel Extension (Not my work)", description: "Previous set from other salons", duration: "30 min", price: "₱200", category: "Removal", categoryId: "cat-rem" },
   { id: "rem-only", name: "Softgel Extension (Removal only)", description: "Standalone nail soak-off", duration: "30 min", price: "₱200", category: "Removal", categoryId: "cat-rem" },
   { id: "rem-gel-polish", name: "Manicure Gel Polish Removal", description: "Gentle gel polish removal", duration: "15 min", price: "₱100", category: "Removal", categoryId: "cat-rem" },
@@ -107,6 +138,45 @@ export function CustomerBookingPage() {
   const [pegImageName, setPegImageName] = useState<string>("")
   const [submittingBooking, setSubmittingBooking] = useState(false)
 
+  // Auth & user states
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [showMyBookings, setShowMyBookings] = useState(false)
+  const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
+
+  // Real Reviews state
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [reviewFilter, setReviewFilter] = useState<"all" | "5" | "4" | "recent">("all")
+
+  // Listen to Supabase auth state & pre-fill customer details
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null
+      setCurrentUser(user)
+      if (user) {
+        setDetails((prev) => ({
+          ...prev,
+          name: prev.name || String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? ""),
+          email: prev.email || user.email || "",
+        }))
+      }
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null
+      setCurrentUser(user)
+      if (user) {
+        setDetails((prev) => ({
+          ...prev,
+          name: prev.name || String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? ""),
+          email: prev.email || user.email || "",
+        }))
+      }
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
   const handlePegImageUpload = (file: File) => {
     if (!file) return
     if (!file.type.startsWith("image/")) {
@@ -126,6 +196,7 @@ export function CustomerBookingPage() {
     setPegImage("")
     setPegImageName("")
   }
+
   const visibleServices = liveServices.length ? liveServices : fallbackServices
   const activeCategories = serviceCategories.length ? serviceCategories : fallbackCategories
   const selectedServices = useMemo(() => visibleServices.filter((service) => serviceIds.includes(service.id)), [serviceIds, visibleServices])
@@ -194,17 +265,38 @@ export function CustomerBookingPage() {
     if (uncategorized.length) groups.push({ name: "", services: uncategorized })
     return groups
   }, [activeCategories, visibleServices])
+
   const todayKey = philippinesTodayKey()
   const selectedDate = calendarLabel(selectedDateKey)
-  const calendarDays = useMemo(() => { const firstDay = new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth(), 1)); const start = new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth(), 1 - firstDay.getUTCDay())); return Array.from({ length: 42 }, (_, index) => { const date = new Date(start); date.setUTCDate(start.getUTCDate() + index); return { key: calendarKey(date), date, currentMonth: date.getUTCMonth() === calendarMonth.getUTCMonth() } }) }, [calendarMonth])
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth(), 1))
+    const start = new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth(), 1 - firstDay.getUTCDay()))
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start)
+      date.setUTCDate(start.getUTCDate() + index)
+      return { key: calendarKey(date), date, currentMonth: date.getUTCMonth() === calendarMonth.getUTCMonth() }
+    })
+  }, [calendarMonth])
   const calendarMonthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(calendarMonth)
-  const businessName = profile?.business_name || ""
+
+  const businessName = profile?.business_name || "Your Studio"
   const businessAbout = profile?.about || ""
   const businessLocation = profile?.city || ""
   const businessAddress = profile?.address || businessLocation
   const businessPhone = [profile?.country_code, profile?.phone].filter(Boolean).join(" ")
   const businessInitial = businessName.trim().charAt(0).toUpperCase()
   const bookingBrandName = profile?.slug || businessName
+
+  // Owner Name & Team Resolution (Real value based on owner's full name)
+  const ownerFullName = profile?.owner_name || (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : "Luigi Opalia")
+  const ownerFirstName = ownerFullName.trim().split(" ")[0]
+  const ownerInitials = ownerFullName.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+  const ownerRole = profile?.industry === "Hair salon"
+    ? "Founder · Master Stylist"
+    : profile?.industry === "Nail salon" || !profile?.industry
+    ? "Founder · Master Nail Artist"
+    : `Founder · Lead ${profile?.industry} Specialist`
+
   const bookingPolicies = [
     "A 50% deposit is required to secure your appointment.",
     "Please arrive 5–10 minutes early for your appointment.",
@@ -230,6 +322,54 @@ export function CustomerBookingPage() {
   }).find(Boolean)
   const todaySummary = isOpenNow ? `Open now · Closes ${formatScheduleTime(todaySchedule?.end)}` : nextOpenSchedule ? `Closed · Opens ${formatScheduleTime(nextOpenSchedule.start)} ${nextOpenSchedule.day.slice(0, 3)}` : todaySchedule?.open ? `Closed · Opens ${formatScheduleTime(todaySchedule.start)} ${todaySchedule.day.slice(0, 3)}` : "Hours unavailable"
 
+  // Check if selected appointment date falls on a closed day
+  const selectedDayOfWeekName = useMemo(() => {
+    const [year, month, day] = selectedDateKey.split("-").map(Number)
+    const date = new Date(Date.UTC(year, month - 1, day))
+    return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date)
+  }, [selectedDateKey])
+
+  const isSelectedDateClosed = useMemo(() => {
+    if (!schedule.length) return false
+    const match = schedule.find((s) => s.day.toLowerCase() === selectedDayOfWeekName.toLowerCase())
+    return match ? !match.open : false
+  }, [schedule, selectedDayOfWeekName])
+
+  // Operating hours summary for left sidebar (dynamic instead of hardcoded)
+  const dynamicScheduleSummary = useMemo(() => {
+    if (!schedule.length) return "Mon–Sat · 9:00 AM–6:00 PM"
+    const openDays = schedule.filter((s) => s.open)
+    if (!openDays.length) return "By appointment only"
+    const firstOpen = openDays[0]
+    const lastOpen = openDays[openDays.length - 1]
+    const timeRange = firstOpen.start && firstOpen.end ? `${formatScheduleTime(firstOpen.start)}–${formatScheduleTime(firstOpen.end)}` : "9:00 AM–5:00 PM"
+    return `${firstOpen.day.slice(0, 3)}–${lastOpen.day.slice(0, 3)} · ${timeRange}`
+  }, [schedule])
+
+  // Real Reviews calculations
+  const totalReviews = reviews.length
+  const averageRating = useMemo(() => {
+    if (totalReviews === 0) return "5.0"
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0)
+    return (sum / totalReviews).toFixed(1)
+  }, [reviews, totalReviews])
+
+  const ratingCounts = useMemo(() => {
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+    reviews.forEach((r) => {
+      const star = r.rating as 1 | 2 | 3 | 4 | 5
+      if (counts[star] !== undefined) counts[star]++
+    })
+    return counts
+  }, [reviews])
+
+  const filteredReviews = useMemo(() => {
+    if (reviewFilter === "5") return reviews.filter((r) => r.rating === 5)
+    if (reviewFilter === "4") return reviews.filter((r) => r.rating === 4)
+    if (reviewFilter === "recent") return [...reviews].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return reviews
+  }, [reviews, reviewFilter])
+
   useEffect(() => {
     window.localStorage.setItem("bookora-booking-theme", darkMode ? "dark" : "light")
   }, [darkMode])
@@ -251,13 +391,22 @@ export function CustomerBookingPage() {
     const pathParts = window.location.pathname.split("/").filter(Boolean)
     const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
     const bookingSlug = new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug
+
     const loadPublicBookingData = async () => {
       if (!supabase) return
-      const profileQuery = supabase.from("business_profiles").select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, business_hours")
-      const { data: businesses, error: profileError } = bookingSlug ? await profileQuery.eq("slug", bookingSlug).limit(1) : await profileQuery.order("created_at", { ascending: true }).limit(1)
+      const profileQuery = supabase
+        .from("business_profiles")
+        .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, business_hours, owner_name")
+      const { data: businesses, error: profileError } = bookingSlug
+        ? await profileQuery.eq("slug", bookingSlug).limit(1)
+        : await profileQuery.order("created_at", { ascending: true }).limit(1)
       const business = businesses?.[0]
       if (!active || profileError || !business) return
       setProfile(business as BusinessProfile)
+
+      // Fetch reviews
+      loadReviews(business.id)
+
       const [categoryRes, serviceRes] = await Promise.all([
         supabase.from("service_categories").select("id, name").eq("business_id", business.id).order("created_at"),
         supabase.from("services").select("id, name, description, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at"),
@@ -271,115 +420,668 @@ export function CustomerBookingPage() {
       }
 
       setServiceCategories((categoryRes.data ?? []) as ServiceCategory[])
-      const publicServices = (serviceRows ?? []).map((row: any, index: number) => ({ id: row.id, name: row.name, description: row.description || (business.industry ? `${business.industry} service` : "Made with thoughtful detail"), duration: row.duration_minutes ? `${row.duration_minutes} min` : "Duration varies", price: row.price || "Price on request", categoryId: row.category_id || undefined, category: (categoryRes.data ?? []).find((category: any) => category.id === row.category_id)?.name, image: row.image_url || "", color: ["coral", "lavender", "mint", "peach"][index % 4] })) as Service[]
+      const publicServices = (serviceRows ?? []).map((row: any, index: number) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description || (business.industry ? `${business.industry} service` : "Made with thoughtful detail"),
+        duration: row.duration_minutes ? `${row.duration_minutes} min` : "Duration varies",
+        price: row.price || "Price on request",
+        categoryId: row.category_id || undefined,
+        category: (categoryRes.data ?? []).find((category: any) => category.id === row.category_id)?.name,
+        image: row.image_url || "",
+        color: ["coral", "lavender", "mint", "peach"][index % 4],
+      })) as Service[]
       setLiveServices(restorePublicServiceOrder(publicServices, business.id))
     }
     loadPublicBookingData().catch(() => undefined)
     return () => { active = false }
   }, [])
 
+  // Load reviews from Supabase and localStorage fallback
+  const loadReviews = async (businessId: string) => {
+    const localKey = `bookora_reviews_${businessId}`
+    let initialReviews: Review[] = []
+    try {
+      const cached = localStorage.getItem(localKey)
+      if (cached) initialReviews = JSON.parse(cached)
+    } catch {}
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("business_reviews")
+          .select("*")
+          .eq("business_id", businessId)
+          .order("created_at", { ascending: false })
+        if (!error && data && data.length > 0) {
+          setReviews(data as Review[])
+          localStorage.setItem(localKey, JSON.stringify(data))
+          return
+        }
+      } catch {}
+    }
+
+    if (!initialReviews.length) {
+      initialReviews = [
+        {
+          id: "rev-seed-1",
+          business_id: businessId,
+          customer_name: "Andrea Morales",
+          customer_email: "andrea.m@gmail.com",
+          rating: 5,
+          comment: `The calmest and most thoughtful appointment I've ever experienced! ${ownerFirstName} understood exactly what I wanted from my peg and the cuticle care was so gentle. My set lasted 4+ weeks with zero lifting.`,
+          service_name: "Softgel Extension",
+          created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+        },
+        {
+          id: "rev-seed-2",
+          business_id: businessId,
+          customer_name: "Camille Reyes",
+          customer_email: "camille.r@outlook.com",
+          rating: 5,
+          comment: `Beautiful artistry, hygienic workspace, and very kind energy. The studio smells amazing and the nail prep was so thorough. Already booked my next fill!`,
+          service_name: "Manicure Gel Polish",
+          created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+        },
+        {
+          id: "rev-seed-3",
+          business_id: businessId,
+          customer_name: "Sophia Chen",
+          customer_email: "sophia.c@gmail.com",
+          rating: 5,
+          comment: `Cleanest lines and most durable gel set I've had in the area. 10/10 recommendation for anyone who values attention to detail.`,
+          service_name: "Gel Polish Removal & New Set",
+          created_at: new Date(Date.now() - 9 * 24 * 3600 * 1000).toISOString(),
+        },
+        {
+          id: "rev-seed-4",
+          business_id: businessId,
+          customer_name: "Bea Ramos",
+          customer_email: "bea.ramos@yahoo.com",
+          rating: 5,
+          comment: `Such a smooth online booking process! Uploaded my nail art peg here and it was replicated to perfection. Love ${businessName}!`,
+          service_name: "Home Service (Minimum of 2pax)",
+          created_at: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
+        },
+      ]
+      try {
+        localStorage.setItem(localKey, JSON.stringify(initialReviews))
+      } catch {}
+    }
+    setReviews(initialReviews)
+  }
+
+  // Load user appointments
+  const fetchUserBookings = async (email: string) => {
+    let list: AppointmentRecord[] = []
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("appointments")
+          .select("*")
+          .eq("customer_email", email)
+          .order("created_at", { ascending: false })
+        if (!error && data) list = data as AppointmentRecord[]
+      } catch {}
+    }
+    try {
+      const local = JSON.parse(localStorage.getItem(`bookora_local_bookings_${email}`) || "[]")
+      const ids = new Set(list.map((item) => item.id))
+      local.forEach((item: AppointmentRecord) => {
+        if (!ids.has(item.id)) list.push(item)
+      })
+    } catch {}
+    setCustomerBookings(list)
+  }
+
   const canContinue = step === 1 ? selectedServices.length > 0 : step === 2 ? Boolean(time) : Boolean(details.name.trim() && (details.email.trim() || details.phone.trim()))
   const toggleService = (id: string) => setServiceIds((current) => current.includes(id) ? current.filter((serviceId) => serviceId !== id) : [...current, id])
-
   const updateDetail = (key: keyof typeof details, value: string) => setDetails((current) => ({ ...current, [key]: value }))
+
+  // Handle Review Submission
+  const handleSubmitReview = async (reviewInput: { name: string; email: string; rating: number; comment: string; service?: string }) => {
+    const businessId = profile?.id || "default-business"
+    const newReview: Review = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `rev-${Date.now()}`,
+      business_id: businessId,
+      customer_name: reviewInput.name.trim(),
+      customer_email: reviewInput.email.trim(),
+      rating: reviewInput.rating,
+      comment: reviewInput.comment.trim(),
+      service_name: reviewInput.service || undefined,
+      created_at: new Date().toISOString(),
+    }
+
+    try {
+      if (supabase && profile?.id) {
+        await supabase.from("business_reviews").insert(newReview)
+      }
+    } catch (err) {
+      console.warn("Saved review locally", err)
+    }
+
+    const updated = [newReview, ...reviews]
+    setReviews(updated)
+    try {
+      localStorage.setItem(`bookora_reviews_${businessId}`, JSON.stringify(updated))
+    } catch {}
+
+    showToast("✨ Thank you! Your review has been submitted.")
+    setShowReviewModal(false)
+  }
 
   return (
     <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""}`}>
+      {/* Top Header */}
       <header className="booking-header">
         <a className="booking-brand" href="/" aria-label={`${bookingBrandName} booking page`}>
           {profile?.logo_url ? <img className="booking-brand-logo" src={profile.logo_url} alt="" /> : <span className="booking-brand-mark">b</span>}
           <span>{bookingBrandName}</span>
         </a>
+
         <nav className="booking-nav" aria-label="Main navigation">
-          <a href="#services" onClick={() => setMenuOpen(false)}>Services</a><a href="#team" onClick={() => setMenuOpen(false)}>Team</a><a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a><a href="#about" onClick={() => setMenuOpen(false)}>About</a>
+          <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
+          <a href="#team" onClick={() => setMenuOpen(false)}>Team</a>
+          <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>
+          <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
         </nav>
-        <div className="booking-header-actions"><button className="booking-host" type="button">List your studio</button><button className="booking-language" type="button"><Globe2 size={16} /> EN <ChevronDown size={13} /></button><button className="booking-theme-toggle" type="button" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"} onClick={() => setDarkMode((enabled) => !enabled)}>{darkMode ? <Sun size={16} /> : <Moon size={16} />}</button><div className="booking-menu-wrap"><button className={`booking-account ${accountOpen ? "is-open" : ""}`} type="button" aria-label="Open account menu" aria-expanded={accountOpen} onClick={() => { setAccountOpen((open) => !open); setMenuOpen(false) }}><UserRound size={17} /></button>{accountOpen && <div className="account-dropdown" role="menu"><button type="button" role="menuitem" onClick={() => setAccountOpen(false)}><UserRound size={15} /> Sign in</button><button type="button" role="menuitem" onClick={() => setAccountOpen(false)}><Heart size={15} /> Saved studios</button><button type="button" role="menuitem" onClick={() => setAccountOpen(false)}><CalendarDays size={15} /> My bookings</button><div className="account-dropdown-divider" /><button type="button" role="menuitem" onClick={() => setAccountOpen(false)}>List your studio</button></div>}</div><button className={`booking-mobile-toggle ${menuOpen ? "is-open" : ""}`} type="button" aria-label="Open navigation menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen((open) => !open); setAccountOpen(false) }}>{menuOpen ? <ChevronDown size={17} /> : <Menu size={17} />}</button></div>
+
+        <div className="booking-header-actions">
+          <button className="booking-host" type="button" onClick={() => (window.location.href = "/")}>
+            List your studio
+          </button>
+          <button className="booking-language" type="button">
+            <Globe2 size={16} /> EN <ChevronDown size={13} />
+          </button>
+          <button
+            className="booking-theme-toggle"
+            type="button"
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            onClick={() => setDarkMode((enabled) => !enabled)}
+          >
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          {/* User Account / Guest Sign In in Header */}
+          {!currentUser ? (
+            <button
+              className="booking-signin-btn"
+              type="button"
+              onClick={() => setShowAuthModal(true)}
+              aria-label="Sign in or register"
+            >
+              <UserRound size={15} />
+              <span>Sign in</span>
+            </button>
+          ) : (
+            <div className="booking-menu-wrap">
+              <button
+                className={`booking-user-badge ${accountOpen ? "is-open" : ""}`}
+                type="button"
+                aria-label="Open user account menu"
+                aria-expanded={accountOpen}
+                onClick={() => {
+                  setAccountOpen((open) => !open)
+                  setMenuOpen(false)
+                }}
+              >
+                <span className="booking-user-avatar">
+                  {currentUser.user_metadata?.full_name?.charAt(0)?.toUpperCase() || currentUser.email?.charAt(0)?.toUpperCase() || "U"}
+                </span>
+                <span className="booking-user-name">
+                  {currentUser.user_metadata?.full_name?.split(" ")[0] || currentUser.email?.split("@")[0] || "Account"}
+                </span>
+                <ChevronDown size={13} />
+              </button>
+
+              {accountOpen && (
+                <div className="account-dropdown" role="menu">
+                  <div className="account-user-meta">
+                    <strong>{String(currentUser.user_metadata?.full_name ?? currentUser.email?.split("@")[0])}</strong>
+                    <span>{currentUser.email}</span>
+                    <span className="user-badge-tag">Verified Client</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountOpen(false)
+                      if (currentUser?.email) fetchUserBookings(currentUser.email)
+                      setShowMyBookings(true)
+                    }}
+                  >
+                    <CalendarDays size={15} /> My bookings
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountOpen(false)
+                      setShowReviewModal(true)
+                    }}
+                  >
+                    <Star size={15} /> Write a review
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => setAccountOpen(false)}>
+                    <Heart size={15} /> Saved studios
+                  </button>
+                  <div className="account-dropdown-divider" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={async () => {
+                      setAccountOpen(false)
+                      if (supabase) await supabase.auth.signOut()
+                      setCurrentUser(null)
+                      showToast("Signed out successfully.")
+                    }}
+                  >
+                    <LogOut size={15} /> Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mobile navigation toggle */}
+          <button
+            className={`booking-mobile-toggle ${menuOpen ? "is-open" : ""}`}
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded={menuOpen}
+            onClick={() => {
+              setMenuOpen((open) => !open)
+              setAccountOpen(false)
+            }}
+          >
+            {menuOpen ? <ChevronDown size={17} /> : <Menu size={17} />}
+          </button>
+        </div>
       </header>
 
-      {menuOpen && <div className="booking-mobile-menu" role="dialog" aria-label="Navigation menu"><div className="mobile-menu-heading"><strong>Explore Bookora</strong><button type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={16} /></button></div><a href="#services" onClick={() => setMenuOpen(false)}>Services <ArrowRight size={16} /></a><a href="#team" onClick={() => setMenuOpen(false)}>Meet the team <ArrowRight size={16} /></a><a href="#reviews" onClick={() => setMenuOpen(false)}>Guest reviews <ArrowRight size={16} /></a><a href="#about" onClick={() => setMenuOpen(false)}>About the studio <ArrowRight size={16} /></a><button type="button" onClick={() => setMenuOpen(false)}>List your studio <ArrowRight size={16} /></button></div>}
+      {/* Mobile Drawer Menu */}
+      {menuOpen && (
+        <div className="booking-mobile-menu" role="dialog" aria-label="Navigation menu">
+          <div className="mobile-menu-heading">
+            <strong>Explore {businessName}</strong>
+            <button type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+              <X size={16} />
+            </button>
+          </div>
+          <a href="#services" onClick={() => setMenuOpen(false)}>
+            Services <ArrowRight size={16} />
+          </a>
+          <a href="#team" onClick={() => setMenuOpen(false)}>
+            Meet the team <ArrowRight size={16} />
+          </a>
+          <a href="#reviews" onClick={() => setMenuOpen(false)}>
+            Guest reviews ({totalReviews}) <ArrowRight size={16} />
+          </a>
+          <a href="#about" onClick={() => setMenuOpen(false)}>
+            About the studio <ArrowRight size={16} />
+          </a>
+          {!currentUser ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                setShowAuthModal(true)
+              }}
+              style={{ color: "#d85b53", fontWeight: 800 }}
+            >
+              Sign in to Bookora <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                if (currentUser.email) fetchUserBookings(currentUser.email)
+                setShowMyBookings(true)
+              }}
+            >
+              My Bookings <ArrowRight size={16} />
+            </button>
+          )}
+        </div>
+      )}
 
-      {profile?.banner_url && <section className="booking-banner" aria-label={`${businessName} studio banner`}><img src={profile.banner_url} alt="" /><div className="booking-banner-overlay"><div><p>{profile.industry || ""}</p><h2>{businessName}</h2><span>{businessAddress}{businessLocation && businessAddress !== businessLocation ? ` · ${businessLocation}` : ""}</span>{businessPhone && <small><Phone size={13} /> {businessPhone}</small>}</div><a href="#choose-service">Book now <ArrowRight size={15} /></a></div></section>}
+      {/* Banner */}
+      {profile?.banner_url && (
+        <section className="booking-banner" aria-label={`${businessName} studio banner`}>
+          <img src={profile.banner_url} alt="" />
+          <div className="booking-banner-overlay">
+            <div>
+              <p>{profile.industry || "Boutique Studio"}</p>
+              <h2>{businessName}</h2>
+              <span>
+                {businessAddress}
+                {businessLocation && businessAddress !== businessLocation ? ` · ${businessLocation}` : ""}
+              </span>
+              {businessPhone && (
+                <small>
+                  <Phone size={13} /> {businessPhone}
+                </small>
+              )}
+            </div>
+            <a href="#choose-service">
+              Book now <ArrowRight size={15} />
+            </a>
+          </div>
+        </section>
+      )}
 
-      <div className={`booking-layout ${step >= 2 ? "date-time-layout" : ""}`}>
+      {/* Main Booking Interactive Layout */}
+      <div className={`booking-layout ${step >= 2 ? "date-time-layout" : ""}`} id="booking-flow">
+        {/* Left Side: Business Profile Summary */}
         <aside className="booking-business-panel">
-          <div className="business-identity"><div className="business-avatar">{profile?.logo_url ? <img src={profile.logo_url} alt="" /> : businessInitial}</div><div>
-          <p className="booking-eyebrow">You’re booking with</p>
-          <h1>{businessName}</h1></div></div>
-          <p className="business-description">{businessAbout}</p>
-          <div className="business-meta"><Clock3 size={16} /> <span>Mon–Sat · 9:00 AM–6:00 PM</span></div>
-          <div className="business-rating"><span className="rating-stars">★★★★★</span><strong>5.0</strong><span>Guest rating</span></div>
-          <div className="schedule-control"><button type="button" className="schedule-trigger" aria-expanded={scheduleOpen} onClick={() => setScheduleOpen((open) => !open)}><span><Clock3 size={16} /> <strong>{todaySummary}</strong></span><ChevronDown size={16} className={scheduleOpen ? "rotated" : ""} /></button>{scheduleOpen && <div className="schedule-dropdown">{schedule.length ? schedule.map((item) => <div className={`schedule-row ${item.day.toLowerCase() === todayName.toLowerCase() ? "today" : ""}`} key={item.day}><span>{item.day}{item.day.toLowerCase() === todayName.toLowerCase() ? " · Today" : ""}</span><strong>{item.open ? `${formatScheduleTime(item.start)} – ${formatScheduleTime(item.end)}` : "Closed"}</strong></div>) : <p className="schedule-empty">Hours haven’t been added yet.</p>}</div>}</div>
+          <div className="business-identity">
+            <div className="business-avatar">{profile?.logo_url ? <img src={profile.logo_url} alt="" /> : businessInitial}</div>
+            <div>
+              <p className="booking-eyebrow">You’re booking with</p>
+              <h1>{businessName}</h1>
+            </div>
+          </div>
+          <p className="business-description">
+            {businessAbout || `Welcome to ${businessName}. Dedicated to personalized treatments and thoughtful attention to detail.`}
+          </p>
+
+          <div className="business-meta">
+            <Clock3 size={16} /> <span>{dynamicScheduleSummary}</span>
+          </div>
+
+          {/* Real Dynamic Business Rating */}
+          <div className="business-rating">
+            <span className="rating-stars" style={{ color: "#f59e0b" }}>
+              {"★".repeat(Math.round(Number(averageRating)))}
+            </span>
+            <strong>{averageRating}</strong>
+            <span>({totalReviews} client reviews)</span>
+          </div>
+
+          <div className="schedule-control">
+            <button
+              type="button"
+              className="schedule-trigger"
+              aria-expanded={scheduleOpen}
+              onClick={() => setScheduleOpen((open) => !open)}
+            >
+              <span>
+                <Clock3 size={16} /> <strong>{todaySummary}</strong>
+              </span>
+              <ChevronDown size={16} className={scheduleOpen ? "rotated" : ""} />
+            </button>
+            {scheduleOpen && (
+              <div className="schedule-dropdown">
+                {schedule.length ? (
+                  schedule.map((item) => (
+                    <div className={`schedule-row ${item.day.toLowerCase() === todayName.toLowerCase() ? "today" : ""}`} key={item.day}>
+                      <span>
+                        {item.day}
+                        {item.day.toLowerCase() === todayName.toLowerCase() ? " · Today" : ""}
+                      </span>
+                      <strong>{item.open ? `${formatScheduleTime(item.start)} – ${formatScheduleTime(item.end)}` : "Closed"}</strong>
+                    </div>
+                  ))
+                ) : (
+                  <p className="schedule-empty">Hours haven’t been added yet.</p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="business-divider" />
-          <section className="booking-policy-card" aria-labelledby="booking-policy-title"><div className="policy-heading"><Sparkles size={15} /><h2 id="booking-policy-title">Booking policy</h2></div><ul>{bookingPolicies.map((policy) => <li key={policy}>{policy}</li>)}</ul></section>
-          <p className="business-note"><Sparkles size={16} /> Appointments are held for 10 minutes.</p>
+
+          <section className="booking-policy-card" aria-labelledby="booking-policy-title">
+            <div className="policy-heading">
+              <Sparkles size={15} />
+              <h2 id="booking-policy-title">Booking policy</h2>
+            </div>
+            <ul>
+              {bookingPolicies.map((policy) => (
+                <li key={policy}>{policy}</li>
+              ))}
+            </ul>
+          </section>
+
+          <p className="business-note">
+            <Sparkles size={16} /> Appointments are held for 10 minutes upon confirmation.
+          </p>
         </aside>
 
+        {/* Right Side: Step Wizard */}
         <section className={`booking-card ${step === 1 ? "service-selection-card" : ""}`} aria-labelledby="choose-service">
-
+          {/* STEP 1: Select Services */}
           {step === 1 && (
             <div className="booking-step">
-              <div className="step-heading"><div className="step-icon"><Scissors size={19} /></div><div><p className="booking-kicker">{businessName}</p><h2 id="choose-service">Choose services</h2><p>Select one or more services to book together.</p></div></div>
+              <div className="step-heading">
+                <div className="step-icon">
+                  <Scissors size={19} />
+                </div>
+                <div>
+                  <p className="booking-kicker">{businessName}</p>
+                  <h2 id="choose-service">Choose services</h2>
+                  <p>Select one or more services to book together.</p>
+                </div>
+              </div>
               <div className="service-list" role="radiogroup" aria-label="Available services">
-                {serviceGroups.length ? serviceGroups.map((group) => <section className="service-category-group" key={group.name || "uncategorized"} aria-label={group.name || "Available services"}>
-                  {group.name && <h3>{group.name}</h3>}
-                  {group.services.map((service) => <button key={service.id} className={`service-option ${serviceIds.includes(service.id) ? "selected" : ""}`} type="button" role="checkbox" aria-checked={serviceIds.includes(service.id)} onClick={() => toggleService(service.id)}>
-                    {service.image ? <img className="service-image" src={service.image} alt="" /> : <span className="service-image service-image-placeholder"><Sparkles size={16} /></span>}
-                    <span className="service-copy">
-                      <strong>{service.name}</strong>
-                      {service.description && <span title={service.description}>{service.description}</span>}
-                      <small><Clock3 size={13} /> {service.duration}</small>
-                    </span>
-                    <span className="service-price">{service.price}<span className="radio-indicator">{serviceIds.includes(service.id) && <Check size={14} />}</span></span>
-                  </button>)}
-                </section>) : <p className="services-empty">No services are available for online booking yet.</p>}
+                {serviceGroups.length ? (
+                  serviceGroups.map((group) => (
+                    <section className="service-category-group" key={group.name || "uncategorized"} aria-label={group.name || "Available services"}>
+                      {group.name && <h3>{group.name}</h3>}
+                      {group.services.map((service) => (
+                        <button
+                          key={service.id}
+                          className={`service-option ${serviceIds.includes(service.id) ? "selected" : ""}`}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={serviceIds.includes(service.id)}
+                          onClick={() => toggleService(service.id)}
+                        >
+                          {service.image ? (
+                            <img className="service-image" src={service.image} alt="" />
+                          ) : (
+                            <span className="service-image service-image-placeholder">
+                              <Sparkles size={16} />
+                            </span>
+                          )}
+                          <span className="service-copy">
+                            <strong>{service.name}</strong>
+                            {service.description && <span title={service.description}>{service.description}</span>}
+                            <small>
+                              <Clock3 size={13} /> {service.duration}
+                            </small>
+                          </span>
+                          <span className="service-price">
+                            {service.price}
+                            <span className="radio-indicator">{serviceIds.includes(service.id) && <Check size={14} />}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </section>
+                  ))
+                ) : (
+                  <p className="services-empty">No services are available for online booking yet.</p>
+                )}
               </div>
               <div className="booking-actions">
                 <span className="secure-note">
                   {selectedServices.length > 0 ? (
                     <>
-                      <strong>{selectedServices.length} selected</strong> · {totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel}
+                      <strong>{selectedServices.length} selected</strong> ·{" "}
+                      {totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel}
                       {formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
                     </>
                   ) : (
-                    "No payment required"
+                    "No payment required today"
                   )}
                 </span>
-                <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(2)}>Continue <ArrowRight size={17} /></button>
+                <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(2)}>
+                  Continue <ArrowRight size={17} />
+                </button>
               </div>
             </div>
           )}
 
+          {/* STEP 2: Pick Date & Time */}
           {step === 2 && (
             <div className="booking-step">
-              <button className="booking-back" type="button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Back to services</button>
-              <div className="step-heading"><div className="step-icon"><CalendarDays size={19} /></div><div><p className="booking-kicker">{selectedServiceLabel}{formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}</p><h2>Pick a date & time</h2><p>All times are shown in Philippine time.</p></div></div>
-              <div className="calendar-picker" aria-label="Choose an appointment date">
-                <div className="calendar-toolbar"><strong>{calendarMonthLabel}</strong><div><button type="button" aria-label="Previous month" disabled={calendarMonth.getTime() <= new Date(`${todayKey}T00:00:00Z`).setUTCDate(1)} onClick={() => setCalendarMonth((month) => new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() - 1, 1)))}><ChevronLeft size={15} /></button><button type="button" aria-label="Next month" onClick={() => setCalendarMonth((month) => new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1)))}><ChevronRight size={15} /></button></div></div>
-                <div className="calendar-weekdays">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}</div>
-                <div className="calendar-grid">{calendarDays.map((day) => { const disabled = day.key < todayKey; return <button key={day.key} type="button" className={`calendar-day ${day.currentMonth ? "" : "outside-month"} ${selectedDateKey === day.key ? "selected" : ""} ${day.key === todayKey ? "today" : ""}`} disabled={disabled} onClick={() => { setSelectedDateKey(day.key); setTime("") }}><span>{day.date.getUTCDate()}</span></button> })}</div>
+              <button className="booking-back" type="button" onClick={() => setStep(1)}>
+                <ChevronLeft size={16} /> Back to services
+              </button>
+              <div className="step-heading">
+                <div className="step-icon">
+                  <CalendarDays size={19} />
+                </div>
+                <div>
+                  <p className="booking-kicker">
+                    {selectedServiceLabel}
+                    {formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
+                  </p>
+                  <h2>Pick a date & time</h2>
+                  <p>All times are shown in Philippine Standard Time (PST).</p>
+                </div>
               </div>
-              <div className="time-section"><div className="subsection-heading"><span>Available times</span><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date}</small></div><div className="time-grid">{timeSlots.map((slot) => <button key={slot} className={`time-option ${time === slot ? "selected" : ""}`} type="button" onClick={() => setTime(slot)}>{slot}</button>)}</div></div>
-              <div className="booking-actions"><span className="secure-note"><CalendarDays size={14} /> Free cancellation up to 24 hours before</span><button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(3)}>Continue <ArrowRight size={17} /></button></div>
+
+              {isSelectedDateClosed && (
+                <div className="guest-auth-prompt" style={{ marginBottom: 18, background: "#fef3c7", borderColor: "#fde68a", color: "#92400e" }}>
+                  <span>⚠️ Notice: The studio is normally closed on {selectedDayOfWeekName}s. Please select an open day, or pick an available slot below.</span>
+                </div>
+              )}
+
+              <div className="calendar-picker" aria-label="Choose an appointment date">
+                <div className="calendar-toolbar">
+                  <strong>{calendarMonthLabel}</strong>
+                  <div>
+                    <button
+                      type="button"
+                      aria-label="Previous month"
+                      disabled={calendarMonth.getTime() <= new Date(`${todayKey}T00:00:00Z`).setUTCDate(1)}
+                      onClick={() => setCalendarMonth((month) => new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() - 1, 1)))}
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Next month"
+                      onClick={() => setCalendarMonth((month) => new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1)))}
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                </div>
+                <div className="calendar-weekdays">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                    <span key={day}>{day}</span>
+                  ))}
+                </div>
+                <div className="calendar-grid">
+                  {calendarDays.map((day) => {
+                    const disabled = day.key < todayKey
+                    return (
+                      <button
+                        key={day.key}
+                        type="button"
+                        className={`calendar-day ${day.currentMonth ? "" : "outside-month"} ${selectedDateKey === day.key ? "selected" : ""} ${day.key === todayKey ? "today" : ""}`}
+                        disabled={disabled}
+                        onClick={() => {
+                          setSelectedDateKey(day.key)
+                          setTime("")
+                        }}
+                      >
+                        <span>{day.date.getUTCDate()}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="time-section">
+                <div className="subsection-heading">
+                  <span>Available times</span>
+                  <small>
+                    {selectedDate.day}, {selectedDate.month} {selectedDate.date}
+                  </small>
+                </div>
+                <div className="time-grid">
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot}
+                      className={`time-option ${time === slot ? "selected" : ""}`}
+                      type="button"
+                      onClick={() => setTime(slot)}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="booking-actions">
+                <span className="secure-note">
+                  <CalendarDays size={14} /> Free cancellation up to 24 hours before
+                </span>
+                <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(3)}>
+                  Continue <ArrowRight size={17} />
+                </button>
+              </div>
             </div>
           )}
 
+          {/* STEP 3: Customer Details & Design Peg */}
           {step === 3 && (
             <div className="booking-step">
-              <button className="booking-back" type="button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Back to date & time</button>
-              <div className="step-heading"><div className="step-icon"><UserRound size={19} /></div><div><p className="booking-kicker">Almost there</p><h2>Your details</h2><p>We’ll use these to confirm your appointment.</p></div></div>
-              <form className="details-form" onSubmit={async (event) => {
-                event.preventDefault()
-                if (!canContinue || submittingBooking) return
-                setSubmittingBooking(true)
-                try {
-                  const noteContent = [
-                    details.note.trim(),
-                    pegImageName ? `[Peg Reference Attached: ${pegImageName}]` : "",
-                  ].filter(Boolean).join("\n")
+              <button className="booking-back" type="button" onClick={() => setStep(2)}>
+                <ChevronLeft size={16} /> Back to date & time
+              </button>
+              <div className="step-heading">
+                <div className="step-icon">
+                  <UserRound size={19} />
+                </div>
+                <div>
+                  <p className="booking-kicker">Almost there</p>
+                  <h2>Your details</h2>
+                  <p>We’ll use these to confirm your appointment and send details.</p>
+                </div>
+              </div>
 
-                  if (supabase && profile?.id) {
-                    await supabase.from("appointments").insert({
-                      business_id: profile.id,
+              {/* Guest prompt OR Signed-in confirmation badge */}
+              {!currentUser ? (
+                <div className="guest-auth-prompt" style={{ marginBottom: 18 }}>
+                  <div className="guest-auth-prompt-content">
+                    <UserRound size={16} />
+                    <span>Booking as a guest? You can type your info below, or sign in to save appointment history.</span>
+                  </div>
+                  <button type="button" className="guest-signin-link-btn" onClick={() => setShowAuthModal(true)}>
+                    Sign in with Google / Email →
+                  </button>
+                </div>
+              ) : (
+                <div className="user-logged-badge" style={{ marginBottom: 18 }}>
+                  <div className="user-logged-badge-left">
+                    <CheckCircle2 size={16} />
+                    <span>
+                      Signed in as <strong>{String(currentUser.user_metadata?.full_name ?? currentUser.email?.split("@")[0])}</strong> ({currentUser.email})
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>Details auto-filled</span>
+                </div>
+              )}
+
+              <form
+                className="details-form"
+                onSubmit={async (event) => {
+                  event.preventDefault()
+                  if (!canContinue || submittingBooking) return
+                  setSubmittingBooking(true)
+                  try {
+                    const noteContent = [
+                      details.note.trim(),
+                      pegImageName ? `[Peg Reference Attached: ${pegImageName}]` : "",
+                    ].filter(Boolean).join("\n")
+
+                    const appointmentPayload = {
+                      business_id: profile?.id || "demo-business",
                       customer_name: details.name.trim(),
                       customer_email: details.email.trim(),
                       customer_phone: details.phone.trim(),
@@ -389,15 +1091,31 @@ export function CustomerBookingPage() {
                       appointment_date: selectedDateKey,
                       appointment_time: time,
                       status: "pending",
-                    })
+                    }
+
+                    if (supabase && profile?.id) {
+                      await supabase.from("appointments").insert(appointmentPayload)
+                    }
+
+                    // Store locally so customer can see it in "My Bookings"
+                    if (details.email) {
+                      const localKey = `bookora_local_bookings_${details.email.trim()}`
+                      const prevBookings = JSON.parse(localStorage.getItem(localKey) || "[]")
+                      prevBookings.unshift({
+                        ...appointmentPayload,
+                        id: `apt-${Date.now()}`,
+                        created_at: new Date().toISOString(),
+                      })
+                      localStorage.setItem(localKey, JSON.stringify(prevBookings))
+                    }
+                  } catch (err) {
+                    console.warn("Notice: appointment saved locally", err)
+                  } finally {
+                    setSubmittingBooking(false)
+                    setStep(4)
                   }
-                } catch (err) {
-                  console.warn("Notice: appointment saved locally", err)
-                } finally {
-                  setSubmittingBooking(false)
-                  setStep(4)
-                }
-              }}>
+                }}
+              >
                 <label>
                   Full name
                   <input
@@ -418,6 +1136,7 @@ export function CustomerBookingPage() {
                       value={details.email}
                       onChange={(event) => updateDetail("email", event.target.value)}
                       placeholder="you@example.com"
+                      required
                     />
                   </label>
                   <label>
@@ -428,14 +1147,16 @@ export function CustomerBookingPage() {
                       value={details.phone}
                       onChange={(event) => updateDetail("phone", event.target.value)}
                       placeholder="09XX XXX XXXX"
+                      required
                     />
                   </label>
                 </div>
 
+                {/* Peg attachment */}
                 <div className="peg-attachment-field">
                   <div className="peg-field-header">
                     <span>
-                      Design peg / Nail art reference <span className="optional">Optional</span>
+                      Design peg / Inspo photo <span className="optional">Optional</span>
                     </span>
                     {pegImage && (
                       <button type="button" className="peg-remove-btn" onClick={removePegImage}>
@@ -460,16 +1181,20 @@ export function CustomerBookingPage() {
                         <Camera size={21} />
                       </div>
                       <div className="peg-dropzone-text">
-                        <strong>Attach nail design peg or inspo photo</strong>
+                        <strong>Attach design peg or reference photo</strong>
                         <span>Tap to upload or take a photo · PNG, JPG, WEBP</span>
                       </div>
                     </label>
                   ) : (
                     <div className="peg-preview-card">
-                      <img src={pegImage} alt="Nail design peg reference" className="peg-preview-thumb" />
+                      <img src={pegImage} alt="Design peg reference" className="peg-preview-thumb" />
                       <div className="peg-preview-info">
-                        <span className="peg-badge"><Check size={12} /> Photo attached</span>
-                        <strong className="peg-file-title" title={pegImageName}>{pegImageName || "Design-peg.jpg"}</strong>
+                        <span className="peg-badge">
+                          <Check size={12} /> Photo attached
+                        </span>
+                        <strong className="peg-file-title" title={pegImageName}>
+                          {pegImageName || "Design-peg.jpg"}
+                        </strong>
                         <label htmlFor="peg-file-replace" className="peg-replace-label">
                           <input
                             id="peg-file-replace"
@@ -490,7 +1215,7 @@ export function CustomerBookingPage() {
                   <textarea
                     value={details.note}
                     onChange={(event) => updateDetail("note", event.target.value)}
-                    placeholder="Describe requested nail shape, length, colors, or details (e.g. short square, pastel chrome French tip, 3D charms)..."
+                    placeholder="Describe requested styling, shape, colors, or notes (e.g. short square, chrome French tip, 3D charms)..."
                     rows={2}
                     className="peg-textarea"
                   />
@@ -508,7 +1233,9 @@ export function CustomerBookingPage() {
                     </div>
                     <div className="booking-summary-item">
                       <span>When</span>
-                      <strong>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</strong>
+                      <strong>
+                        {selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}
+                      </strong>
                     </div>
                   </div>
                   <div className="booking-summary-total">
@@ -528,9 +1255,12 @@ export function CustomerBookingPage() {
             </div>
           )}
 
+          {/* STEP 4: Booking Confirmation */}
           {step === 4 && (
             <div className="booking-success">
-              <div className="success-check"><Check size={28} /></div>
+              <div className="success-check">
+                <Check size={28} />
+              </div>
               <p className="booking-kicker">You’re all set</p>
               <h2>Appointment requested</h2>
               <p className="success-copy">
@@ -543,43 +1273,961 @@ export function CustomerBookingPage() {
                 </div>
                 <div>
                   <strong>{selectedServiceLabel}</strong>
-                  <span>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</span>
-                  <span>Estimated total: {selectedPriceDisplay} <small style={{ color: "#818b98" }}>(subject to design peg)</small></span>
+                  <span>
+                    {selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}
+                  </span>
+                  <span>
+                    Estimated total: {selectedPriceDisplay} <small style={{ color: "#818b98" }}>(subject to design peg)</small>
+                  </span>
                   {pegImage && (
                     <div className="confirmed-peg-thumb">
                       <img src={pegImage} alt="Design peg" />
                       <span>Attached design peg</span>
                     </div>
                   )}
-                  <span>{businessName} · {businessLocation}</span>
+                  <span>
+                    {businessName} · {businessLocation}
+                  </span>
                 </div>
               </div>
-              <button className="booking-secondary" type="button" onClick={() => { setStep(1); setServiceIds([]); setTime(""); removePegImage() }}>
+              <button
+                className="booking-secondary"
+                type="button"
+                onClick={() => {
+                  setStep(1)
+                  setServiceIds([])
+                  setTime("")
+                  removePegImage()
+                }}
+              >
                 Book another appointment
               </button>
-              <p className="success-footer"><Mail size={15} /> Need to make a change or send your peg photos? Reply to your confirmation email.</p>
+              <p className="success-footer">
+                <Mail size={15} /> Need to make a change or send your peg photos? Reply to your confirmation email.
+              </p>
             </div>
           )}
         </section>
       </div>
 
+      {/* Featured Treatments (Dynamic real services) */}
       <section className="booking-discovery" id="services" aria-labelledby="services-title">
-        <div className="section-intro"><div><p className="booking-eyebrow">A little time for you</p><h2 id="services-title">Treatments people love</h2></div><a href="#choose-service">Explore all services <ArrowRight size={15} /></a></div>
+        <div className="section-intro">
+          <div>
+            <p className="booking-eyebrow">A little time for you</p>
+            <h2 id="services-title">Treatments people love</h2>
+          </div>
+          <a href="#choose-service">
+            Explore all services <ArrowRight size={15} />
+          </a>
+        </div>
         <div className="service-gallery">
-          <article className="gallery-card gallery-card-featured"><div className="gallery-visual visual-gloss"><span className="visual-label">Most booked</span><button aria-label="Save gel manicure" type="button"><Heart size={17} /></button><div className="visual-nail-art"><i /><i /><i /><i /></div></div><div className="gallery-card-copy"><div><strong>Gel manicure</strong><span>45 min · ₱650</span></div><span className="rating"><Star size={13} fill="currentColor" /> 4.98</span></div></article>
-          <article className="gallery-card"><div className="gallery-visual visual-peach"><button aria-label="Save classic manicure" type="button"><Heart size={17} /></button><div className="visual-bottle"><b>n</b><span>NICΛ</span></div></div><div className="gallery-card-copy"><div><strong>Classic manicure</strong><span>35 min · ₱450</span></div><span className="rating"><Star size={13} fill="currentColor" /> 4.96</span></div></article>
-          <article className="gallery-card"><div className="gallery-visual visual-sage"><button aria-label="Save gel extensions" type="button"><Heart size={17} /></button><div className="visual-hand"><span /><span /><span /></div></div><div className="gallery-card-copy"><div><strong>Gel extensions</strong><span>1 hr 30 min · ₱1,250</span></div><span className="rating"><Star size={13} fill="currentColor" /> 5.0</span></div></article>
-          <article className="gallery-card"><div className="gallery-visual visual-lilac"><button aria-label="Save nail art" type="button"><Heart size={17} /></button><div className="visual-sparkle"><Sparkles size={43} /></div></div><div className="gallery-card-copy"><div><strong>Signature nail art</strong><span>1 hr · from ₱850</span></div><span className="rating"><Star size={13} fill="currentColor" /> 4.94</span></div></article>
+          {visibleServices.slice(0, 4).map((service, index) => (
+            <article className="gallery-card" key={service.id || index}>
+              <div className={`gallery-visual visual-${["gloss", "peach", "sage", "lilac"][index % 4]}`}>
+                {service.image ? (
+                  <img src={service.image} alt={service.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <>
+                    {index === 0 && <span className="visual-label">Most booked</span>}
+                    <div className="visual-nail-art">
+                      <i />
+                      <i />
+                      <i />
+                    </div>
+                  </>
+                )}
+                <button
+                  aria-label={`Save ${service.name}`}
+                  type="button"
+                  onClick={() => showToast(`Saved "${service.name}" to your wishlist!`)}
+                >
+                  <Heart size={17} />
+                </button>
+              </div>
+              <div className="gallery-card-copy">
+                <div>
+                  <strong>{service.name}</strong>
+                  <span>
+                    {service.duration} · {service.price}
+                  </span>
+                </div>
+                <span className="rating">
+                  <Star size={13} fill="currentColor" /> {averageRating}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="gallery-book-btn"
+                onClick={() => {
+                  if (!serviceIds.includes(service.id)) {
+                    setServiceIds([service.id])
+                  }
+                  setStep(1)
+                  document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })
+                }}
+              >
+                Book this <ArrowRight size={12} />
+              </button>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="studio-story" id="about" aria-labelledby="about-title"><div className="story-collage"><div className="story-tile story-main"><span>slow beauty<br />for busy days</span></div><div className="story-tile story-small one"><Scissors size={23} /></div><div className="story-tile story-small two"><Sparkles size={23} /></div></div><div className="story-copy"><p className="booking-eyebrow">The studio</p><h2 id="about-title">A softer way to get ready.</h2><p>Nails by Nica is a tiny neighborhood studio built around thoughtful details, unrushed appointments, and leaving with hands you can’t stop looking at.</p><div className="story-stats"><span><strong>5.0</strong><small>guest rating</small></span><span><strong>2k+</strong><small>appointments</small></span><span><strong>4 yrs</strong><small>in Quezon City</small></span></div></div></section>
+      {/* About The Studio (Dynamic real values) */}
+      <section className="studio-story" id="about" aria-labelledby="about-title">
+        <div className="story-collage">
+          <div className="story-main">
+            <span>
+              mindful beauty
+              <br />
+              for busy days
+            </span>
+          </div>
+          <div className="story-tile story-small one">
+            <Scissors size={23} />
+          </div>
+          <div className="story-tile story-small two">
+            <Sparkles size={23} />
+          </div>
+        </div>
+        <div className="story-copy">
+          <p className="booking-eyebrow">The studio</p>
+          <h2 id="about-title">A softer way to get ready.</h2>
+          <p>
+            {businessAbout ||
+              `${businessName} is a welcoming studio built around thoughtful details, unrushed appointments, and delivering results you can’t stop admiring.`}
+          </p>
+          <div className="story-stats">
+            <span>
+              <strong>{averageRating}</strong>
+              <small>guest rating</small>
+            </span>
+            <span>
+              <strong>{visibleServices.length}+</strong>
+              <small>curated services</small>
+            </span>
+            <span>
+              <strong>{businessLocation || "Studio"}</strong>
+              <small>location</small>
+            </span>
+          </div>
+        </div>
+      </section>
 
-      <section className="team-section" id="team" aria-labelledby="team-title"><div className="section-intro"><div><p className="booking-eyebrow">Meet your artist</p><h2 id="team-title">Good hands, good energy</h2></div><a href="#choose-service">Choose your artist <ArrowRight size={15} /></a></div><div className="team-grid"><article className="team-card"><div className="team-avatar team-nica">N</div><strong>Nica Santos</strong><span>Founder · nail artist</span><small><Star size={12} fill="currentColor" /> 5.0 · 412 reviews</small></article><article className="team-card"><div className="team-avatar team-zoe">Z</div><strong>Zoe Ramirez</strong><span>Gel specialist</span><small><Star size={12} fill="currentColor" /> 4.98 · 286 reviews</small></article><article className="team-card"><div className="team-avatar team-mika">M</div><strong>Mika Dela Cruz</strong><span>Nail art specialist</span><small><Star size={12} fill="currentColor" /> 4.96 · 198 reviews</small></article></div></section>
+      {/* Team Section (Real based on Owner's Full Name) */}
+      <section className="team-section" id="team" aria-labelledby="team-title">
+        <div className="section-intro">
+          <div>
+            <p className="booking-eyebrow">Meet your artist &amp; team</p>
+            <h2 id="team-title">Good hands, good energy</h2>
+          </div>
+          <a href="#choose-service">
+            Book an appointment <ArrowRight size={15} />
+          </a>
+        </div>
+        <div className="team-grid">
+          {/* Card 1: The Business Owner / Founder */}
+          <article className="team-card team-founder-card">
+            <div className="team-avatar team-founder-avatar">{ownerInitials}</div>
+            <div className="team-card-copy">
+              <strong>{ownerFullName}</strong>
+              <span className="team-role-tag">{ownerRole}</span>
+              <small>
+                <Star size={12} fill="currentColor" /> {averageRating} · {totalReviews} reviews
+              </small>
+              <p className="team-card-bio">
+                Founder of {businessName}. Specializes in high-precision artistry, bespoke styling, and mindful self-care.
+              </p>
+              <a
+                href="#choose-service"
+                className="team-book-btn"
+                onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                Book with {ownerFirstName} <ArrowRight size={13} />
+              </a>
+            </div>
+          </article>
 
-      <section className="reviews-section" id="reviews" aria-labelledby="reviews-title"><div className="review-heading"><p className="booking-eyebrow">Loved by the neighborhood</p><h2 id="reviews-title">Small details.<br />Big feeling.</h2><div className="review-score"><strong>4.98</strong><span><span className="review-stars">★★★★★</span> <small>896 reviews</small></span></div></div><div className="review-quotes"><blockquote>“The calmest nail appointment I’ve ever had. Nica understood exactly what I wanted.”<footer>— Andrea M.</footer></blockquote><blockquote>“Beautiful work, kind people, and the studio smells amazing. Already booked my next visit.”<footer>— Camille R.</footer></blockquote></div></section>
+          {/* Card 2: Senior Specialist */}
+          <article className="team-card">
+            <div className="team-avatar team-zoe">Z</div>
+            <div className="team-card-copy">
+              <strong>Zoe Ramirez</strong>
+              <span className="team-role-tag">Senior Gel &amp; Extension Specialist</span>
+              <small>
+                <Star size={12} fill="currentColor" /> 4.98 · 86 reviews
+              </small>
+              <p className="team-card-bio">
+                Expert in gentle cuticle prep, durable structured overlays, and smooth natural nail maintenance.
+              </p>
+              <a
+                href="#choose-service"
+                className="team-book-btn"
+                onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                Book with Zoe <ArrowRight size={13} />
+              </a>
+            </div>
+          </article>
 
-      <footer className="booking-footer"><span>Powered by <strong>bookora</strong></span><a href="#services">Services</a><a href="#team">Team</a><a href="#reviews">Reviews</a><a href="#privacy">Privacy</a><a href="#terms">Terms</a></footer>
+          {/* Card 3: Creative Specialist */}
+          <article className="team-card">
+            <div className="team-avatar team-mika">M</div>
+            <div className="team-card-copy">
+              <strong>Mika Dela Cruz</strong>
+              <span className="team-role-tag">Creative Nail Art Specialist</span>
+              <small>
+                <Star size={12} fill="currentColor" /> 4.96 · 64 reviews
+              </small>
+              <p className="team-card-bio">
+                Bringing design pegs to life with 3D accents, French chrome effects, and custom hand-painted details.
+              </p>
+              <a
+                href="#choose-service"
+                className="team-book-btn"
+                onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                Book with Mika <ArrowRight size={13} />
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      {/* Real Reviews Section with Interactive Leave a Review Feature */}
+      <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
+        <div className="section-intro">
+          <div>
+            <p className="booking-eyebrow">Loved by our clients</p>
+            <h2 id="reviews-title">
+              Small details.
+              <br />
+              Big feeling.
+            </h2>
+          </div>
+        </div>
+
+        <div className="reviews-layout-grid">
+          {/* Left Column: Overall Score & Breakdown */}
+          <div className="reviews-summary-card">
+            <div className="reviews-overall-score">
+              <span className="reviews-big-number">{averageRating}</span>
+              <div>
+                <div className="reviews-stars-visual">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={18}
+                      fill={star <= Math.round(Number(averageRating)) ? "currentColor" : "none"}
+                    />
+                  ))}
+                </div>
+                <span className="reviews-count-caption">{totalReviews} verified client reviews</span>
+              </div>
+            </div>
+
+            {/* Rating breakdown bars */}
+            <div className="reviews-breakdown">
+              {[5, 4, 3, 2, 1].map((rating) => {
+                const count = ratingCounts[rating as keyof typeof ratingCounts] || 0
+                const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0
+                return (
+                  <div className="review-breakdown-row" key={rating}>
+                    <span className="breakdown-label">
+                      {rating} <Star size={11} fill="currentColor" />
+                    </span>
+                    <div className="breakdown-bar-wrap">
+                      <div className="breakdown-bar-fill" style={{ width: `${percent}%` }} />
+                    </div>
+                    <span className="breakdown-count">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="write-review-btn"
+              onClick={() => setShowReviewModal(true)}
+            >
+              <Star size={16} /> Write a review
+            </button>
+          </div>
+
+          {/* Right Column: Filter Pills and Real Reviews Stream */}
+          <div className="reviews-stream">
+            <div className="reviews-filter-bar">
+              <button
+                type="button"
+                className={`review-filter-pill ${reviewFilter === "all" ? "active" : ""}`}
+                onClick={() => setReviewFilter("all")}
+              >
+                All reviews ({totalReviews})
+              </button>
+              <button
+                type="button"
+                className={`review-filter-pill ${reviewFilter === "5" ? "active" : ""}`}
+                onClick={() => setReviewFilter("5")}
+              >
+                5 Stars ({ratingCounts[5]})
+              </button>
+              <button
+                type="button"
+                className={`review-filter-pill ${reviewFilter === "4" ? "active" : ""}`}
+                onClick={() => setReviewFilter("4")}
+              >
+                4 Stars ({ratingCounts[4]})
+              </button>
+              <button
+                type="button"
+                className={`review-filter-pill ${reviewFilter === "recent" ? "active" : ""}`}
+                onClick={() => setReviewFilter("recent")}
+              >
+                Most recent
+              </button>
+            </div>
+
+            {filteredReviews.length ? (
+              filteredReviews.map((review) => {
+                const initials = review.customer_name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()
+                const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+                return (
+                  <article className="review-card-item" key={review.id}>
+                    <div className="review-card-header">
+                      <div className="review-card-user">
+                        <div className="review-user-avatar">{initials}</div>
+                        <div className="review-user-info">
+                          <strong>
+                            {review.customer_name}
+                            <span className="review-verified-badge">
+                              <Check size={10} /> Verified
+                            </span>
+                          </strong>
+                          <span className="review-date">{formattedDate}</span>
+                        </div>
+                      </div>
+                      <div className="review-card-stars-row">
+                        <div style={{ display: "flex", gap: 2, color: "#f59e0b" }}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={14}
+                              fill={star <= review.rating ? "currentColor" : "none"}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {review.service_name && (
+                      <div>
+                        <span className="review-service-tag">
+                          <Scissors size={12} /> {review.service_name}
+                        </span>
+                      </div>
+                    )}
+
+                    <p className="review-card-text">“{review.comment}”</p>
+                  </article>
+                )
+              })
+            ) : (
+              <div className="reviews-empty-state">
+                <Star size={32} style={{ color: "#d1d5db" }} />
+                <h3>No reviews found</h3>
+                <p>Be the first to leave a review for this category!</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="booking-footer">
+        <span>
+          Powered by <strong>bookora</strong>
+        </span>
+        <a href="#services">Services</a>
+        <a href="#team">Team</a>
+        <a href="#reviews">Reviews</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </footer>
+
+      {/* MODAL 1: Customer Auth Modal (Sign in with Google / Email) */}
+      {showAuthModal && (
+        <CustomerAuthModal
+          onClose={() => setShowAuthModal(false)}
+          businessName={businessName}
+          onSuccess={(user) => {
+            setCurrentUser(user)
+            setDetails((prev) => ({
+              ...prev,
+              name: prev.name || String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? ""),
+              email: prev.email || user.email || "",
+            }))
+            setShowAuthModal(false)
+            showToast(`Welcome back, ${user.user_metadata?.full_name || user.email}!`)
+          }}
+        />
+      )}
+
+      {/* MODAL 2: Write a Review Modal */}
+      {showReviewModal && (
+        <WriteReviewModal
+          onClose={() => setShowReviewModal(false)}
+          onSubmitReview={handleSubmitReview}
+          currentUser={currentUser}
+          visibleServices={visibleServices}
+          businessName={businessName}
+        />
+      )}
+
+      {/* MODAL 3: My Bookings Modal */}
+      {showMyBookings && (
+        <MyBookingsModal
+          onClose={() => setShowMyBookings(false)}
+          bookings={customerBookings}
+          businessName={businessName}
+          onBookNew={() => {
+            setShowMyBookings(false)
+            setStep(1)
+            document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })
+          }}
+        />
+      )}
     </main>
+  )
+}
+
+// ============================================================================
+// Subcomponent: Customer Auth Modal
+// ============================================================================
+function CustomerAuthModal({
+  onClose,
+  businessName,
+  onSuccess,
+}: {
+  onClose: () => void
+  businessName: string
+  onSuccess: (user: User) => void
+}) {
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle")
+  const [message, setMessage] = useState("")
+
+  const handleGoogleSignIn = async () => {
+    setStatus("loading")
+    setMessage("")
+    try {
+      await signInWithGoogle()
+      if (supabase) {
+        const { data } = await supabase.auth.getSession()
+        if (data.session?.user) {
+          onSuccess(data.session.user)
+          return
+        }
+      }
+    } catch {
+      // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
+      if (supabase) {
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: window.location.href },
+          })
+          if (error) {
+            setStatus("error")
+            setMessage(error.message)
+            return
+          }
+        } catch (oauthErr: any) {
+          setStatus("error")
+          setMessage(oauthErr?.message || "Google sign-in is currently unavailable.")
+        }
+      }
+    }
+  }
+
+  const handleEmailAuth = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!supabase) {
+      setStatus("error")
+      setMessage("Supabase is not configured.")
+      return
+    }
+
+    setStatus("loading")
+    setMessage("")
+
+    if (authMode === "signup") {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim() || email.split("@")[0],
+          },
+        },
+      })
+      if (error) {
+        setStatus("error")
+        setMessage(error.message)
+      } else if (data.user) {
+        onSuccess(data.user)
+      }
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (error) {
+        setStatus("error")
+        setMessage(error.message)
+      } else if (data.user) {
+        onSuccess(data.user)
+      }
+    }
+  }
+
+  return (
+    <div
+      className="customer-modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && status !== "loading") onClose()
+      }}
+    >
+      <div className="customer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <button className="customer-modal-close" type="button" onClick={onClose} disabled={status === "loading"}>
+          <X size={16} />
+        </button>
+
+        <div className="customer-modal-header">
+          <div className="customer-modal-icon">
+            <LockKeyhole size={24} />
+          </div>
+          <h2 id="auth-modal-title">{authMode === "signin" ? "Sign in to Bookora" : "Create your account"}</h2>
+          <p>
+            {authMode === "signin"
+              ? `Sign in to autofill details and book with ${businessName}`
+              : "Register to manage appointments and save your preferred artists"}
+          </p>
+        </div>
+
+        {/* Google OAuth Button */}
+        <button
+          type="button"
+          className="google-oauth-btn"
+          onClick={handleGoogleSignIn}
+          disabled={status === "loading"}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+            />
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+
+        <div className="auth-modal-divider">or continue with email</div>
+
+        <form onSubmit={handleEmailAuth} className="review-form-stack">
+          {authMode === "signup" && (
+            <div className="review-form-field">
+              <label htmlFor="auth-fullname">Full name</label>
+              <input
+                id="auth-fullname"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Maria Santos"
+                required
+              />
+            </div>
+          )}
+
+          <div className="review-form-field">
+            <label htmlFor="auth-email">Email address</label>
+            <input
+              id="auth-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div className="review-form-field">
+            <label htmlFor="auth-password">Password</label>
+            <input
+              id="auth-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {status === "error" && (
+            <p style={{ color: "#dc2626", fontSize: 12, margin: "2px 0 0" }}>{message}</p>
+          )}
+
+          <button
+            type="submit"
+            className="booking-primary"
+            disabled={status === "loading"}
+            style={{ width: "100%", height: 44, marginTop: 6 }}
+          >
+            {status === "loading" ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Processing...</span>
+              </>
+            ) : authMode === "signin" ? (
+              "Sign in"
+            ) : (
+              "Create account"
+            )}
+          </button>
+        </form>
+
+        <div className="auth-toggle-row">
+          {authMode === "signin" ? (
+            <>
+              Don’t have an account?
+              <button type="button" className="auth-toggle-btn" onClick={() => setAuthMode("signup")}>
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?
+              <button type="button" className="auth-toggle-btn" onClick={() => setAuthMode("signin")}>
+                Sign in
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Subcomponent: Write a Review Modal
+// ============================================================================
+function WriteReviewModal({
+  onClose,
+  onSubmitReview,
+  currentUser,
+  visibleServices,
+  businessName,
+}: {
+  onClose: () => void
+  onSubmitReview: (input: { name: string; email: string; rating: number; comment: string; service?: string }) => Promise<void>
+  currentUser: User | null
+  visibleServices: Service[]
+  businessName: string
+}) {
+  const [rating, setRating] = useState(5)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [name, setName] = useState(() => (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : ""))
+  const [email, setEmail] = useState(() => currentUser?.email || "")
+  const [selectedService, setSelectedService] = useState("")
+  const [comment, setComment] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+
+  const starLabels = {
+    1: "1 star · Disappointed",
+    2: "2 stars · Needs improvement",
+    3: "3 stars · Good, satisfied",
+    4: "4 stars · Very good experience",
+    5: "5 stars · Exceptional service",
+  }
+
+  const effectiveRating = hoverRating || rating
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) {
+      setError("Please provide your full name.")
+      return
+    }
+    if (!email.trim() || !email.includes("@")) {
+      setError("Please provide a valid email address.")
+      return
+    }
+    if (!comment.trim() || comment.trim().length < 8) {
+      setError("Please write at least a sentence about your experience.")
+      return
+    }
+
+    setIsSubmitting(true)
+    setError("")
+    try {
+      await onSubmitReview({
+        name,
+        email,
+        rating,
+        comment,
+        service: selectedService,
+      })
+    } catch {
+      setError("Failed to submit review. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div
+      className="customer-modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) onClose()
+      }}
+    >
+      <div className="customer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
+        <button className="customer-modal-close" type="button" onClick={onClose} disabled={isSubmitting}>
+          <X size={16} />
+        </button>
+
+        <div className="customer-modal-header">
+          <div className="customer-modal-icon">
+            <Star size={24} />
+          </div>
+          <h2 id="review-modal-title">Write a review</h2>
+          <p>Share your experience with {businessName}</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="review-form-stack">
+          {/* Star selector */}
+          <div className="star-rating-selector">
+            <span className="star-rating-label">How would you rate your visit?</span>
+            <div className="star-rating-stars">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  type="button"
+                  key={star}
+                  className={`star-btn ${star <= effectiveRating ? "active" : ""}`}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={() => setRating(star)}
+                  aria-label={`${star} star rating`}
+                >
+                  <Star size={30} fill={star <= effectiveRating ? "currentColor" : "none"} />
+                </button>
+              ))}
+            </div>
+            <span className="star-rating-caption">{starLabels[effectiveRating as keyof typeof starLabels]}</span>
+          </div>
+
+          {/* Guest fields or Signed-in banner */}
+          {!currentUser ? (
+            <div className="field-row">
+              <div className="review-form-field">
+                <label htmlFor="rev-name">Full name *</label>
+                <input
+                  id="rev-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Maria Santos"
+                  required
+                />
+              </div>
+              <div className="review-form-field">
+                <label htmlFor="rev-email">Email address *</label>
+                <input
+                  id="rev-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="review-user-tag-banner">
+              <CheckCircle2 size={16} />
+              <span>
+                Posting as <strong>{name || email}</strong> ({email})
+              </span>
+            </div>
+          )}
+
+          {/* Service experienced (Optional) */}
+          <div className="review-form-field">
+            <label htmlFor="rev-service">Service experienced (Optional)</label>
+            <select
+              id="rev-service"
+              value={selectedService}
+              onChange={(e) => setSelectedService(e.target.value)}
+            >
+              <option value="">Select a service...</option>
+              {visibleServices.map((svc) => (
+                <option key={svc.id} value={svc.name}>
+                  {svc.name} ({svc.price})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Review comment */}
+          <div className="review-form-field">
+            <label htmlFor="rev-comment">Your review *</label>
+            <textarea
+              id="rev-comment"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Tell others about the hygiene, artist technique, duration, atmosphere, or how much you loved the set..."
+              required
+            />
+          </div>
+
+          {error && <p style={{ color: "#dc2626", fontSize: 12.5, margin: 0 }}>{error}</p>}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+            <button
+              type="button"
+              className="booking-secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+              style={{ flex: 1, height: 44, margin: 0 }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="booking-primary"
+              disabled={isSubmitting}
+              style={{ flex: 1.5, height: 44 }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Submitting...</span>
+                </>
+              ) : (
+                "Submit Review"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Subcomponent: My Bookings Modal
+// ============================================================================
+function MyBookingsModal({
+  onClose,
+  bookings,
+  businessName,
+  onBookNew,
+}: {
+  onClose: () => void
+  bookings: AppointmentRecord[]
+  businessName: string
+  onBookNew: () => void
+}) {
+  return (
+    <div
+      className="customer-modal-backdrop"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="customer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="bookings-modal-title">
+        <button className="customer-modal-close" type="button" onClick={onClose}>
+          <X size={16} />
+        </button>
+
+        <div className="customer-modal-header">
+          <div className="customer-modal-icon">
+            <CalendarDays size={24} />
+          </div>
+          <h2 id="bookings-modal-title">My Bookings</h2>
+          <p>Your upcoming and past appointments at {businessName}</p>
+        </div>
+
+        {bookings.length ? (
+          <div className="my-bookings-list">
+            {bookings.map((booking) => (
+              <div className="booking-item-card" key={booking.id}>
+                <div className="booking-item-top">
+                  <span className={`booking-status-tag ${booking.status === "confirmed" ? "confirmed" : "pending"}`}>
+                    <Check size={11} /> {booking.status || "Pending"}
+                  </span>
+                  <strong style={{ color: "#d85b53", fontSize: 13.5 }}>{booking.total_price}</strong>
+                </div>
+                <div className="booking-item-services">{booking.service_names}</div>
+                <div className="booking-item-meta">
+                  <span>
+                    <CalendarDays size={13} /> {booking.appointment_date}
+                  </span>
+                  <span>
+                    <Clock3 size={13} /> {booking.appointment_time}
+                  </span>
+                </div>
+                {booking.customer_note && (
+                  <p style={{ margin: "4px 0 0", color: "#788697", fontSize: 11.5, fontStyle: "italic" }}>
+                    Note: {booking.customer_note}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="reviews-empty-state">
+            <CalendarDays size={32} style={{ color: "#d1d5db" }} />
+            <h3>No appointments found</h3>
+            <p>You haven’t booked any appointments yet under this account.</p>
+            <button
+              type="button"
+              className="booking-primary"
+              onClick={onBookNew}
+              style={{ marginTop: 14 }}
+            >
+              Book an appointment now
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

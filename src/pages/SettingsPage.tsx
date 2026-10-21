@@ -1411,6 +1411,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
       facebook: facebook.trim(),
       banner_url: bannerUrl,
       logo_url: logoUrl,
+      owner_name: String(user.user_metadata?.full_name ?? "Luigi Opalia"),
       updated_at: new Date().toISOString(),
     }
 

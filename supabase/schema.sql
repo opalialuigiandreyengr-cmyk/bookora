@@ -319,3 +319,57 @@ create policy "Public can insert appointments"
 
 grant select, update, delete on public.appointments to authenticated;
 grant insert on public.appointments to anon, authenticated;
+
+-- ============================================================================
+-- Business Profiles - Owner Name column
+-- ============================================================================
+alter table public.business_profiles
+    add column if not exists owner_name text default '';
+
+-- ============================================================================
+-- Customer Reviews Table & Policies
+-- ============================================================================
+create table if not exists public.business_reviews (
+    id uuid default gen_random_uuid() primary key,
+    business_id uuid references auth.users(id) on delete cascade not null,
+    customer_name text not null,
+    customer_email text not null,
+    rating integer not null check (rating >= 1 and rating <= 5),
+    comment text not null,
+    service_name text default '',
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_business_reviews_business_id on public.business_reviews (business_id);
+
+alter table public.business_reviews enable row level security;
+
+-- Public can view reviews for published businesses
+drop policy if exists "Public can view business reviews" on public.business_reviews;
+create policy "Public can view business reviews"
+    on public.business_reviews for select to anon, authenticated
+    using (
+        exists (
+            select 1 from public.business_profiles profile
+            where profile.id = business_reviews.business_id
+              and profile.slug is not null
+              and length(trim(profile.slug)) > 0
+        )
+    );
+
+-- Public (guests and signed in users) can post reviews
+drop policy if exists "Public can insert business reviews" on public.business_reviews;
+create policy "Public can insert business reviews"
+    on public.business_reviews for insert to anon, authenticated
+    with check (
+        exists (
+            select 1 from public.business_profiles profile
+            where profile.id = business_reviews.business_id
+              and profile.slug is not null
+              and length(trim(profile.slug)) > 0
+        )
+    );
+
+-- Business owners can manage reviews
+grant select, update, delete on public.business_reviews to authenticated;
+grant select, insert on public.business_reviews to anon, authenticated;

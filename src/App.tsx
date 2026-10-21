@@ -19,7 +19,7 @@ export default function App() {
     pathname.startsWith("/book/") ||
     pathname.startsWith("/booking/") ||
     isPublicBookingHost
-  if (isCustomerBooking) return <CustomerBookingPage />
+  if (isCustomerBooking) return <><ToastViewport /><CustomerBookingPage /></>
 
   const [user, setUser] = useState<User | null>(null)
   const [onboardingDone, setOnboardingDone] = useState(false)
