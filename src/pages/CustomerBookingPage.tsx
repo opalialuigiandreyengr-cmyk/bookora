@@ -1719,9 +1719,10 @@ function CustomerAuthModal({
       // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
       if (supabase) {
         try {
+          const cleanRedirectUrl = window.location.href.split("#")[0]
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
-            options: { redirectTo: window.location.href },
+            options: { redirectTo: cleanRedirectUrl },
           })
           if (error) {
             setStatus("error")
