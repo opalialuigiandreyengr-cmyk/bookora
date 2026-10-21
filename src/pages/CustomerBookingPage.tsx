@@ -603,7 +603,7 @@ export function CustomerBookingPage() {
         <nav className="booking-nav" aria-label="Main navigation">
           <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
           <a href="#team" onClick={() => setMenuOpen(false)}>Artist</a>
-          {totalReviews > 0 && <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>}
+          <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>
           <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
         </nav>
 
@@ -735,11 +735,9 @@ export function CustomerBookingPage() {
           <a href="#team" onClick={() => setMenuOpen(false)}>
             Artist <ArrowRight size={16} />
           </a>
-          {totalReviews > 0 && (
-            <a href="#reviews" onClick={() => setMenuOpen(false)}>
-              Guest reviews ({totalReviews}) <ArrowRight size={16} />
-            </a>
-          )}
+          <a href="#reviews" onClick={() => setMenuOpen(false)}>
+            Guest reviews {totalReviews > 0 ? `(${totalReviews})` : ""} <ArrowRight size={16} />
+          </a>
           <a href="#about" onClick={() => setMenuOpen(false)}>
             About the studio <ArrowRight size={16} />
           </a>
@@ -1431,12 +1429,10 @@ export function CustomerBookingPage() {
               `${businessName} is a welcoming studio built around thoughtful details, unrushed appointments, and delivering results you can’t stop admiring.`}
           </p>
           <div className="story-stats">
-            {totalReviews > 0 && (
-              <span>
-                <strong>{averageRating}</strong>
-                <small>guest rating</small>
-              </span>
-            )}
+            <span>
+              <strong>{averageRating}</strong>
+              <small>guest rating</small>
+            </span>
             <span>
               <strong>{visibleServices.length}+</strong>
               <small>curated services</small>
@@ -1475,71 +1471,71 @@ export function CustomerBookingPage() {
         </div>
       </section>
 
-      {/* Real Reviews Section: Only rendered if reviews exist to keep gaps clean */}
-      {totalReviews > 0 && (
-        <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
-          <div className="section-intro">
-            <div>
-              <p className="booking-eyebrow">Client reviews</p>
-              <h2 id="reviews-title">
-                Small details.
-                <br />
-                Big feeling.
-              </h2>
+      {/* Real Reviews Section */}
+      <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
+        <div className="section-intro">
+          <div>
+            <p className="booking-eyebrow">Client reviews</p>
+            <h2 id="reviews-title">
+              Small details.
+              <br />
+              Big feeling.
+            </h2>
+          </div>
+        </div>
+
+        <div className="reviews-layout-grid">
+          {/* Left Column: Overall Score & Breakdown Box */}
+          <div className="reviews-summary-card">
+            <div className="reviews-overall-score">
+              <span className="reviews-big-number">{totalReviews > 0 ? averageRating : "New"}</span>
+              <div>
+                <div className="reviews-stars-visual">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={18}
+                      fill={star <= (totalReviews > 0 ? Math.round(Number(averageRating)) : 5) ? "currentColor" : "none"}
+                    />
+                  ))}
+                </div>
+                <span className="reviews-count-caption">
+                  {totalReviews > 0 ? `${totalReviews} verified client ${totalReviews === 1 ? "review" : "reviews"}` : "Be the first to leave a review!"}
+                </span>
+              </div>
             </div>
+
+            {/* Rating breakdown bars */}
+            <div className="reviews-breakdown">
+              {[5, 4, 3, 2, 1].map((rating) => {
+                const count = ratingCounts[rating as keyof typeof ratingCounts] || 0
+                const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0
+                return (
+                  <div className="review-breakdown-row" key={rating}>
+                    <span className="breakdown-label">
+                      {rating} <Star size={11} fill="currentColor" />
+                    </span>
+                    <div className="breakdown-bar-wrap">
+                      <div className="breakdown-bar-fill" style={{ width: `${percent}%` }} />
+                    </div>
+                    <span className="breakdown-count">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="write-review-btn"
+              onClick={() => setShowReviewModal(true)}
+            >
+              <Star size={16} /> Write a review
+            </button>
           </div>
 
-          <div className="reviews-layout-grid">
-            {/* Left Column: Overall Score & Breakdown Box */}
-            <div className="reviews-summary-card">
-              <div className="reviews-overall-score">
-                <span className="reviews-big-number">{averageRating}</span>
-                <div>
-                  <div className="reviews-stars-visual">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        size={18}
-                        fill={star <= Math.round(Number(averageRating)) ? "currentColor" : "none"}
-                      />
-                    ))}
-                  </div>
-                  <span className="reviews-count-caption">
-                    {totalReviews} verified client {totalReviews === 1 ? "review" : "reviews"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Rating breakdown bars */}
-              <div className="reviews-breakdown">
-                {[5, 4, 3, 2, 1].map((rating) => {
-                  const count = ratingCounts[rating as keyof typeof ratingCounts] || 0
-                  const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0
-                  return (
-                    <div className="review-breakdown-row" key={rating}>
-                      <span className="breakdown-label">
-                        {rating} <Star size={11} fill="currentColor" />
-                      </span>
-                      <div className="breakdown-bar-wrap">
-                        <div className="breakdown-bar-fill" style={{ width: `${percent}%` }} />
-                      </div>
-                      <span className="breakdown-count">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <button
-                type="button"
-                className="write-review-btn"
-                onClick={() => setShowReviewModal(true)}
-              >
-                <Star size={16} /> Write a review
-              </button>
-            </div>
-
-            {/* Right Column: Filter Pills and Top 3 Reviews Stream */}
-            <div className="reviews-stream">
+          {/* Right Column: Filter Pills and Top 3 Reviews Stream */}
+          <div className="reviews-stream">
+            {totalReviews > 0 && (
               <div className="reviews-filter-bar">
                 <button
                   type="button"
@@ -1570,88 +1566,88 @@ export function CustomerBookingPage() {
                   Most recent
                 </button>
               </div>
+            )}
 
-              {filteredReviews.length ? (
-                <>
-                  {filteredReviews.slice(0, 3).map((review) => {
-                    const initials = review.customer_name
-                      .split(" ")
-                      .map((w) => w[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()
-                    const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                    return (
-                      <article className="review-card-item" key={review.id}>
-                        <div className="review-card-header">
-                          <div className="review-card-user">
-                            <div className="review-user-avatar">{initials}</div>
-                            <div className="review-user-info">
-                              <strong>{review.customer_name}</strong>
-                              <span className="review-date">{formattedDate}</span>
-                            </div>
-                          </div>
-                          <div className="review-card-stars-row">
-                            <div style={{ display: "flex", gap: 2, color: "#f59e0b" }}>
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  size={14}
-                                  fill={star <= review.rating ? "currentColor" : "none"}
-                                />
-                              ))}
-                            </div>
+            {filteredReviews.length ? (
+              <>
+                {filteredReviews.slice(0, 3).map((review) => {
+                  const initials = review.customer_name
+                    .split(" ")
+                    .map((w) => w[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                  const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                  return (
+                    <article className="review-card-item" key={review.id}>
+                      <div className="review-card-header">
+                        <div className="review-card-user">
+                          <div className="review-user-avatar">{initials}</div>
+                          <div className="review-user-info">
+                            <strong>{review.customer_name}</strong>
+                            <span className="review-date">{formattedDate}</span>
                           </div>
                         </div>
-
-                        {review.service_name && (
-                          <div>
-                            <span className="review-service-tag">
-                              <Scissors size={12} /> {review.service_name}
-                            </span>
+                        <div className="review-card-stars-row">
+                          <div style={{ display: "flex", gap: 2, color: "#f59e0b" }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                size={14}
+                                fill={star <= review.rating ? "currentColor" : "none"}
+                              />
+                            ))}
                           </div>
-                        )}
+                        </div>
+                      </div>
 
-                        <p className="review-card-text">“{review.comment}”</p>
-                      </article>
-                    )
-                  })}
+                      {review.service_name && (
+                        <div>
+                          <span className="review-service-tag">
+                            <Scissors size={12} /> {review.service_name}
+                          </span>
+                        </div>
+                      )}
 
-                  {/* Button below to show all reviews */}
-                  <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-                    <button
-                      type="button"
-                      className="show-all-reviews-btn"
-                      onClick={() => setShowAllReviewsModal(true)}
-                    >
-                      <span>View all reviews ({totalReviews})</span>
-                      <ArrowRight size={15} />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="reviews-empty-state">
-                  <Star size={28} style={{ color: "#f59e0b" }} />
-                  <h3>No reviews found</h3>
-                  <p>No reviews match the selected filter.</p>
+                      <p className="review-card-text">“{review.comment}”</p>
+                    </article>
+                  )
+                })}
+
+                {/* Button below to show all reviews */}
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
                   <button
                     type="button"
-                    className="write-review-btn"
-                    onClick={() => setReviewFilter("all")}
-                    style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
+                    className="show-all-reviews-btn"
+                    onClick={() => setShowAllReviewsModal(true)}
                   >
-                    Show all reviews
+                    <span>View all reviews ({totalReviews})</span>
+                    <ArrowRight size={15} />
                   </button>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="reviews-empty-state">
+                <Star size={32} style={{ color: "#f59e0b" }} />
+                <h3>No reviews yet</h3>
+                <p>Have you booked with {businessName}? Share your experience with our artist!</p>
+                <button
+                  type="button"
+                  className="write-review-btn"
+                  onClick={() => setShowReviewModal(true)}
+                  style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
+                >
+                  <Star size={16} /> Write the first review
+                </button>
+              </div>
+            )}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="booking-footer">
@@ -1660,7 +1656,7 @@ export function CustomerBookingPage() {
         </span>
         <a href="#services">Services</a>
         <a href="#team">Artist</a>
-        {totalReviews > 0 && <a href="#reviews">Reviews</a>}
+        <a href="#reviews">Reviews</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
       </footer>

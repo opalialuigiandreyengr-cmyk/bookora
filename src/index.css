@@ -1390,10 +1390,10 @@ svg { stroke-width: 1.8; }
 .service-option:hover { border-color: #d49c96; background: #fffafa; }
 .service-option.selected { border-color: #d85b53; background: #fff9f7; box-shadow: 0 0 0 3px rgba(216,91,83,.1); }
 .service-copy { display: grid; gap: 4px; min-width: 0; }
-.service-copy strong { font-size: 13px; }
-.service-copy > span { overflow: hidden; color: #818b98; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.service-copy small { display: inline-flex; align-items: center; gap: 5px; color: #a0a8b2; font-size: 10px; }
-.service-price { display: flex; align-items: center; gap: 13px; flex: 0 0 auto; font-size: 13px; font-weight: 800; }
+.service-copy strong { font-size: 14px; }
+.service-copy > span { overflow: hidden; color: #818b98; font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.service-copy small { display: inline-flex; align-items: center; gap: 5px; color: #a0a8b2; font-size: 12px; }
+.service-price { display: flex; align-items: center; gap: 13px; flex: 0 0 auto; font-size: 14px; font-weight: 800; }
 .radio-indicator { display: grid; place-items: center; width: 21px; height: 21px; border: 1.5px solid #d6dbe0; border-radius: 50%; color: white; }
 .selected .radio-indicator { border-color: #d85b53; background: #d85b53; }
 .booking-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 27px; }
@@ -1828,34 +1828,21 @@ svg { stroke-width: 1.8; }
   .booking-banner {
     width: 100%;
     height: auto;
-    aspect-ratio: 3.8 / 1;
-    max-height: 115px;
+    aspect-ratio: 3 / 1;
     margin: 0;
     border-radius: 0;
     box-shadow: none;
   }
   .booking-banner-overlay {
-    align-items: flex-end;
-    padding: 10px 14px;
-  }
-  .booking-banner-overlay .banner-industry-badge,
-  .booking-banner-overlay p {
-    display: none !important;
+    align-items: flex-start;
+    padding: 22px 19px;
   }
   .booking-banner-overlay h2 {
     max-width: none;
-    font-size: 18px;
-    line-height: 1.1;
+    font-size: 26px;
   }
   .booking-banner-overlay span,
-  .booking-banner-overlay small {
-    display: none !important;
-  }
-  .booking-banner-overlay a {
-    min-height: 32px;
-    padding-inline: 12px;
-    font-size: 10px;
-  }
+  .booking-banner-overlay small { font-size: 11px; }
   .booking-layout {
     width: calc(100% - 32px);
     grid-template-columns: 1fr;
