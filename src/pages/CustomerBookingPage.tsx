@@ -142,6 +142,7 @@ export function CustomerBookingPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
+  const [showAllReviewsModal, setShowAllReviewsModal] = useState(false)
   const [showMyBookings, setShowMyBookings] = useState(false)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
 
@@ -369,6 +370,34 @@ export function CustomerBookingPage() {
     if (reviewFilter === "recent") return [...reviews].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return reviews
   }, [reviews, reviewFilter])
+
+  // Top 3 Recent Reviews to showcase on the main booking page
+  const topRecentReviews = useMemo(() => {
+    return [...reviews]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+  }, [reviews])
+
+  // Lock background body scroll when any modal is active
+  const isAnyModalOpen = Boolean(showAuthModal || showReviewModal || showMyBookings || showAllReviewsModal)
+
+  useEffect(() => {
+    if (!isAnyModalOpen) return
+
+    const originalOverflow = document.body.style.overflow
+    const originalPaddingRight = document.body.style.paddingRight
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+
+    document.body.style.overflow = "hidden"
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+      document.body.style.paddingRight = originalPaddingRight
+    }
+  }, [isAnyModalOpen])
 
   useEffect(() => {
     window.localStorage.setItem("bookora-booking-theme", darkMode ? "dark" : "light")
@@ -1404,105 +1433,37 @@ export function CustomerBookingPage() {
         </div>
       </section>
 
-      {/* Real Reviews Section with Interactive Leave a Review Feature */}
-      <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
-        <div className="section-intro">
+      {/* Real Reviews Section: Showcase Layout (Top 3 Recent Reviews + Show All Modal) */}
+      <section className="reviews-section reviews-section-showcase" id="reviews" aria-labelledby="reviews-title">
+        <div className="section-intro reviews-intro-showcase">
           <div>
-            <p className="booking-eyebrow">Client reviews</p>
-            <h2 id="reviews-title">
-              Small details.
-              <br />
-              Big feeling.
-            </h2>
+            <p className="booking-eyebrow">Client feedback</p>
+            <h2 id="reviews-title">Loved by our clients</h2>
+          </div>
+
+          <div className="reviews-intro-actions">
+            {totalReviews > 0 && (
+              <div className="reviews-score-badge">
+                <Star size={15} fill="#f59e0b" color="#f59e0b" />
+                <strong>{averageRating}</strong>
+                <span>· {totalReviews} {totalReviews === 1 ? "review" : "reviews"}</span>
+              </div>
+            )}
+            <button
+              type="button"
+              className="write-review-compact-btn"
+              onClick={() => setShowReviewModal(true)}
+            >
+              <Star size={14} /> Write a review
+            </button>
           </div>
         </div>
 
-        <div className="reviews-layout-grid">
-          {/* Left Column: Overall Score & Breakdown */}
-          <div className="reviews-summary-card">
-            <div className="reviews-overall-score">
-              <span className="reviews-big-number">{totalReviews > 0 ? averageRating : "New"}</span>
-              <div>
-                <div className="reviews-stars-visual">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      size={18}
-                      fill={star <= (totalReviews > 0 ? Math.round(Number(averageRating)) : 5) ? "currentColor" : "none"}
-                    />
-                  ))}
-                </div>
-                <span className="reviews-count-caption">
-                  {totalReviews > 0 ? `${totalReviews} verified client reviews` : "Be the first to leave a review!"}
-                </span>
-              </div>
-            </div>
-
-            {/* Rating breakdown bars */}
-            <div className="reviews-breakdown">
-              {[5, 4, 3, 2, 1].map((rating) => {
-                const count = ratingCounts[rating as keyof typeof ratingCounts] || 0
-                const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0
-                return (
-                  <div className="review-breakdown-row" key={rating}>
-                    <span className="breakdown-label">
-                      {rating} <Star size={11} fill="currentColor" />
-                    </span>
-                    <div className="breakdown-bar-wrap">
-                      <div className="breakdown-bar-fill" style={{ width: `${percent}%` }} />
-                    </div>
-                    <span className="breakdown-count">{count}</span>
-                  </div>
-                )
-              })}
-            </div>
-
-            <button
-              type="button"
-              className="write-review-btn"
-              onClick={() => setShowReviewModal(true)}
-            >
-              <Star size={16} /> Write a review
-            </button>
-          </div>
-
-          {/* Right Column: Filter Pills and Real Reviews Stream */}
-          <div className="reviews-stream">
-            {totalReviews > 0 && (
-              <div className="reviews-filter-bar">
-                <button
-                  type="button"
-                  className={`review-filter-pill ${reviewFilter === "all" ? "active" : ""}`}
-                  onClick={() => setReviewFilter("all")}
-                >
-                  All reviews ({totalReviews})
-                </button>
-                <button
-                  type="button"
-                  className={`review-filter-pill ${reviewFilter === "5" ? "active" : ""}`}
-                  onClick={() => setReviewFilter("5")}
-                >
-                  5 Stars ({ratingCounts[5]})
-                </button>
-                <button
-                  type="button"
-                  className={`review-filter-pill ${reviewFilter === "4" ? "active" : ""}`}
-                  onClick={() => setReviewFilter("4")}
-                >
-                  4 Stars ({ratingCounts[4]})
-                </button>
-                <button
-                  type="button"
-                  className={`review-filter-pill ${reviewFilter === "recent" ? "active" : ""}`}
-                  onClick={() => setReviewFilter("recent")}
-                >
-                  Most recent
-                </button>
-              </div>
-            )}
-
-            {filteredReviews.length ? (
-              filteredReviews.map((review) => {
+        {totalReviews > 0 ? (
+          <div className="reviews-showcase-container">
+            {/* Top 3 Recent Reviews Card Grid */}
+            <div className="reviews-cards-grid">
+              {topRecentReviews.map((review) => {
                 const initials = review.customer_name
                   .split(" ")
                   .map((w) => w[0])
@@ -1515,62 +1476,72 @@ export function CustomerBookingPage() {
                   year: "numeric",
                 })
                 return (
-                  <article className="review-card-item" key={review.id}>
-                    <div className="review-card-header">
-                      <div className="review-card-user">
-                        <div className="review-user-avatar">{initials}</div>
-                        <div className="review-user-info">
-                          <strong>
-                            {review.customer_name}
-                            <span className="review-verified-badge">
-                              <Check size={10} /> Verified
-                            </span>
-                          </strong>
-                          <span className="review-date">{formattedDate}</span>
-                        </div>
+                  <article className="review-showcase-card" key={review.id}>
+                    <div className="review-card-topline">
+                      <div className="review-stars-inline">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            size={14}
+                            fill={star <= review.rating ? "#f59e0b" : "none"}
+                            color={star <= review.rating ? "#f59e0b" : "#d1d5db"}
+                          />
+                        ))}
                       </div>
-                      <div className="review-card-stars-row">
-                        <div style={{ display: "flex", gap: 2, color: "#f59e0b" }}>
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              size={14}
-                              fill={star <= review.rating ? "currentColor" : "none"}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                      <span className="review-date-pill">{formattedDate}</span>
                     </div>
 
-                    {review.service_name && (
-                      <div>
-                        <span className="review-service-tag">
-                          <Scissors size={12} /> {review.service_name}
-                        </span>
-                      </div>
-                    )}
+                    <p className="review-showcase-quote">“{review.comment}”</p>
 
-                    <p className="review-card-text">“{review.comment}”</p>
+                    <div className="review-card-bottomline">
+                      <div className="review-client-meta">
+                        <div className="review-avatar-small">{initials}</div>
+                        <div>
+                          <strong>{review.customer_name}</strong>
+                          <span className="review-verified-text">
+                            <Check size={10} /> Verified client
+                          </span>
+                        </div>
+                      </div>
+
+                      {review.service_name && (
+                        <span className="review-chip-service">
+                          <Scissors size={11} /> {review.service_name}
+                        </span>
+                      )}
+                    </div>
                   </article>
                 )
-              })
-            ) : (
-              <div className="reviews-empty-state">
-                <Star size={32} style={{ color: "#f59e0b" }} />
-                <h3>No reviews yet</h3>
-                <p>Have you booked with {businessName}? Share your experience with our artist!</p>
-                <button
-                  type="button"
-                  className="write-review-btn"
-                  onClick={() => setShowReviewModal(true)}
-                  style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
-                >
-                  <Star size={16} /> Write the first review
-                </button>
-              </div>
-            )}
+              })}
+            </div>
+
+            {/* Bottom Button to View All Reviews */}
+            <div className="reviews-showcase-footer">
+              <button
+                type="button"
+                className="show-all-reviews-btn"
+                onClick={() => setShowAllReviewsModal(true)}
+              >
+                <span>View all reviews ({totalReviews})</span>
+                <ArrowRight size={15} />
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="reviews-empty-state">
+            <Star size={32} style={{ color: "#f59e0b" }} />
+            <h3>No reviews yet</h3>
+            <p>Have you booked with {businessName}? Be the first to share your experience!</p>
+            <button
+              type="button"
+              className="write-review-btn"
+              onClick={() => setShowReviewModal(true)}
+              style={{ width: "auto", padding: "0 22px", margin: "14px auto 0" }}
+            >
+              <Star size={16} /> Write the first review
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Footer */}
@@ -1625,6 +1596,22 @@ export function CustomerBookingPage() {
             setStep(1)
             document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })
           }}
+        />
+      )}
+
+      {/* MODAL 4: All Reviews Modal (Opens when user clicks "View all reviews") */}
+      {showAllReviewsModal && (
+        <AllReviewsModal
+          onClose={() => setShowAllReviewsModal(false)}
+          reviews={reviews}
+          averageRating={averageRating}
+          totalReviews={totalReviews}
+          ratingCounts={ratingCounts}
+          onOpenWriteReview={() => {
+            setShowAllReviewsModal(false)
+            setShowReviewModal(true)
+          }}
+          businessName={businessName}
         />
       )}
     </main>
@@ -1728,11 +1715,20 @@ function CustomerAuthModal({
     <div
       className="customer-modal-backdrop"
       role="presentation"
-      onMouseDown={(e) => {
+      onClick={(e) => {
         if (e.target === e.currentTarget && status !== "loading") onClose()
       }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget && status !== "loading") e.preventDefault()
+      }}
     >
-      <div className="customer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div
+        className="customer-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="customer-modal-close" type="button" onClick={onClose} disabled={status === "loading"}>
           <X size={16} />
         </button>
@@ -1864,7 +1860,7 @@ function CustomerAuthModal({
 }
 
 // ============================================================================
-// Subcomponent: Write a Review Modal (Bottom sheet on mobile)
+// Subcomponent: Write a Review Modal (Compact, simple, non-stacked)
 // ============================================================================
 function WriteReviewModal({
   onClose,
@@ -1889,11 +1885,11 @@ function WriteReviewModal({
   const [error, setError] = useState("")
 
   const starLabels = {
-    1: "1 star · Disappointed",
-    2: "2 stars · Needs improvement",
-    3: "3 stars · Good, satisfied",
-    4: "4 stars · Very good experience",
-    5: "5 stars · Exceptional service",
+    1: "1★ Disappointed",
+    2: "2★ Needs work",
+    3: "3★ Satisfied",
+    4: "4★ Very good",
+    5: "5★ Exceptional",
   }
 
   const effectiveRating = hoverRating || rating
@@ -1901,15 +1897,15 @@ function WriteReviewModal({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!name.trim()) {
-      setError("Please provide your full name.")
+      setError("Please provide your name.")
       return
     }
     if (!email.trim() || !email.includes("@")) {
-      setError("Please provide a valid email address.")
+      setError("Please provide a valid email.")
       return
     }
-    if (!comment.trim() || comment.trim().length < 8) {
-      setError("Please write at least a sentence about your experience.")
+    if (!comment.trim() || comment.trim().length < 5) {
+      setError("Please write a short note about your visit.")
       return
     }
 
@@ -1934,49 +1930,67 @@ function WriteReviewModal({
     <div
       className="customer-modal-backdrop"
       role="presentation"
-      onMouseDown={(e) => {
+      onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) onClose()
       }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) e.preventDefault()
+      }}
     >
-      <div className="customer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
+      <div
+        className="customer-modal-dialog compact-review-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="review-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="customer-modal-close" type="button" onClick={onClose} disabled={isSubmitting}>
           <X size={16} />
         </button>
 
-        <div className="customer-modal-header">
-          <div className="customer-modal-icon">
-            <Star size={24} />
+        {/* Compact Header */}
+        <div className="compact-review-header">
+          <div className="compact-review-icon">
+            <Star size={18} />
           </div>
-          <h2 id="review-modal-title">Write a review</h2>
-          <p>Share your experience with {businessName}</p>
+          <div>
+            <h2 id="review-modal-title">Write a review</h2>
+            <p>Share your experience with {businessName}</p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="review-form-stack">
-          {/* Star selector */}
-          <div className="star-rating-selector">
-            <span className="star-rating-label">How would you rate your visit?</span>
-            <div className="star-rating-stars">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  type="button"
-                  key={star}
-                  className={`star-btn ${star <= effectiveRating ? "active" : ""}`}
-                  onMouseEnter={() => setHoverRating(star)}
-                  onMouseLeave={() => setHoverRating(0)}
-                  onClick={() => setRating(star)}
-                  aria-label={`${star} star rating`}
-                >
-                  <Star size={30} fill={star <= effectiveRating ? "currentColor" : "none"} />
-                </button>
-              ))}
+        <form onSubmit={handleSubmit} className="compact-form-stack">
+          {/* Star Rating Bar: Inline horizontal */}
+          <div className="compact-star-row">
+            <div className="compact-star-left">
+              <span className="compact-star-label">Rating</span>
+              <div className="compact-star-btns">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    type="button"
+                    key={star}
+                    className={`compact-star-btn ${star <= effectiveRating ? "active" : ""}`}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(star)}
+                    aria-label={`${star} star rating`}
+                  >
+                    <Star
+                      size={24}
+                      fill={star <= effectiveRating ? "#f59e0b" : "none"}
+                      color={star <= effectiveRating ? "#f59e0b" : "#d1d5db"}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
-            <span className="star-rating-caption">{starLabels[effectiveRating as keyof typeof starLabels]}</span>
+            <span className="compact-star-badge">{starLabels[effectiveRating as keyof typeof starLabels]}</span>
           </div>
 
-          {/* Guest fields or Signed-in banner */}
+          {/* Guest Name & Email: 2-column side-by-side */}
           {!currentUser ? (
-            <div className="field-row">
-              <div className="review-form-field">
+            <div className="compact-field-row">
+              <div className="compact-input-group">
                 <label htmlFor="rev-name">Full name *</label>
                 <input
                   id="rev-name"
@@ -1987,8 +2001,8 @@ function WriteReviewModal({
                   required
                 />
               </div>
-              <div className="review-form-field">
-                <label htmlFor="rev-email">Email address *</label>
+              <div className="compact-input-group">
+                <label htmlFor="rev-email">Email *</label>
                 <input
                   id="rev-email"
                   type="email"
@@ -2000,17 +2014,17 @@ function WriteReviewModal({
               </div>
             </div>
           ) : (
-            <div className="review-user-tag-banner">
-              <CheckCircle2 size={16} />
+            <div className="review-user-tag-banner" style={{ padding: "7px 11px", fontSize: 11.5 }}>
+              <CheckCircle2 size={14} />
               <span>
-                Posting as <strong>{name || email}</strong> ({email})
+                Reviewing as <strong>{name || email}</strong>
               </span>
             </div>
           )}
 
-          {/* Service experienced (Optional) */}
-          <div className="review-form-field">
-            <label htmlFor="rev-service">Service experienced (Optional)</label>
+          {/* Service experienced (Optional, compact dropdown) */}
+          <div className="compact-input-group">
+            <label htmlFor="rev-service">Service (Optional)</label>
             <select
               id="rev-service"
               value={selectedService}
@@ -2026,26 +2040,26 @@ function WriteReviewModal({
           </div>
 
           {/* Review comment */}
-          <div className="review-form-field">
-            <label htmlFor="rev-comment">Your review *</label>
+          <div className="compact-input-group">
+            <label htmlFor="rev-comment">Review *</label>
             <textarea
               id="rev-comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Tell others about the hygiene, artist technique, duration, atmosphere, or how much you loved the set..."
+              placeholder="What did you love about your appointment?"
               required
             />
           </div>
 
-          {error && <p style={{ color: "#dc2626", fontSize: 12.5, margin: 0 }}>{error}</p>}
+          {error && <p style={{ color: "#dc2626", fontSize: 12, margin: "2px 0 0" }}>{error}</p>}
 
-          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
             <button
               type="button"
               className="booking-secondary"
               onClick={onClose}
               disabled={isSubmitting}
-              style={{ flex: 1, height: 44, margin: 0 }}
+              style={{ flex: 1, height: 40, margin: 0, fontSize: 12 }}
             >
               Cancel
             </button>
@@ -2053,11 +2067,11 @@ function WriteReviewModal({
               type="submit"
               className="booking-primary"
               disabled={isSubmitting}
-              style={{ flex: 1.5, height: 44 }}
+              style={{ flex: 1.5, height: 40, fontSize: 12 }}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={15} className="animate-spin" />
                   <span>Submitting...</span>
                 </>
               ) : (
@@ -2066,6 +2080,203 @@ function WriteReviewModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Subcomponent: All Reviews Modal (Dedicated page/modal for all verified reviews)
+// ============================================================================
+function AllReviewsModal({
+  onClose,
+  reviews,
+  averageRating,
+  totalReviews,
+  ratingCounts,
+  onOpenWriteReview,
+  businessName,
+}: {
+  onClose: () => void
+  reviews: Review[]
+  averageRating: string
+  totalReviews: number
+  ratingCounts: Record<number, number>
+  onOpenWriteReview: () => void
+  businessName: string
+}) {
+  const [filter, setFilter] = useState<"all" | "5" | "4" | "3" | "recent">("all")
+
+  const filteredReviews = useMemo(() => {
+    const sorted = [...reviews].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    if (filter === "5") return sorted.filter((r) => r.rating === 5)
+    if (filter === "4") return sorted.filter((r) => r.rating === 4)
+    if (filter === "3") return sorted.filter((r) => r.rating === 3)
+    return sorted
+  }, [reviews, filter])
+
+  return (
+    <div
+      className="customer-modal-backdrop"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault()
+      }}
+    >
+      <div
+        className="customer-modal-dialog customer-modal-dialog-wide all-reviews-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="all-reviews-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className="customer-modal-close" type="button" onClick={onClose} aria-label="Close">
+          <X size={16} />
+        </button>
+
+        <div className="all-reviews-header">
+          <div>
+            <h2 id="all-reviews-title">Client Reviews</h2>
+            <p>{totalReviews} verified ratings for {businessName}</p>
+          </div>
+          <button
+            type="button"
+            className="write-review-compact-btn"
+            onClick={onOpenWriteReview}
+          >
+            <Star size={14} /> Write a review
+          </button>
+        </div>
+
+        {/* Rating Breakdown Banner */}
+        <div className="all-reviews-banner">
+          <div className="all-reviews-score">
+            <span className="all-reviews-number">{averageRating}</span>
+            <div>
+              <div style={{ display: "flex", gap: 3, color: "#f59e0b" }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={16}
+                    fill={s <= Math.round(Number(averageRating)) ? "currentColor" : "none"}
+                  />
+                ))}
+              </div>
+              <small>{totalReviews} verified client {totalReviews === 1 ? "review" : "reviews"}</small>
+            </div>
+          </div>
+
+          <div className="all-reviews-breakdown-compact">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = ratingCounts[star] || 0
+              const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0
+              return (
+                <div key={star} className="breakdown-mini-row">
+                  <span>{star}★</span>
+                  <div className="breakdown-mini-bar">
+                    <div className="breakdown-mini-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <small>{count}</small>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="all-reviews-filter-bar">
+          <button
+            type="button"
+            className={`review-filter-pill ${filter === "all" ? "active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            All ({totalReviews})
+          </button>
+          <button
+            type="button"
+            className={`review-filter-pill ${filter === "5" ? "active" : ""}`}
+            onClick={() => setFilter("5")}
+          >
+            5 Stars ({ratingCounts[5] || 0})
+          </button>
+          <button
+            type="button"
+            className={`review-filter-pill ${filter === "4" ? "active" : ""}`}
+            onClick={() => setFilter("4")}
+          >
+            4 Stars ({ratingCounts[4] || 0})
+          </button>
+          <button
+            type="button"
+            className={`review-filter-pill ${filter === "recent" ? "active" : ""}`}
+            onClick={() => setFilter("recent")}
+          >
+            Most recent
+          </button>
+        </div>
+
+        {/* Scrollable list of reviews */}
+        <div className="all-reviews-list">
+          {filteredReviews.length ? (
+            filteredReviews.map((review) => {
+              const initials = review.customer_name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()
+              const formattedDate = new Date(review.created_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+              return (
+                <article className="all-reviews-item" key={review.id}>
+                  <div className="all-reviews-item-head">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div className="review-avatar-small">{initials}</div>
+                      <div>
+                        <strong>{review.customer_name}</strong>
+                        <span className="review-verified-text">
+                          <Check size={9} /> Verified client
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: 2, color: "#f59e0b", justifyContent: "flex-end" }}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={13}
+                            fill={s <= review.rating ? "currentColor" : "none"}
+                          />
+                        ))}
+                      </div>
+                      <span className="review-date-pill">{formattedDate}</span>
+                    </div>
+                  </div>
+
+                  {review.service_name && (
+                    <span className="review-chip-service" style={{ marginTop: 8 }}>
+                      <Scissors size={10} /> {review.service_name}
+                    </span>
+                  )}
+
+                  <p className="all-reviews-item-text">“{review.comment}”</p>
+                </article>
+              )
+            })
+          ) : (
+            <div className="all-reviews-empty">
+              <p>No reviews match this filter.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -2089,11 +2300,20 @@ function MyBookingsModal({
     <div
       className="customer-modal-backdrop"
       role="presentation"
-      onMouseDown={(e) => {
+      onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault()
+      }}
     >
-      <div className="customer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="bookings-modal-title">
+      <div
+        className="customer-modal-dialog customer-modal-dialog-wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bookings-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="customer-modal-close" type="button" onClick={onClose}>
           <X size={16} />
         </button>
