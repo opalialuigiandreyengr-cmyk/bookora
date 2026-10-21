@@ -940,7 +940,7 @@ export function CustomerBookingPage() {
                   )}
                 </span>
                 <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(2)}>
-                  Continue <ArrowRight size={17} />
+                  Book <ArrowRight size={17} />
                 </button>
               </div>
             </div>
@@ -1045,7 +1045,7 @@ export function CustomerBookingPage() {
                   <CalendarDays size={14} /> Free cancellation up to 24 hours before
                 </span>
                 <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(3)}>
-                  Continue <ArrowRight size={17} />
+                  Book <ArrowRight size={17} />
                 </button>
               </div>
             </div>

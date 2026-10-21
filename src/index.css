@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -52,7 +52,7 @@ body {
   min-width: 320px;
   background: var(--background);
   color: var(--foreground);
-  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Manrope", "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -1398,7 +1398,7 @@ svg { stroke-width: 1.8; }
 .selected .radio-indicator { border-color: #d85b53; background: #d85b53; }
 .booking-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 27px; }
 .secure-note { display: inline-flex; align-items: center; gap: 6px; color: #929aa5; font-size: 10px; line-height: 1.4; }
-.booking-primary, .booking-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 43px; padding: 0 18px; border: 0; border-radius: 9px; background: #d85b53; color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; transition: background .16s, transform .16s; }
+.booking-primary, .booking-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 43px; padding: 0 18px; border: 0; border-radius: 9px; background: #d85b53; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; transition: background .16s, transform .16s; }
 .booking-primary:hover:not(:disabled) { background: #be4e49; transform: translateY(-1px); }
 .booking-primary:disabled { background: #e6c2be; cursor: not-allowed; }
 .booking-back { display: inline-flex; align-items: center; gap: 3px; margin: -7px 0 25px; border: 0; padding: 0; background: transparent; color: #7d8795; font-size: 11px; font-weight: 700; cursor: pointer; }
@@ -2506,18 +2506,17 @@ svg { stroke-width: 1.8; }
   align-items: center !important;
   justify-content: space-between !important;
   gap: 18px;
-  padding: 8px 0 !important;
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  padding: 16px 24px !important;
+  border: 1px solid #e7ded8 !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .95) !important;
+  box-shadow: 0 6px 20px rgba(60, 48, 40, .05) !important;
   transition: all .18s ease;
 }
 
 .team-simplified-card:hover {
-  border-color: transparent !important;
-  box-shadow: none !important;
-  background: transparent !important;
+  border-color: #d85b53 !important;
+  box-shadow: 0 8px 24px rgba(216, 91, 83, .1) !important;
 }
 
 .team-simplified-avatar {
@@ -3534,9 +3533,9 @@ svg { stroke-width: 1.8; }
 
 .booking-dark .team-founder-card,
 .booking-dark .team-simplified-card {
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border: 1px solid #3b3f49 !important;
+  background: #23262c !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25) !important;
 }
 
 .booking-dark .team-simplified-name {
@@ -4843,3 +4842,101 @@ svg { stroke-width: 1.8; }
     justify-content: space-between;
   }
 }
+
+/* ==========================================================================
+   Customer Booking: Strict 14px Body Content Across All Sections (Exclude Header)
+   ========================================================================== */
+.customer-booking-page p,
+.customer-booking-page small,
+.customer-booking-page label,
+.customer-booking-page input,
+.customer-booking-page textarea,
+.customer-booking-page li,
+.customer-booking-page blockquote,
+.customer-booking-page span:not(.booking-header, .booking-header *, .radio-indicator, .radio-indicator *, .team-avatar, .business-avatar),
+.customer-booking-page a:not(.booking-header, .booking-header *),
+.customer-booking-page button:not(.booking-header, .booking-header *),
+.customer-booking-page strong:not(h1 *, h2 *, .date-option strong, .reviews-big-number, .booking-summary-total strong, .confirmed-date strong, .story-main, .story-stats strong),
+.service-copy,
+.service-copy strong,
+.service-copy > span,
+.service-copy small,
+.service-price,
+.service-price span,
+.service-price strong,
+.service-option,
+.service-category-group h3,
+.booking-primary,
+.booking-secondary,
+.booking-back,
+.date-option span,
+.date-option small,
+.time-option,
+.subsection-heading span,
+.subsection-heading small,
+.step-heading p,
+.business-description,
+.business-meta,
+.business-meta span,
+.business-note,
+.business-rating,
+.booking-policy-card,
+.booking-policy-card li,
+.policy-heading h2,
+.booking-actions .secure-note,
+.details-form label,
+.details-form input,
+.details-form textarea,
+.details-peg-hint,
+.peg-field-header > span,
+.peg-field-header .optional,
+.peg-dropzone-text strong,
+.peg-dropzone-text span,
+.peg-file-title,
+.peg-badge,
+.peg-replace-label,
+.peg-remove-btn,
+.confirmed-peg-thumb span,
+.booking-summary-item span,
+.booking-summary-item strong,
+.booking-summary-total span,
+.booking-summary-total small,
+.gallery-card-copy strong,
+.gallery-card-copy span,
+.rating,
+.story-copy > p,
+.story-stats span small,
+.team-simplified-role,
+.team-book-pill,
+.team-card strong,
+.team-card span,
+.team-card small,
+.reviews-count-caption,
+.review-breakdown-row,
+.breakdown-label,
+.breakdown-count,
+.write-review-btn,
+.review-filter-pill,
+.review-user-info strong,
+.review-date,
+.review-card-text,
+.review-service-tag,
+.show-all-reviews-btn,
+.review-score > span,
+.review-quotes blockquote,
+.review-quotes footer,
+.booking-footer,
+.booking-footer a,
+.booking-footer span,
+.booking-footer strong,
+.booking-banner-overlay p,
+.booking-banner-overlay span,
+.booking-banner-overlay small,
+.booking-banner-overlay a,
+.success-copy,
+.confirmed-card strong,
+.confirmed-card span,
+.success-footer {
+  font-size: 14px !important;
+}
+
