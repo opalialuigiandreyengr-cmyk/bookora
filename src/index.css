@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -52,8 +52,9 @@ body {
   min-width: 320px;
   background: var(--background);
   color: var(--foreground);
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -1827,21 +1828,34 @@ svg { stroke-width: 1.8; }
   .booking-banner {
     width: 100%;
     height: auto;
-    aspect-ratio: 3 / 1;
+    aspect-ratio: 3.8 / 1;
+    max-height: 115px;
     margin: 0;
     border-radius: 0;
     box-shadow: none;
   }
   .booking-banner-overlay {
-    align-items: flex-start;
-    padding: 22px 19px;
+    align-items: flex-end;
+    padding: 10px 14px;
+  }
+  .booking-banner-overlay .banner-industry-badge,
+  .booking-banner-overlay p {
+    display: none !important;
   }
   .booking-banner-overlay h2 {
     max-width: none;
-    font-size: 26px;
+    font-size: 18px;
+    line-height: 1.1;
   }
   .booking-banner-overlay span,
-  .booking-banner-overlay small { font-size: 9px; }
+  .booking-banner-overlay small {
+    display: none !important;
+  }
+  .booking-banner-overlay a {
+    min-height: 32px;
+    padding-inline: 12px;
+    font-size: 10px;
+  }
   .booking-layout {
     width: calc(100% - 32px);
     grid-template-columns: 1fr;
@@ -2505,17 +2519,18 @@ svg { stroke-width: 1.8; }
   align-items: center !important;
   justify-content: space-between !important;
   gap: 18px;
-  padding: 16px 24px !important;
-  border: 1px solid #e7ded8 !important;
-  border-radius: 18px !important;
-  background: rgba(255, 255, 255, .94) !important;
-  box-shadow: 0 6px 20px rgba(60, 48, 40, .05) !important;
+  padding: 8px 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   transition: all .18s ease;
 }
 
 .team-simplified-card:hover {
-  border-color: #d85b53 !important;
-  box-shadow: 0 8px 24px rgba(216, 91, 83, .1) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 .team-simplified-avatar {
@@ -3532,8 +3547,9 @@ svg { stroke-width: 1.8; }
 
 .booking-dark .team-founder-card,
 .booking-dark .team-simplified-card {
-  border-color: #3b3f49 !important;
-  background: #23262c !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .booking-dark .team-simplified-name {

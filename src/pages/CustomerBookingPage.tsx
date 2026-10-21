@@ -338,7 +338,10 @@ export function CustomerBookingPage() {
   const businessInitial = businessName.trim().charAt(0).toUpperCase()
   const bookingBrandName = profile?.slug || businessName
 
-
+  // Owner Name & Team Resolution
+  const ownerFullName = profile?.owner_name || (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : "Luigi Opalia")
+  const ownerFirstName = ownerFullName.trim().split(" ")[0]
+  const ownerInitials = ownerFullName.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
   const bookingPolicies = [
     "A 50% deposit is required to secure your appointment.",
     "Please arrive 5–10 minutes early for your appointment.",
@@ -599,6 +602,7 @@ export function CustomerBookingPage() {
 
         <nav className="booking-nav" aria-label="Main navigation">
           <a href="#services" onClick={() => setMenuOpen(false)}>Services</a>
+          <a href="#team" onClick={() => setMenuOpen(false)}>Artist</a>
           {totalReviews > 0 && <a href="#reviews" onClick={() => setMenuOpen(false)}>Reviews</a>}
           <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
         </nav>
@@ -728,6 +732,9 @@ export function CustomerBookingPage() {
           <a href="#services" onClick={() => setMenuOpen(false)}>
             Services <ArrowRight size={16} />
           </a>
+          <a href="#team" onClick={() => setMenuOpen(false)}>
+            Artist <ArrowRight size={16} />
+          </a>
           {totalReviews > 0 && (
             <a href="#reviews" onClick={() => setMenuOpen(false)}>
               Guest reviews ({totalReviews}) <ArrowRight size={16} />
@@ -768,7 +775,7 @@ export function CustomerBookingPage() {
           <img src={profile.banner_url} alt="" />
           <div className="booking-banner-overlay">
             <div>
-              <p>{profile.industry || "Boutique Studio"}</p>
+              <p className="banner-industry-badge">{profile.industry || "Boutique Studio"}</p>
               <h2>{businessName}</h2>
               <span>
                 {businessAddress}
@@ -806,14 +813,16 @@ export function CustomerBookingPage() {
             <Clock3 size={16} /> <span>{dynamicScheduleSummary}</span>
           </div>
 
-          {/* Real Dynamic Business Rating */}
-          <div className="business-rating">
-            <span className="rating-stars" style={{ color: "#f59e0b" }}>
-              {"★".repeat(totalReviews > 0 ? Math.round(Number(averageRating)) : 5)}
-            </span>
-            <strong>{totalReviews > 0 ? averageRating : "New"}</strong>
-            <span>{totalReviews > 0 ? `(${totalReviews} client reviews)` : "Verified studio"}</span>
-          </div>
+          {/* Real Dynamic Business Rating - No Verified studio placeholder */}
+          {totalReviews > 0 && (
+            <div className="business-rating">
+              <span className="rating-stars" style={{ color: "#f59e0b" }}>
+                {"★".repeat(Math.round(Number(averageRating)))}
+              </span>
+              <strong>{averageRating}</strong>
+              <span>({totalReviews} client {totalReviews === 1 ? "review" : "reviews"})</span>
+            </div>
+          )}
 
           <div className="schedule-control">
             <button
@@ -1440,6 +1449,32 @@ export function CustomerBookingPage() {
         </div>
       </section>
 
+      {/* Team Section (Simplified Owner Showcase without card background for maximum space) */}
+      <section className="team-section" id="team" aria-labelledby="team-title">
+        <div className="section-intro">
+          <div>
+            <p className="booking-eyebrow">Meet your artist</p>
+            <h2 id="team-title">Good hands, good energy</h2>
+          </div>
+        </div>
+        <div className="team-grid single-artist-grid">
+          <article className="team-card team-simplified-card">
+            <div className="team-avatar team-simplified-avatar">{ownerInitials}</div>
+            <div className="team-simplified-info">
+              <strong className="team-simplified-name">{ownerFullName}</strong>
+              <span className="team-simplified-role">Owner</span>
+            </div>
+            <a
+              href="#choose-service"
+              className="team-book-pill"
+              onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
+            >
+              Book with {ownerFirstName} <ArrowRight size={13} />
+            </a>
+          </article>
+        </div>
+      </section>
+
       {/* Real Reviews Section: Only rendered if reviews exist to keep gaps clean */}
       {totalReviews > 0 && (
         <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
@@ -1624,6 +1659,7 @@ export function CustomerBookingPage() {
           Powered by <strong>bookora</strong>
         </span>
         <a href="#services">Services</a>
+        <a href="#team">Artist</a>
         {totalReviews > 0 && <a href="#reviews">Reviews</a>}
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
