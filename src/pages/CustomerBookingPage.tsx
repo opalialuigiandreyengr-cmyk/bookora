@@ -15,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   LogOut,
+  MapPin,
   Mail,
   Menu,
   Moon,
@@ -121,6 +122,77 @@ const restorePublicServiceOrder = (services: Service[], businessId: string) => {
   }
 }
 
+function BookingPageSkeleton({ darkMode }: { darkMode: boolean }) {
+  return (
+    <main className={`customer-booking-page booking-skeleton-page ${darkMode ? "booking-dark" : ""}`} aria-busy="true" aria-label="Loading booking page">
+      <header className="booking-header booking-skeleton-header">
+        <span className="booking-skeleton-block booking-skeleton-brand" />
+        <nav className="booking-skeleton-nav" aria-hidden="true">
+          <span className="booking-skeleton-block" />
+          <span className="booking-skeleton-block" />
+          <span className="booking-skeleton-block" />
+        </nav>
+        <div className="booking-skeleton-actions" aria-hidden="true">
+          <span className="booking-skeleton-block booking-skeleton-pill" />
+          <span className="booking-skeleton-circle" />
+          <span className="booking-skeleton-circle" />
+        </div>
+      </header>
+
+      <div className="booking-layout booking-skeleton-layout">
+        <aside className="booking-business-panel booking-skeleton-business" aria-hidden="true">
+          <div className="booking-skeleton-identity">
+            <span className="booking-skeleton-avatar" />
+            <div>
+              <span className="booking-skeleton-block booking-skeleton-eyebrow" />
+              <span className="booking-skeleton-block booking-skeleton-title" />
+            </div>
+          </div>
+          <span className="booking-skeleton-block booking-skeleton-copy" />
+          <span className="booking-skeleton-block booking-skeleton-copy booking-skeleton-copy-short" />
+          <span className="booking-skeleton-block booking-skeleton-meta" />
+          <div className="booking-skeleton-policy">
+            <span className="booking-skeleton-block booking-skeleton-policy-title" />
+            <span className="booking-skeleton-block" />
+            <span className="booking-skeleton-block" />
+            <span className="booking-skeleton-block booking-skeleton-copy-short" />
+          </div>
+        </aside>
+
+        <section className="booking-card booking-skeleton-card" aria-hidden="true">
+          <div className="booking-step">
+            <div className="booking-skeleton-heading">
+              <span className="booking-skeleton-icon" />
+              <div>
+                <span className="booking-skeleton-block booking-skeleton-kicker" />
+                <span className="booking-skeleton-block booking-skeleton-heading-title" />
+                <span className="booking-skeleton-block booking-skeleton-heading-copy" />
+              </div>
+            </div>
+            <div className="booking-skeleton-services">
+              {[1, 2, 3].map((item) => (
+                <div className="booking-skeleton-service" key={item}>
+                  <span className="booking-skeleton-service-image" />
+                  <div>
+                    <span className="booking-skeleton-block booking-skeleton-service-title" />
+                    <span className="booking-skeleton-block booking-skeleton-service-copy" />
+                    <span className="booking-skeleton-block booking-skeleton-service-meta" />
+                  </div>
+                  <span className="booking-skeleton-block booking-skeleton-price" />
+                </div>
+              ))}
+            </div>
+            <div className="booking-skeleton-footer">
+              <span className="booking-skeleton-block booking-skeleton-footer-copy" />
+              <span className="booking-skeleton-block booking-skeleton-button" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
 export function CustomerBookingPage() {
   const hostParts = typeof window !== "undefined" ? window.location.hostname.split(".") : []
   const hostSuffix = hostParts.slice(-2).join(".")
@@ -134,9 +206,13 @@ export function CustomerBookingPage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null)
   const [liveServices, setLiveServices] = useState<Service[]>([])
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
+  const [bookingDataLoading, setBookingDataLoading] = useState(true)
+  const [bookingDataError, setBookingDataError] = useState(false)
+  const [aboutExpanded, setAboutExpanded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [policyAcknowledged, setPolicyAcknowledged] = useState(false)
   const [serviceIds, setServiceIds] = useState<string[]>([])
   const [selectedDateKey, setSelectedDateKey] = useState(() => philippinesTodayKey())
   const [calendarMonth, setCalendarMonth] = useState(() => { const [year, month] = philippinesTodayKey().split("-").map(Number); return new Date(Date.UTC(year, month - 1, 1)) })
@@ -248,8 +324,9 @@ export function CustomerBookingPage() {
     setPegImageName("")
   }
 
-  const visibleServices = liveServices.length ? liveServices : fallbackServices
-  const activeCategories = serviceCategories.length ? serviceCategories : fallbackCategories
+  // Never render placeholder tenant data while the public booking data is loading.
+  const visibleServices = liveServices
+  const activeCategories = serviceCategories
   const selectedServices = useMemo(() => visibleServices.filter((service) => serviceIds.includes(service.id)), [serviceIds, visibleServices])
   const selectedServiceLabel = selectedServices.map((service) => service.name).join(", ")
   const selectedPriceLabel = selectedServices.map((service) => service.price).join(" + ")
@@ -332,6 +409,9 @@ export function CustomerBookingPage() {
 
   const businessName = profile?.business_name || "Your Studio"
   const businessAbout = profile?.about || ""
+  const aboutText = businessAbout || `Welcome to ${businessName}. Dedicated to personalized treatments and thoughtful attention to detail.`
+  const canExpandAbout = aboutText.length > 100
+  const displayedAboutText = !aboutExpanded && canExpandAbout ? `${aboutText.slice(0, 100).trimEnd()}…` : aboutText
   const businessLocation = profile?.city || ""
   const businessAddress = profile?.address || businessLocation
   const businessPhone = [profile?.country_code, profile?.phone].filter(Boolean).join(" ")
@@ -340,7 +420,6 @@ export function CustomerBookingPage() {
 
   // Owner Name & Team Resolution
   const ownerFullName = profile?.owner_name || (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : "Luigi Opalia")
-  const ownerFirstName = ownerFullName.trim().split(" ")[0]
   const ownerInitials = ownerFullName.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
   const bookingPolicies = [
     "A 50% deposit is required to secure your appointment.",
@@ -461,45 +540,64 @@ export function CustomerBookingPage() {
     const activeSlug = bookingSlug
 
     const loadPublicBookingData = async () => {
-      if (!supabase) return
-      const profileQuery = supabase
-        .from("business_profiles")
-        .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, business_hours, owner_name")
-      const { data: businesses, error: profileError } = activeSlug
-        ? await profileQuery.eq("slug", activeSlug).limit(1)
-        : await profileQuery.order("created_at", { ascending: true }).limit(1)
-      const business = businesses?.[0]
-      if (!active || profileError || !business) return
-      setProfile(business as BusinessProfile)
-
-      // Fetch reviews
-      loadReviews(business.id)
-
-      const [categoryRes, serviceRes] = await Promise.all([
-        supabase.from("service_categories").select("id, name").eq("business_id", business.id).order("created_at"),
-        supabase.from("services").select("id, name, description, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at"),
-      ])
-      if (!active) return
-
-      let serviceRows: any[] | null = serviceRes.data
-      if (serviceRes.error) {
-        const fallbackRes = await supabase.from("services").select("id, name, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at")
-        serviceRows = fallbackRes.data ?? []
+      if (!supabase) {
+        if (active) {
+          setBookingDataError(true)
+          setBookingDataLoading(false)
+        }
+        return
       }
 
-      setServiceCategories((categoryRes.data ?? []) as ServiceCategory[])
-      const publicServices = (serviceRows ?? []).map((row: any, index: number) => ({
-        id: row.id,
-        name: row.name,
-        description: row.description || (business.industry ? `${business.industry} service` : "Made with thoughtful detail"),
-        duration: row.duration_minutes ? `${row.duration_minutes} min` : "Duration varies",
-        price: row.price || "Price on request",
-        categoryId: row.category_id || undefined,
-        category: (categoryRes.data ?? []).find((category: any) => category.id === row.category_id)?.name,
-        image: row.image_url || "",
-        color: ["coral", "lavender", "mint", "peach"][index % 4],
-      })) as Service[]
-      setLiveServices(restorePublicServiceOrder(publicServices, business.id))
+      try {
+        const profileQuery = supabase
+          .from("business_profiles")
+          .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, business_hours, owner_name")
+        const { data: businesses, error: profileError } = activeSlug
+          ? await profileQuery.eq("slug", activeSlug).limit(1)
+          : await profileQuery.order("created_at", { ascending: true }).limit(1)
+        const business = businesses?.[0]
+        if (!active || profileError || !business) {
+          if (active) setBookingDataError(true)
+          return
+        }
+
+        // Reviews can load independently; they do not block the booking screen.
+        loadReviews(business.id)
+
+        const [categoryRes, serviceRes] = await Promise.all([
+          supabase.from("service_categories").select("id, name").eq("business_id", business.id).order("created_at"),
+          supabase.from("services").select("id, name, description, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at"),
+        ])
+        if (!active) return
+
+        let serviceRows: any[] | null = serviceRes.data
+        if (serviceRes.error) {
+          const fallbackRes = await supabase.from("services").select("id, name, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at")
+          serviceRows = fallbackRes.data ?? []
+        }
+
+        const categories = (categoryRes.data ?? []) as ServiceCategory[]
+        const publicServices = (serviceRows ?? []).map((row: any, index: number) => ({
+          id: row.id,
+          name: row.name,
+          description: row.description || (business.industry ? `${business.industry} service` : "Made with thoughtful detail"),
+          duration: row.duration_minutes ? `${row.duration_minutes} min` : "Duration varies",
+          price: row.price || "Price on request",
+          categoryId: row.category_id || undefined,
+          category: categories.find((category) => category.id === row.category_id)?.name,
+          image: row.image_url || "",
+          color: ["coral", "lavender", "mint", "peach"][index % 4],
+        })) as Service[]
+
+        // Publish tenant data together so no intermediate/default tenant is visible.
+        setProfile(business as BusinessProfile)
+        setServiceCategories(categories)
+        setLiveServices(restorePublicServiceOrder(publicServices, business.id))
+      } catch {
+        if (active) setBookingDataError(true)
+      } finally {
+        if (active) setBookingDataLoading(false)
+      }
     }
     loadPublicBookingData().catch(() => undefined)
     return () => { active = false }
@@ -591,13 +689,30 @@ export function CustomerBookingPage() {
     setShowReviewModal(false)
   }
 
+  if (bookingDataLoading) {
+    return <BookingPageSkeleton darkMode={darkMode} />
+  }
+
+  if (bookingDataError || !profile) {
+    return (
+      <main className={`customer-booking-page booking-data-state ${darkMode ? "booking-dark" : ""}`}>
+        <div className="booking-data-state-card">
+          <p>We couldn’t load this studio right now.</p>
+          <button className="booking-primary" type="button" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""}`}>
       {/* Top Header */}
       <header className="booking-header">
         <a className="booking-brand" href="/" aria-label={`${bookingBrandName} booking page`}>
-          {profile?.logo_url ? <img className="booking-brand-logo" src={profile.logo_url} alt="" /> : <span className="booking-brand-mark">b</span>}
-          <span>{bookingBrandName}</span>
+          {profile.logo_url ? <img className="booking-brand-logo" src={profile.logo_url} alt="" /> : <span className="booking-brand-mark">{businessInitial}</span>}
+          <span>{businessName}</span>
         </a>
 
         <nav className="booking-nav" aria-label="Main navigation">
@@ -772,10 +887,9 @@ export function CustomerBookingPage() {
         <section className="booking-banner" aria-label={`${businessName} studio banner`}>
           <img src={profile.banner_url} alt="" />
           <div className="booking-banner-overlay">
-            <div>
-              <p className="banner-industry-badge">{profile.industry || "Boutique Studio"}</p>
-              <h2>{businessName}</h2>
-              <span>
+            <div className="booking-banner-details">
+              <span className="booking-banner-location">
+                <MapPin size={13} />
                 {businessAddress}
                 {businessLocation && businessAddress !== businessLocation ? ` · ${businessLocation}` : ""}
               </span>
@@ -785,10 +899,38 @@ export function CustomerBookingPage() {
                 </small>
               )}
             </div>
-            <a href="#choose-service">
-              Book now <ArrowRight size={15} />
-            </a>
           </div>
+        </section>
+      )}
+
+      {profile?.banner_url && (
+        <section className="booking-mobile-profile" aria-label={`${businessName} profile`}>
+          <div className="booking-mobile-profile-identity">
+            <span className="booking-mobile-profile-logo">
+              {profile.logo_url ? <img src={profile.logo_url} alt="" /> : businessInitial}
+            </span>
+            <div>
+              <h1>{businessName}</h1>
+              {totalReviews > 0 && (
+                <div className="booking-mobile-rating" aria-label={`${averageRating} out of 5 from ${totalReviews} reviews`}>
+                  <span aria-hidden="true">★</span>
+                  <strong>{averageRating}</strong>
+                  <small>({totalReviews})</small>
+                </div>
+              )}
+              <div className="booking-mobile-profile-details">
+                <span>
+                  <MapPin size={14} />
+                  {businessAddress}
+                  {businessLocation && businessAddress !== businessLocation ? ` · ${businessLocation}` : ""}
+                </span>
+                {businessPhone && <span><Phone size={14} /> {businessPhone}</span>}
+              </div>
+            </div>
+          </div>
+          <a className="booking-mobile-cta" href="#choose-service">
+            Book now <ArrowRight size={15} />
+          </a>
         </section>
       )}
 
@@ -796,15 +938,25 @@ export function CustomerBookingPage() {
       <div className={`booking-layout ${step >= 2 ? "date-time-layout" : ""}`} id="booking-flow">
         {/* Left Side: Business Profile Summary */}
         <aside className="booking-business-panel">
-          <div className="business-identity">
+          {!profile.banner_url && <div className="business-identity">
             <div className="business-avatar">{profile?.logo_url ? <img src={profile.logo_url} alt="" /> : businessInitial}</div>
             <div>
               <p className="booking-eyebrow">You’re booking with</p>
               <h1>{businessName}</h1>
             </div>
-          </div>
-          <p className="business-description">
-            {businessAbout || `Welcome to ${businessName}. Dedicated to personalized treatments and thoughtful attention to detail.`}
+          </div>}
+          <p className={`business-description ${aboutExpanded ? "is-expanded" : ""}`}>
+            {displayedAboutText}
+            {canExpandAbout && (
+              <button
+                className="business-description-toggle"
+                type="button"
+                onClick={() => setAboutExpanded((expanded) => !expanded)}
+                aria-expanded={aboutExpanded}
+              >
+                {aboutExpanded ? "See less" : "See more"}
+              </button>
+            )}
           </p>
 
           <div className="business-meta">
@@ -855,17 +1007,26 @@ export function CustomerBookingPage() {
 
           <div className="business-divider" />
 
-          <section className="booking-policy-card" aria-labelledby="booking-policy-title">
-            <div className="policy-heading">
-              <Sparkles size={15} />
-              <h2 id="booking-policy-title">Booking policy</h2>
-            </div>
-            <ul>
-              {bookingPolicies.map((policy) => (
-                <li key={policy}>{policy}</li>
-              ))}
-            </ul>
-          </section>
+          {!policyAcknowledged ? (
+            <section className="booking-policy-card" aria-labelledby="booking-policy-title">
+              <div className="policy-heading">
+                <Sparkles size={15} />
+                <h2 id="booking-policy-title">Booking policy</h2>
+              </div>
+              <ul>
+                {bookingPolicies.map((policy) => (
+                  <li key={policy}>{policy}</li>
+                ))}
+              </ul>
+              <button className="booking-policy-confirm" type="button" onClick={() => setPolicyAcknowledged(true)}>
+                I understand
+              </button>
+            </section>
+          ) : (
+            <button className="booking-policy-reopen" type="button" onClick={() => setPolicyAcknowledged(false)}>
+              Booking policy <span>View</span>
+            </button>
+          )}
 
           <p className="business-note">
             <Sparkles size={16} /> Appointments are held for 10 minutes upon confirmation.
@@ -882,8 +1043,7 @@ export function CustomerBookingPage() {
                   <Scissors size={19} />
                 </div>
                 <div>
-                  <p className="booking-kicker">{businessName}</p>
-                  <h2 id="choose-service">Choose services</h2>
+                  <h2 id="choose-service">SERVICES</h2>
                   <p>Select one or more services to book together.</p>
                 </div>
               </div>
@@ -939,7 +1099,17 @@ export function CustomerBookingPage() {
                     "No payment required today"
                   )}
                 </span>
-                <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(2)}>
+                <button
+                  className="booking-primary"
+                  type="button"
+                  onClick={() => {
+                    if (!selectedServices.length) {
+                      document.getElementById("choose-service")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      return
+                    }
+                    setStep(2)
+                  }}
+                >
                   Book <ArrowRight size={17} />
                 </button>
               </div>
@@ -1344,12 +1514,9 @@ export function CustomerBookingPage() {
       <section className="booking-discovery" id="services" aria-labelledby="services-title">
         <div className="section-intro">
           <div>
-            <p className="booking-eyebrow">A little time for you</p>
-            <h2 id="services-title">Treatments people love</h2>
+            <h2 id="services-title" className="booking-section-label">POPULAR</h2>
+            <p className="booking-section-subheader">A few of our most popular services.</p>
           </div>
-          <a href="#choose-service">
-            Explore all services <ArrowRight size={15} />
-          </a>
         </div>
         <div className="service-gallery">
           {visibleServices.slice(0, 4).map((service, index) => (
@@ -1408,21 +1575,19 @@ export function CustomerBookingPage() {
       <section className="studio-story" id="about" aria-labelledby="about-title">
         <div className="story-collage">
           <div className="story-main">
-            <span>
+            <span className="story-main-copy">
               mindful beauty
               <br />
               for busy days
             </span>
-          </div>
-          <div className="story-tile story-small one">
-            <Scissors size={23} />
-          </div>
-          <div className="story-tile story-small two">
-            <Sparkles size={23} />
+            <span className="story-inline-icons" aria-hidden="true">
+              <span><Scissors size={16} /></span>
+              <span><Sparkles size={16} /></span>
+            </span>
           </div>
         </div>
         <div className="story-copy">
-          <p className="booking-eyebrow">The studio</p>
+            <p className="booking-eyebrow">About</p>
           <h2 id="about-title">A softer way to get ready.</h2>
           <p>
             {businessAbout ||
@@ -1449,8 +1614,8 @@ export function CustomerBookingPage() {
       <section className="team-section" id="team" aria-labelledby="team-title">
         <div className="section-intro">
           <div>
-            <p className="booking-eyebrow">Meet your artist</p>
-            <h2 id="team-title">Good hands, good energy</h2>
+            <h2 id="team-title" className="booking-section-label">TEAM</h2>
+            <p className="booking-section-subheader">Meet the owner behind your experience.</p>
           </div>
         </div>
         <div className="team-grid single-artist-grid">
@@ -1465,7 +1630,7 @@ export function CustomerBookingPage() {
               className="team-book-pill"
               onClick={() => document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })}
             >
-              Book with {ownerFirstName} <ArrowRight size={13} />
+              Book
             </a>
           </article>
         </div>
@@ -1475,12 +1640,8 @@ export function CustomerBookingPage() {
       <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
         <div className="section-intro">
           <div>
-            <p className="booking-eyebrow">Client reviews</p>
-            <h2 id="reviews-title">
-              Small details.
-              <br />
-              Big feeling.
-            </h2>
+            <h2 id="reviews-title" className="booking-section-label">REVIEWS</h2>
+            <p className="booking-section-subheader">See what clients are saying.</p>
           </div>
         </div>
 
