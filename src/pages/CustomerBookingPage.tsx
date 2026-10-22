@@ -267,6 +267,7 @@ export function CustomerBookingPage() {
   // Listen to Supabase auth state & persist client details directly in Supabase
   useEffect(() => {
     if (!supabase) return
+    const client = supabase
 
     const syncUserAsClient = async (user: User | null) => {
       if (!user) {
@@ -277,42 +278,46 @@ export function CustomerBookingPage() {
       let activeUser = user
       const isAlreadyClient = activeUser.user_metadata?.account_type === "client" || activeUser.user_metadata?.role === "client"
       const needsSlugSync = Boolean(bookingSlug && activeUser.user_metadata?.client_slug !== bookingSlug)
+      const clientBusinessId = profile?.id || activeUser.user_metadata?.client_business_id || ""
+      const clientBusinessSlug = bookingSlug || activeUser.user_metadata?.client_slug || ""
+      const clientBusinessName = profile?.business_name || activeUser.user_metadata?.client_business_name || ""
 
-      // When signed in on a custom slug booking page, persist client data directly in Supabase
+      // Keep the auth metadata scoped to this booking page.
       if (!isAlreadyClient || needsSlugSync) {
         try {
           const client = supabase
           if (client) {
-            // 1. Save directly in Supabase Auth user_metadata
             const { data: updated } = await client.auth.updateUser({
               data: {
                 account_type: "client",
                 role: "client",
-                client_slug: bookingSlug || activeUser.user_metadata?.client_slug || "",
-                client_business_id: profile?.id || activeUser.user_metadata?.client_business_id || "",
-                client_business_name: profile?.business_name || activeUser.user_metadata?.client_business_name || "",
+                client_slug: clientBusinessSlug,
+                client_business_id: clientBusinessId,
+                client_business_name: clientBusinessName,
               },
             })
             if (updated?.user) activeUser = updated.user
-
-            // 2. Save directly in Supabase Database table `public.clients`
-            if (profile?.id && activeUser.id) {
-              await client.from("clients").upsert(
-                {
-                  user_id: activeUser.id,
-                  business_id: profile.id,
-                  business_slug: bookingSlug,
-                  full_name: String(activeUser.user_metadata?.full_name ?? activeUser.email?.split("@")[0] ?? "Client"),
-                  email: activeUser.email || "",
-                  updated_at: new Date().toISOString(),
-                },
-                { onConflict: "user_id,business_id" }
-              )
-            }
           }
         } catch (e) {
-          console.warn("Supabase client sync error:", e)
+          console.warn("Supabase client metadata sync error:", e)
         }
+      }
+
+      // Always upsert the relationship. Existing client metadata must not prevent
+      // the database row from being created for this studio.
+      if (clientBusinessId && activeUser.id) {
+        const { error } = await client.from("clients").upsert(
+          {
+            user_id: activeUser.id,
+            business_id: clientBusinessId,
+            business_slug: clientBusinessSlug,
+            full_name: String(activeUser.user_metadata?.full_name ?? activeUser.email?.split("@")[0] ?? "Client"),
+            email: activeUser.email || "",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,business_id" },
+        )
+        if (error) console.warn("Supabase client record sync error:", error.message)
       }
 
       setCurrentUser(activeUser)
@@ -794,14 +799,10 @@ export function CustomerBookingPage() {
                   setAccountOpen((open) => !open)
                   setMenuOpen(false)
                 }}
-              >
-                <span className="booking-user-avatar">
-                  {currentUser.user_metadata?.full_name?.charAt(0)?.toUpperCase() || currentUser.email?.charAt(0)?.toUpperCase() || "U"}
-                </span>
-                <span className="booking-user-name">
-                  {currentUser.user_metadata?.full_name?.split(" ")[0] || currentUser.email?.split("@")[0] || "Account"}
-                </span>
-                <ChevronDown size={13} />
+                >
+                  <span className="booking-user-avatar">
+                    {currentUser.user_metadata?.full_name?.charAt(0)?.toUpperCase() || currentUser.email?.charAt(0)?.toUpperCase() || "U"}
+                  </span>
               </button>
 
               {accountOpen && (
@@ -1321,7 +1322,8 @@ export function CustomerBookingPage() {
                     }
 
                     if (supabase && profile?.id) {
-                      await supabase.from("appointments").insert(appointmentPayload)
+                      const { error } = await supabase.from("appointments").insert(appointmentPayload)
+                      if (error) throw error
                     }
 
                     // Store locally so customer can see it in "My Bookings"
