@@ -1071,12 +1071,10 @@ export function CustomerBookingPage() {
                           <span className="service-copy">
                             <strong>{service.name}</strong>
                             {service.description && <span title={service.description}>{service.description}</span>}
-                            <small>
-                              <Clock3 size={13} /> {service.duration}
-                            </small>
                           </span>
                           <span className="service-price">
-                            {service.price}
+                            <strong className="service-price-value">{service.price}</strong>
+                            <small className="service-duration"><Clock3 size={13} /> {service.duration}</small>
                             <span className="radio-indicator">{serviceIds.includes(service.id) && <Check size={14} />}</span>
                           </span>
                         </button>
@@ -1587,7 +1585,7 @@ export function CustomerBookingPage() {
           </div>
         </div>
         <div className="story-copy">
-            <p className="booking-eyebrow">About</p>
+          <h2 className="booking-section-label">ABOUT</h2>
           <h2 id="about-title">A softer way to get ready.</h2>
           <p>
             {businessAbout ||
