@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import type { User } from "@supabase/supabase-js"
 import {
   ArrowRight,
@@ -10,8 +10,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Facebook,
   Globe2,
   Heart,
+  Instagram,
   Loader2,
   LockKeyhole,
   LogOut,
@@ -60,8 +62,19 @@ type BusinessProfile = {
   address: string | null
   logo_url: string | null
   banner_url: string | null
+  website?: string | null
+  instagram?: string | null
+  facebook?: string | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
   owner_name?: string | null
+}
+
+function externalLink(value: string | null | undefined, base?: string) {
+  const trimmed = value?.trim()
+  if (!trimmed) return ""
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  if (base && trimmed.startsWith("@")) return `${base}/${trimmed.slice(1)}`
+  return `https://${trimmed}`
 }
 
 export type Review = {
@@ -231,10 +244,25 @@ export function CustomerBookingPage() {
   const [showAllReviewsModal, setShowAllReviewsModal] = useState(false)
   const [showMyBookings, setShowMyBookings] = useState(false)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
+  const [footerVisible, setFooterVisible] = useState(false)
+  const footerRef = useRef<HTMLElement | null>(null)
 
   // Real Reviews state (no fake reviews)
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewFilter, setReviewFilter] = useState<"all" | "5" | "4" | "recent">("all")
+
+  useEffect(() => {
+    const footer = footerRef.current
+    if (!footer || typeof IntersectionObserver === "undefined") return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setFooterVisible(entry.isIntersecting),
+      { threshold: 0.05 },
+    )
+
+    observer.observe(footer)
+    return () => observer.disconnect()
+  }, [])
 
   // Listen to Supabase auth state & persist client details directly in Supabase
   useEffect(() => {
@@ -413,10 +441,16 @@ export function CustomerBookingPage() {
   const canExpandAbout = aboutText.length > 100
   const displayedAboutText = !aboutExpanded && canExpandAbout ? `${aboutText.slice(0, 100).trimEnd()}…` : aboutText
   const businessLocation = profile?.city || ""
+  const displayBusinessLocation = businessLocation.replace(/([a-z])([A-Z])/g, "$1 $2")
   const businessAddress = profile?.address || businessLocation
   const businessPhone = [profile?.country_code, profile?.phone].filter(Boolean).join(" ")
   const businessInitial = businessName.trim().charAt(0).toUpperCase()
   const bookingBrandName = profile?.slug || businessName
+  const socialLinks = [
+    { label: "Website", href: externalLink(profile?.website), kind: "website" },
+    { label: "Instagram", href: externalLink(profile?.instagram, "https://instagram.com"), kind: "instagram" },
+    { label: "Facebook", href: externalLink(profile?.facebook, "https://facebook.com"), kind: "facebook" },
+  ].filter((link) => link.href)
 
   // Owner Name & Team Resolution
   const ownerFullName = profile?.owner_name || (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : "Luigi Opalia")
@@ -551,7 +585,7 @@ export function CustomerBookingPage() {
       try {
         const profileQuery = supabase
           .from("business_profiles")
-          .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, business_hours, owner_name")
+          .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, business_hours, owner_name")
         const { data: businesses, error: profileError } = activeSlug
           ? await profileQuery.eq("slug", activeSlug).limit(1)
           : await profileQuery.order("created_at", { ascending: true }).limit(1)
@@ -945,19 +979,21 @@ export function CustomerBookingPage() {
               <h1>{businessName}</h1>
             </div>
           </div>}
-          <p className={`business-description ${aboutExpanded ? "is-expanded" : ""}`}>
-            {displayedAboutText}
-            {canExpandAbout && (
-              <button
-                className="business-description-toggle"
-                type="button"
-                onClick={() => setAboutExpanded((expanded) => !expanded)}
-                aria-expanded={aboutExpanded}
-              >
-                {aboutExpanded ? "See less" : "See more"}
-              </button>
-            )}
-          </p>
+          {!profile?.banner_url && (
+            <p className={`business-description ${aboutExpanded ? "is-expanded" : ""}`}>
+              {displayedAboutText}
+              {canExpandAbout && (
+                <button
+                  className="business-description-toggle"
+                  type="button"
+                  onClick={() => setAboutExpanded((expanded) => !expanded)}
+                  aria-expanded={aboutExpanded}
+                >
+                  {aboutExpanded ? "See less" : "See more"}
+                </button>
+              )}
+            </p>
+          )}
 
           <div className="business-meta">
             <Clock3 size={16} /> <span>{dynamicScheduleSummary}</span>
@@ -1085,7 +1121,7 @@ export function CustomerBookingPage() {
                   <p className="services-empty">No services are available for online booking yet.</p>
                 )}
               </div>
-              <div className="booking-actions">
+              <div className={`booking-actions${footerVisible ? " booking-actions-footer-visible" : ""}`}>
                 <span className="secure-note">
                   {selectedServices.length > 0 ? (
                     <>
@@ -1509,7 +1545,7 @@ export function CustomerBookingPage() {
       </div>
 
       {/* Featured Treatments (Dynamic real services) */}
-      <section className="booking-discovery" id="services" aria-labelledby="services-title">
+      {false && <section className="booking-discovery" id="services" aria-labelledby="services-title">
         <div className="section-intro">
           <div>
             <h2 id="services-title" className="booking-section-label">POPULAR</h2>
@@ -1567,7 +1603,7 @@ export function CustomerBookingPage() {
             </article>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* About The Studio (Dynamic real values) */}
       <section className="studio-story" id="about" aria-labelledby="about-title">
@@ -1586,7 +1622,6 @@ export function CustomerBookingPage() {
         </div>
         <div className="story-copy">
           <h2 className="booking-section-label">ABOUT</h2>
-          <h2 id="about-title">A softer way to get ready.</h2>
           <p>
             {businessAbout ||
               `${businessName} is a welcoming studio built around thoughtful details, unrushed appointments, and delivering results you can’t stop admiring.`}
@@ -1601,10 +1636,25 @@ export function CustomerBookingPage() {
               <small>curated services</small>
             </span>
             <span>
-              <strong>{businessLocation || "Studio"}</strong>
+              <strong>{displayBusinessLocation || "Studio"}</strong>
               <small>location</small>
             </span>
           </div>
+          {socialLinks.length > 0 && (
+            <div className="about-socials" aria-label="Business social links">
+              <span className="about-socials-label">
+                <small>STAY CONNECTED</small>
+                <strong>Find us online</strong>
+              </span>
+              <div className="about-social-links">
+                {socialLinks.map((link) => (
+                  <a key={link.kind} href={link.href} target="_blank" rel="noreferrer" aria-label={link.label} title={link.label}>
+                    {link.kind === "instagram" ? <Instagram size={16} /> : link.kind === "facebook" ? <Facebook size={16} /> : <Globe2 size={16} />}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1658,9 +1708,7 @@ export function CustomerBookingPage() {
                     />
                   ))}
                 </div>
-                <span className="reviews-count-caption">
-                  {totalReviews > 0 ? `${totalReviews} verified client ${totalReviews === 1 ? "review" : "reviews"}` : "Be the first to leave a review!"}
-                </span>
+                <span className="reviews-count-caption">{totalReviews} {totalReviews === 1 ? "review" : "reviews"}</span>
               </div>
             </div>
 
@@ -1809,15 +1857,17 @@ export function CustomerBookingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="booking-footer">
-        <span>
+      <footer ref={footerRef} className="booking-footer">
+        <span className="booking-footer-brand">
           Powered by <strong>bookora</strong>
         </span>
-        <a href="#services">Services</a>
-        <a href="#team">Artist</a>
-        <a href="#reviews">Reviews</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
+        <nav className="booking-footer-links" aria-label="Footer navigation">
+          <a href="#services">Services</a>
+          <a href="#team">Team</a>
+          <a href="#reviews">Reviews</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </nav>
       </footer>
 
       {/* MODAL 1: Customer Auth Modal (Sign in with Google / Email - Bottom sheet on mobile) */}
