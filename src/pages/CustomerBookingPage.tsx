@@ -316,7 +316,10 @@ export function CustomerBookingPage() {
           },
           { onConflict: "user_id,business_id" },
         )
-        if (error) console.warn("Supabase client record sync error:", error.message)
+        if (error) {
+          console.error("Supabase client record sync error:", error)
+          showToast(`Signed in, but your client profile could not be saved: ${error.message}`, "error")
+        }
       }
 
       setCurrentUser(activeUser)
@@ -2030,6 +2033,16 @@ function CustomerAuthModal({
     setStatus("loading")
     setMessage("")
 
+    // The relationship row needs the business owner's auth id. This can be
+    // briefly unavailable while the public profile is still loading on a
+    // custom-slug host, so do not create an account with incomplete tenant data.
+    if (!businessId || !businessSlug) {
+      setStatus("error")
+      setAuthMethod(null)
+      setMessage("This booking page is still loading. Please try again in a moment.")
+      return
+    }
+
     if (authMode === "signup") {
       const cleanRedirectUrl = window.location.href.split("#")[0]
       setCrossSubdomainCookie("bookora_client_return", cleanRedirectUrl, 600)
@@ -2054,23 +2067,34 @@ function CustomerAuthModal({
         setAuthMethod(null)
         setMessage(error.message)
       } else if (data.user) {
-        // Also save client record in Supabase database
-        if (businessId && data.user.id) {
-          try {
-            await supabase.from("clients").upsert(
-              {
-                user_id: data.user.id,
-                business_id: businessId,
-                business_slug: businessSlug,
-                full_name: fullName.trim() || email.split("@")[0],
-                email: email.trim(),
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "user_id,business_id" }
-            )
-          } catch {}
+        // With email confirmation enabled Supabase returns a user but no
+        // session. RLS correctly rejects a client-row insert in that state;
+        // the authenticated-session effect above will persist it after the
+        // user confirms and signs in.
+        if (data.session) {
+          const { error: clientError } = await supabase.from("clients").upsert(
+            {
+              user_id: data.user.id,
+              business_id: businessId,
+              business_slug: businessSlug,
+              full_name: fullName.trim() || email.split("@")[0],
+              email: email.trim(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,business_id" }
+          )
+          if (clientError) {
+            setStatus("error")
+            setAuthMethod(null)
+            setMessage(`Account created, but saving your client profile failed: ${clientError.message}`)
+            return
+          }
+          onSuccess(data.user)
+        } else {
+          setStatus("success")
+          setAuthMethod(null)
+          setMessage("Account created. Check your email to confirm, then sign in here.")
         }
-        onSuccess(data.user)
       }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -2098,7 +2122,7 @@ function CustomerAuthModal({
 
           // Upsert client record into Supabase
           if (businessId && user.id) {
-            await supabase.from("clients").upsert(
+            const { error: clientError } = await supabase.from("clients").upsert(
               {
                 user_id: user.id,
                 business_id: businessId,
@@ -2109,9 +2133,12 @@ function CustomerAuthModal({
               },
               { onConflict: "user_id,business_id" }
             )
+            if (clientError) throw clientError
           }
         } catch (updateErr) {
-          console.warn("Client Supabase tag error:", updateErr)
+          const detail = updateErr instanceof Error ? updateErr.message : String(updateErr)
+          console.error("Client Supabase tag error:", updateErr)
+          showToast(`Signed in, but your client profile could not be saved: ${detail}`, "error")
         }
         onSuccess(user)
       }
