@@ -55,11 +55,25 @@ export function handleOAuthSubdomainBounce(): boolean {
 
   if (returnUrl && hasAuthPayload) {
     clearCrossSubdomainCookie("bookora_client_return")
-    const cleanBase = returnUrl.split("?")[0].split("#")[0]
-    const target = `${cleanBase}${window.location.search || ""}${window.location.hash || ""}`
-    if (target !== window.location.href) {
-      window.location.replace(target)
-      return true
+    try {
+      const targetUrl = new URL(returnUrl, window.location.origin)
+      const currentUrl = new URL(window.location.href)
+      currentUrl.searchParams.forEach((val, key) => {
+        targetUrl.searchParams.set(key, val)
+      })
+      if (window.location.hash) {
+        targetUrl.hash = window.location.hash
+      }
+      const target = targetUrl.toString()
+      if (target !== window.location.href) {
+        window.location.replace(target)
+        return true
+      }
+    } catch {
+      if (returnUrl !== window.location.href) {
+        window.location.replace(returnUrl)
+        return true
+      }
     }
   }
 

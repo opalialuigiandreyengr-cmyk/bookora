@@ -6,7 +6,7 @@ import { LandingPage } from "@/pages/LandingPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { PasskeyModal } from "@/pages/PasskeyModal"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
-import { ToastViewport } from "@/components/ui/toast"
+import { ToastViewport, showToast } from "@/components/ui/toast"
 import { CustomerBookingPage } from "@/pages/CustomerBookingPage"
 import { getCrossSubdomainCookie, clearCrossSubdomainCookie } from "@/lib/domain"
 
@@ -35,6 +35,19 @@ export default function App() {
   )
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+    const oauthError = searchParams.get("error_description") || hashParams.get("error_description") || searchParams.get("error") || hashParams.get("error")
+    if (oauthError) {
+      showToast(decodeURIComponent(oauthError.replace(/\+/g, " ")), "error")
+      const cleanUrl = new URL(window.location.href)
+      cleanUrl.hash = ""
+      cleanUrl.searchParams.delete("error")
+      cleanUrl.searchParams.delete("error_code")
+      cleanUrl.searchParams.delete("error_description")
+      window.history.replaceState({}, document.title, cleanUrl.toString())
+    }
+
     if (!supabase) return
     supabase.auth.getSession().then(({ data }) => {
       const nextUser = data.session?.user ?? null

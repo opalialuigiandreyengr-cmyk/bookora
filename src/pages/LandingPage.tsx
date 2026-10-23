@@ -10,7 +10,6 @@ import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 import { Logo } from "@/components/brand/Logo"
 import { MarketingSections } from "@/components/marketing/MarketingSections"
 import { LoginModal } from "@/pages/LoginModal"
-import { signInWithGoogle } from "@/lib/googleAuth"
 
 const features = [[CalendarDays, "Online Booking", "Let clients book 24/7 from any device."], [Users, "Manage Staff", "Set schedules, assign services and track availability."], [ListChecks, "Custom Services", "Add services, prices, duration and packages."], [CreditCard, "Accept Payments", "In-salon or online payments, all in one place."], [Bell, "Automated Reminders", "Reduce no-shows with email and SMS reminders."], [BarChart3, "Reports & Growth", "Track bookings, revenue and your best services."]] as const
 
@@ -99,60 +98,24 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
     }
     setLoadingProvider(provider)
     setStatus("loading")
-    if (provider === "google") {
-      try {
-        await signInWithGoogle()
-        if (supabase) {
-          const { data } = await supabase.auth.getSession()
-          const loggedUser = data.session?.user
-          if (loggedUser) {
-            const isClient = Boolean(
-              loggedUser.user_metadata?.account_type === "client" ||
-              loggedUser.user_metadata?.role === "client" ||
-              loggedUser.user_metadata?.client_slug
-            )
-            if (isClient) {
-              const clientSlug = loggedUser.user_metadata?.client_slug
-              const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
-              setStatus("success")
-              setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
-              window.setTimeout(() => {
-                const target = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
-                window.location.href = target
-              }, 800)
-              return
-            }
-          }
-        }
-        setStatus("success")
-        setMessage("Signed in successfully! Loading your workspace…")
-        return
-      } catch {
-        // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
-        try {
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: { redirectTo: `${window.location.origin}/dashboard` },
-          })
-          if (error) {
-            setStatus("error")
-            setLoadingProvider(null)
-            setMessage(error.message)
-            return
-          }
-        } catch (oauthErr: any) {
-          setStatus("error")
-          setLoadingProvider(null)
-          setMessage(oauthErr?.message || "Google sign-in failed.")
-        }
-        return
+    setMessage("")
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      })
+      if (error) {
+        setStatus("error")
+        setLoadingProvider(null)
+        setMessage(error.message)
       }
-    }
-    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } })
-    if (error) {
+    } catch (err: any) {
       setStatus("error")
       setLoadingProvider(null)
-      setMessage(error.message)
+      setMessage(err?.message || `${provider} sign-in failed.`)
     }
   }
 

@@ -5,7 +5,6 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
-import { signInWithGoogle } from "@/lib/googleAuth"
 
 interface LoginModalProps {
   onClose: () => void
@@ -117,61 +116,24 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     }
     setLoadingProvider(provider)
     setStatus("loading")
-    if (provider === "google") {
-      try {
-        await signInWithGoogle()
-        if (supabase) {
-          const { data } = await supabase.auth.getSession()
-          const loggedUser = data.session?.user
-          if (loggedUser) {
-            const isClient = Boolean(
-              loggedUser.user_metadata?.account_type === "client" ||
-              loggedUser.user_metadata?.role === "client" ||
-              loggedUser.user_metadata?.client_slug
-            )
-            if (isClient) {
-              const clientSlug = loggedUser.user_metadata?.client_slug
-              const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
-              setStatus("success")
-              setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
-              window.setTimeout(() => {
-                onClose()
-                window.location.href = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
-              }, 800)
-              return
-            }
-          }
-        }
-        setStatus("success")
-        setMessage("Signed in successfully! Opening your workspace…")
-        window.setTimeout(onClose, 500)
-        return
-      } catch {
-        // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
-        try {
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: { redirectTo: `${window.location.origin}/dashboard` },
-          })
-          if (error) {
-            setStatus("error")
-            setLoadingProvider(null)
-            setMessage(error.message)
-            return
-          }
-        } catch (oauthErr: any) {
-          setStatus("error")
-          setLoadingProvider(null)
-          setMessage(oauthErr?.message || "Google sign-in failed.")
-        }
-        return
+    setMessage("")
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      })
+      if (error) {
+        setStatus("error")
+        setLoadingProvider(null)
+        setMessage(error.message)
       }
-    }
-    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/dashboard` } })
-    if (error) {
+    } catch (err: any) {
       setStatus("error")
       setLoadingProvider(null)
-      setMessage(error.message)
+      setMessage(err?.message || `${provider} sign-in failed.`)
     }
   }
 

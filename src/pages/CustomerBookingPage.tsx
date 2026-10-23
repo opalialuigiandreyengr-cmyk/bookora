@@ -31,7 +31,6 @@ import {
   X,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { signInWithGoogle } from "@/lib/googleAuth"
 import { showToast } from "@/components/ui/toast"
 import { setCrossSubdomainCookie } from "@/lib/domain"
 
@@ -321,11 +320,25 @@ export function CustomerBookingPage() {
       }
 
       setCurrentUser(activeUser)
+      setShowAuthModal(false)
       setDetails((prev) => ({
         ...prev,
         name: prev.name || String(activeUser.user_metadata?.full_name ?? activeUser.email?.split("@")[0] ?? ""),
         email: prev.email || activeUser.email || "",
       }))
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+    const oauthError = searchParams.get("error_description") || hashParams.get("error_description") || searchParams.get("error") || hashParams.get("error")
+    if (oauthError) {
+      showToast(decodeURIComponent(oauthError.replace(/\+/g, " ")), "error")
+      const cleanUrl = new URL(window.location.href)
+      cleanUrl.hash = ""
+      cleanUrl.searchParams.delete("error")
+      cleanUrl.searchParams.delete("error_code")
+      cleanUrl.searchParams.delete("error_description")
+      window.history.replaceState({}, document.title, cleanUrl.toString())
     }
 
     supabase.auth.getSession().then(({ data }) => {
@@ -1961,83 +1974,46 @@ function CustomerAuthModal({
   const [message, setMessage] = useState("")
 
   const handleGoogleSignIn = async () => {
+    if (!supabase) {
+      setStatus("error")
+      setAuthMethod(null)
+      setMessage("Google sign-in is currently unavailable.")
+      return
+    }
+
     setAuthMethod("google")
     setStatus("loading")
     setMessage("")
 
     try {
-      await signInWithGoogle()
-      if (supabase) {
-        const { data } = await supabase.auth.getSession()
-        if (data.session?.user) {
-          let user = data.session.user
-          // Guarantee metadata and database record are saved directly in Supabase
-          try {
-            const { data: updated } = await supabase.auth.updateUser({
-              data: {
-                account_type: "client",
-                role: "client",
-                client_slug: businessSlug,
-                client_business_id: businessId || "",
-                client_business_name: businessName,
-              },
-            })
-            if (updated?.user) user = updated.user
+      const url = new URL(window.location.href)
+      url.hash = ""
+      url.searchParams.delete("error")
+      url.searchParams.delete("error_code")
+      url.searchParams.delete("error_description")
+      const cleanRedirectUrl = url.toString()
 
-            // Save in Supabase database table `public.clients`
-            if (businessId && user.id) {
-              await supabase.from("clients").upsert(
-                {
-                  user_id: user.id,
-                  business_id: businessId,
-                  business_slug: businessSlug,
-                  full_name: String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Client"),
-                  email: user.email || "",
-                  updated_at: new Date().toISOString(),
-                },
-                { onConflict: "user_id,business_id" }
-              )
-            }
-          } catch (updateErr) {
-            console.warn("Client Supabase save error:", updateErr)
-          }
-
-          onSuccess(user)
-          return
-        }
+      setCrossSubdomainCookie("bookora_client_return", cleanRedirectUrl, 600)
+      if (businessSlug) {
+        setCrossSubdomainCookie("bookora_client_slug", businessSlug, 600)
       }
-    } catch {
-      // Fallback to standard Supabase OAuth redirect if One-Tap unavailable
-      if (supabase) {
-        try {
-          const cleanRedirectUrl = window.location.href.split("#")[0]
-          setCrossSubdomainCookie("bookora_client_return", cleanRedirectUrl, 600)
-          setCrossSubdomainCookie("bookora_client_slug", businessSlug, 600)
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-              redirectTo: cleanRedirectUrl,
-              queryParams: {
-                prompt: "select_account",
-              },
-            },
-          })
-          if (error) {
-            setStatus("error")
-            setAuthMethod(null)
-            setMessage(error.message)
-            return
-          }
-        } catch (oauthErr: any) {
-          setStatus("error")
-          setAuthMethod(null)
-          setMessage(oauthErr?.message || "Google sign-in is currently unavailable.")
-        }
-      } else {
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: cleanRedirectUrl,
+        },
+      })
+
+      if (error) {
         setStatus("error")
         setAuthMethod(null)
-        setMessage("Google sign-in is currently unavailable.")
+        setMessage(error.message)
       }
+    } catch (oauthErr: any) {
+      setStatus("error")
+      setAuthMethod(null)
+      setMessage(oauthErr?.message || "Google sign-in is currently unavailable.")
     }
   }
 
