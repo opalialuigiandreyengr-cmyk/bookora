@@ -274,6 +274,12 @@ export function CustomerBookingPage() {
         return
       }
 
+      // On a custom business hostname the auth event can arrive before the
+      // public business profile query has finished.  Do not tag the account
+      // with incomplete tenant data or skip the clients row in that window;
+      // this effect is recreated when profile.id becomes available.
+      if (!profile?.id && bookingSlug) return
+
       let activeUser = user
       const isAlreadyClient = activeUser.user_metadata?.account_type === "client" || activeUser.user_metadata?.role === "client"
       const needsSlugSync = Boolean(bookingSlug && activeUser.user_metadata?.client_slug !== bookingSlug)
@@ -1994,9 +2000,24 @@ function CustomerAuthModal({
       url.searchParams.delete("error")
       url.searchParams.delete("error_code")
       url.searchParams.delete("error_description")
-      const cleanRedirectUrl = url.toString()
+      const tenantReturnUrl = url.toString()
 
-      setCrossSubdomainCookie("bookora_client_return", cleanRedirectUrl, 600)
+      // Keep the OAuth callback on the stable root domain.  Supabase/Google
+      // only need one registered callback target; the cookie bounce in
+      // main.tsx then returns the session payload to this business host.
+      // This avoids exchanging the provider code against an unregistered or
+      // changing custom-domain callback URL.
+      const hostname = window.location.hostname
+      const rootDomain = hostname.endsWith(".bookoraph.com")
+        ? "bookoraph.com"
+        : hostname.endsWith(".bookora.com")
+          ? "bookora.com"
+          : ""
+      const cleanRedirectUrl = rootDomain
+        ? `${window.location.protocol}//${rootDomain}/`
+        : tenantReturnUrl
+
+      setCrossSubdomainCookie("bookora_client_return", tenantReturnUrl, 600)
       if (businessSlug) {
         setCrossSubdomainCookie("bookora_client_slug", businessSlug, 600)
       }
