@@ -21,6 +21,7 @@ import {
   Mail,
   Menu,
   Moon,
+  Pencil,
   Phone,
   Scissors,
   Sparkles,
@@ -144,6 +145,7 @@ const calendarKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getU
 const addDaysToKey = (key: string, days: number) => { const [year, month, day] = key.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); date.setUTCDate(date.getUTCDate() + days); return calendarKey(date) }
 const formatSlotTime = (minutes: number) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" }).format(new Date(Date.UTC(1970, 0, 1, Math.floor(minutes / 60), minutes % 60)))
 const calendarLabel = (key: string) => { const [year, month, day] = key.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return { day: new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(date), date: String(day), month: new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date) } }
+const calendarLongLabel = (key: string) => { const [year, month, day] = key.split("-").map(Number); return new Intl.DateTimeFormat("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day))) }
 const restorePublicServiceOrder = (services: Service[], businessId: string) => {
   try {
     const saved = JSON.parse(window.localStorage.getItem(`bookora-services-order-${businessId}`) ?? "[]") as string[]
@@ -257,9 +259,13 @@ export function CustomerBookingPage() {
   const [pegImageName, setPegImageName] = useState<string>("")
   const [paymentReceipt, setPaymentReceipt] = useState<string>("")
   const [paymentReceiptName, setPaymentReceiptName] = useState<string>("")
+  const [summaryDateVisible, setSummaryDateVisible] = useState(true)
   const [submittingBooking, setSubmittingBooking] = useState(false)
 
   const bookingSlug = profile?.slug || urlSlug
+  const scrollBookingPageToTop = () => {
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }))
+  }
 
   // Auth & user states
   const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -565,6 +571,9 @@ export function CustomerBookingPage() {
     if (meridiem === "PM") hour += 12
     return hour * 60 + minute
   }
+  const appointmentTimeRange = time
+    ? `${time} – ${formatSlotTime(slotLabelToMinutes(time) + Math.max(0, totalDurationMinutes || bookingSlotSize))}`
+    : "Select a time"
   const philippinesNow = new Intl.DateTimeFormat("en-US", { timeZone: philippinesTimeZone, weekday: "long", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date())
   const todayName = philippinesNow.find((part) => part.type === "weekday")?.value || ""
   const todaySchedule = schedule.find((item) => item.day.toLowerCase() === todayName.toLowerCase())
@@ -615,6 +624,21 @@ export function CustomerBookingPage() {
     return slots
   }
   const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, todayKey, totalDurationMinutes])
+
+  useEffect(() => {
+    if (step !== 2 || bookingDataLoading || bookingTimesLoading || availableTimeSlots.length > 0) return
+
+    for (let offset = 1; offset <= maximumBookingDays; offset += 1) {
+      const candidateKey = addDaysToKey(todayKey, offset)
+      if (availableSlotsForDate(candidateKey).length === 0) continue
+
+      const [year, month] = candidateKey.split("-").map(Number)
+      setSelectedDateKey(candidateKey)
+      setTime("")
+      setCalendarMonth(new Date(Date.UTC(year, month - 1, 1)))
+      break
+    }
+  }, [availableTimeSlots.length, bookingDataLoading, bookingTimesLoading, maximumBookingDays, schedule, bookedTimes, bookingBufferMinutes, bookingSlotSize, minimumNoticeHours, step, todayKey, totalDurationMinutes])
 
   const isSelectedDateClosed = useMemo(() => {
     if (!schedule.length) return false
@@ -911,7 +935,7 @@ export function CustomerBookingPage() {
   }
 
   return (
-    <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""}`}>
+    <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""} ${footerVisible ? "footer-visible" : ""}`}>
       {/* Top Header */}
       <header className="booking-header">
         <a className="booking-brand" href="/" aria-label={`${bookingBrandName} booking page`}>
@@ -1307,7 +1331,9 @@ export function CustomerBookingPage() {
                       document.getElementById("choose-service")?.scrollIntoView({ behavior: "smooth", block: "start" })
                       return
                     }
+                    setSummaryDateVisible(false)
                     setStep(2)
+                    scrollBookingPageToTop()
                   }}
                 >
                   Book <ArrowRight size={17} />
@@ -1398,7 +1424,7 @@ export function CustomerBookingPage() {
                       key={slot}
                       className={`time-option ${time === slot ? "selected" : ""}`}
                       type="button"
-                      onClick={() => setTime(slot)}
+                      onClick={() => { setTime(slot); setSummaryDateVisible(false); setStep(3); scrollBookingPageToTop() }}
                     >
                       {slot}
                     </button>
@@ -1406,13 +1432,35 @@ export function CustomerBookingPage() {
                 </div>
               </div>
 
+              <div className="booking-summary booking-summary-sticky booking-summary-step-two">
+                <div className="booking-summary-pay-row">
+                  <span>Total to pay</span>
+                  <span className="booking-summary-pay-actions">
+                    <strong>{selectedPriceDisplay || "₱0"}</strong>
+                    <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide service details" : "Show service details"} aria-expanded={summaryDateVisible}>
+                      <ChevronDown size={15} />
+                    </button>
+                  </span>
+                </div>
+                {summaryDateVisible ? (
+                  <>
+                    <div className="booking-summary-service-row">
+                      <strong>{selectedServiceLabel}</strong>
+                      <span>{selectedPriceDisplay || "₱0"}</span>
+                    </div>
+                    <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>
+                  </>
+                ) : (
+                  <div className="booking-summary-service-row">
+                    <strong>{selectedServiceLabel} · {formattedTotalDuration || `${bookingSlotSize} min`}</strong>
+                  </div>
+                )}
+              </div>
+
               <div className="booking-actions">
                 <span className="secure-note">
                   <CalendarDays size={14} /> Free cancellation up to 24 hours before
                 </span>
-                <button className="booking-primary" type="button" disabled={!canContinue} onClick={() => setStep(3)}>
-                  Book <ArrowRight size={17} />
-                </button>
               </div>
             </div>
           )}
@@ -1628,9 +1676,9 @@ export function CustomerBookingPage() {
 
                 {showPaymentReceiptField && (
                   <div className="peg-attachment-field">
-                    <div className="peg-field-header"><span>Payment receipt <span className="optional">Optional</span></span></div>
+                    <div className="peg-field-header"><span>Payment receipt</span></div>
                     <label htmlFor="payment-receipt-input" className="peg-dropzone">
-                      <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
+                      <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" required onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
                       <div className="peg-dropzone-icon"><Camera size={21} /></div>
                       <div className="peg-dropzone-text"><strong>{paymentReceiptName || "Attach payment receipt"}</strong><span>PNG, JPG, WEBP</span></div>
                     </label>
@@ -1638,7 +1686,27 @@ export function CustomerBookingPage() {
                   </div>
                 )}
 
-                <div className="booking-summary">
+                <div className={`booking-summary booking-summary-sticky booking-summary-step-three ${summaryDateVisible ? "" : "is-collapsed"}`}>
+                  <div className="booking-summary-pay-row">
+                    <span>Total to pay</span>
+                    <span className="booking-summary-pay-actions">
+                      <strong>{selectedPriceDisplay || "₱0"}</strong>
+                      <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide date and time" : "Show date and time"} aria-expanded={summaryDateVisible}>
+                        <ChevronDown size={15} />
+                      </button>
+                    </span>
+                  </div>
+                  <div className="booking-summary-service-row">
+                    <strong>{selectedServiceLabel}{summaryDateVisible ? "" : ` · ${formattedTotalDuration || `${bookingSlotSize} min`}`}</strong>
+                    {summaryDateVisible && <span>{selectedPriceDisplay || "₱0"}</span>}
+                  </div>
+                  {summaryDateVisible && <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>}
+                  {summaryDateVisible && <button type="button" className="booking-summary-toggle" onClick={() => setStep(2)} aria-label="Change appointment date and time" title="Change appointment date and time">
+                    <span className="booking-summary-date-label"><small>{calendarLongLabel(selectedDateKey)} {appointmentTimeRange}</small></span>
+                    <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</small></span>
+                    <Pencil size={14} aria-hidden="true" />
+                  </button>}
+                  {false && <div className="booking-summary-details">
                   <div className="booking-summary-grid">
                     <div className="booking-summary-item">
                       <span>Appointment{selectedServices.length > 1 ? "s" : ""}</span>
@@ -1656,20 +1724,13 @@ export function CustomerBookingPage() {
                     <strong>{selectedPriceDisplay}*</strong>
                     <small>*Starting price. Final quotation confirmed based on design peg.</small>
                   </div>
-                </div>
-
-                <div className="booking-actions">
-                  <span className="secure-note">No payment required today</span>
-                  <button className="booking-primary" type="submit" disabled={!canContinue || submittingBooking}>
-                    {submittingBooking ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Confirming...</span>
-                      </>
-                    ) : (
-                      <>Review booking <ArrowRight size={17} /></>
-                    )}
-                  </button>
+                  </div>}
+                  <div className="booking-summary-footer">
+                    <span className="secure-note">No payment required today</span>
+                    <button className="booking-primary" type="submit" disabled={!canContinue || submittingBooking}>
+                      {submittingBooking ? <><Loader2 size={16} className="animate-spin" /><span>Confirming...</span></> : <>Confirm booking <ArrowRight size={17} /></>}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -2045,15 +2106,9 @@ export function CustomerBookingPage() {
       {/* Footer */}
       <footer ref={footerRef} className="booking-footer">
         <span className="booking-footer-brand">
+          <img src="/assets/bookora-logo.png" alt="" aria-hidden="true" />
           Powered by <strong>bookora</strong>
         </span>
-        <nav className="booking-footer-links" aria-label="Footer navigation">
-          <a href="#services">Services</a>
-          <a href="#team">Team</a>
-          <a href="#reviews">Reviews</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-        </nav>
       </footer>
 
       {/* MODAL 1: Customer Auth Modal (Sign in with Google / Email - Bottom sheet on mobile) */}
