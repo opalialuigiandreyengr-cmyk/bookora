@@ -64,6 +64,7 @@ type BusinessProfile = {
   website?: string | null
   instagram?: string | null
   facebook?: string | null
+  booking_policy?: string | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
   owner_name?: string | null
 }
@@ -353,8 +354,12 @@ export function CustomerBookingPage() {
     supabase.auth.getSession().then(({ data }) => {
       syncUserAsClient(data.session?.user ?? null)
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       syncUserAsClient(session?.user ?? null)
+      if (event === "SIGNED_IN" && session?.user) {
+        const name = String(session.user.user_metadata?.full_name ?? session.user.email?.split("@")[0] ?? "there")
+        showToast(`Welcome back, ${name}!`)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [bookingSlug, profile?.id, profile?.business_name])
@@ -482,11 +487,15 @@ export function CustomerBookingPage() {
   // Owner Name & Team Resolution
   const ownerFullName = profile?.owner_name || (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : "Luigi Opalia")
   const ownerInitials = ownerFullName.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-  const bookingPolicies = [
+  const defaultBookingPolicies = [
     "A 50% deposit is required to secure your appointment.",
     "Please arrive 5–10 minutes early for your appointment.",
     "Cancellations or reschedules should be made at least 24 hours ahead.",
   ]
+  const bookingPolicies = profile?.booking_policy
+    ?.split(/\r?\n/)
+    .map((policy) => policy.trim())
+    .filter(Boolean) || defaultBookingPolicies
   const schedule = profile?.business_hours ?? []
   const philippinesTimeZone = "Asia/Manila"
   const formatScheduleTime = (value?: string) => value ? new Intl.DateTimeFormat("en-US", { timeZone: philippinesTimeZone, hour: "numeric", minute: "2-digit" }).format(new Date(`1970-01-01T${value}:00+08:00`)) : "Closed"
@@ -608,14 +617,25 @@ export function CustomerBookingPage() {
         }
         return
       }
+      const client = supabase
 
       try {
-        const profileQuery = supabase
-          .from("business_profiles")
-          .select("id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, business_hours, owner_name")
-        const { data: businesses, error: profileError } = activeSlug
-          ? await profileQuery.eq("slug", activeSlug).limit(1)
-          : await profileQuery.order("created_at", { ascending: true }).limit(1)
+        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, business_hours, owner_name"
+        const profileQuery = () => client.from("business_profiles").select(profileFields)
+        let profileResult: any = activeSlug
+          ? await profileQuery().eq("slug", activeSlug).limit(1)
+          : await profileQuery().order("created_at", { ascending: true }).limit(1)
+
+        // Keep older deployments usable until the booking_policy migration is
+        // applied in Supabase.
+        if (profileResult.error?.message?.includes("booking_policy")) {
+          const legacyQuery = () => client.from("business_profiles").select(profileFields.replace(", booking_policy", ""))
+          profileResult = activeSlug
+            ? await legacyQuery().eq("slug", activeSlug).limit(1)
+            : await legacyQuery().order("created_at", { ascending: true }).limit(1)
+        }
+
+        const { data: businesses, error: profileError } = profileResult
         const business = businesses?.[0]
         if (!active || profileError || !business) {
           if (active) setBookingDataError(true)
@@ -1909,7 +1929,6 @@ export function CustomerBookingPage() {
               email: prev.email || user.email || "",
             }))
             setShowAuthModal(false)
-            showToast(`Welcome back, ${user.user_metadata?.full_name || user.email}!`)
           }}
         />
       )}

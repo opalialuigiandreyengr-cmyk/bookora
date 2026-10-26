@@ -10,6 +10,7 @@ import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 import { Logo } from "@/components/brand/Logo"
 import { MarketingSections } from "@/components/marketing/MarketingSections"
 import { LoginModal } from "@/pages/LoginModal"
+import { clearCrossSubdomainCookie } from "@/lib/domain"
 
 const features = [[CalendarDays, "Online Booking", "Let clients book 24/7 from any device."], [Users, "Manage Staff", "Set schedules, assign services and track availability."], [ListChecks, "Custom Services", "Add services, prices, duration and packages."], [CreditCard, "Accept Payments", "In-salon or online payments, all in one place."], [Bell, "Automated Reminders", "Reduce no-shows with email and SMS reminders."], [BarChart3, "Reports & Growth", "Track bookings, revenue and your best services."]] as const
 
@@ -48,6 +49,14 @@ function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "s
       } else {
         const loggedUser = signInData.user
         const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(window.location.hostname)
+        if (isRootDomain) {
+          clearCrossSubdomainCookie("bookora_client_slug")
+          clearCrossSubdomainCookie("bookora_client_return")
+          setStatus("success")
+          setMessage("Signed in successfully! Opening your workspaceâ€¦")
+          window.setTimeout(() => { window.location.href = "/dashboard" }, 300)
+          return
+        }
         const isClient = Boolean(
           !isRootDomain && (
             loggedUser?.user_metadata?.account_type === "client" ||

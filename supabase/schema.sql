@@ -104,11 +104,16 @@ create table if not exists public.business_profiles (
     website text default '',
     instagram text default '',
     facebook text default '',
+    booking_policy text default '',
     banner_url text default '',
     logo_url text default '',
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Safe migration for projects where business_profiles already exists.
+alter table public.business_profiles
+    add column if not exists booking_policy text default '';
 
 -- Index for id lookup
 create index if not exists idx_business_profiles_id on public.business_profiles (id);
@@ -423,4 +428,3 @@ create policy "Business owners can manage their clients"
     using (auth.uid() = business_id);
 
 grant select, insert, update on public.clients to authenticated;
-

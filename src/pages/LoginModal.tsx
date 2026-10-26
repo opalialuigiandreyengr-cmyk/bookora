@@ -5,6 +5,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
+import { clearCrossSubdomainCookie } from "@/lib/domain"
 
 interface LoginModalProps {
   onClose: () => void
@@ -56,6 +57,17 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     } else {
       const loggedUser = signInData.user
       const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(window.location.hostname)
+      if (isRootDomain) {
+        clearCrossSubdomainCookie("bookora_client_slug")
+        clearCrossSubdomainCookie("bookora_client_return")
+        setStatus("success")
+        setMessage("Signed in successfully! Opening your workspaceâ€¦")
+        window.setTimeout(() => {
+          onClose()
+          window.location.href = "/dashboard"
+        }, 300)
+        return
+      }
       const isClient = Boolean(
         !isRootDomain && (
           loggedUser?.user_metadata?.account_type === "client" ||

@@ -317,12 +317,11 @@ function Hours({
   )
 }
 
-function BookingPreferences() {
+function BookingPreferences({ policy, setPolicy }: { policy: string; setPolicy: (value: string) => void }) {
   const [visible, setVisible] = useState(true)
   const [reminders, setReminders] = useState(true)
   const [buffer, setBuffer] = useState(true)
   const [slotSize, setSlotSize] = useState("30")
-  const [policy, setPolicy] = useState("")
   const [fields, setFields] = useState({ phone: true, notes: false, address: false })
   return (
     <div className="preferences-settings-stack">
@@ -1337,6 +1336,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
   const [facebook, setFacebook] = useState(String(initialCache.facebook ?? user.user_metadata?.facebook ?? ""))
   const [bannerUrl, setBannerUrl] = useState(String(initialCache.banner_url ?? user.user_metadata?.banner_url ?? ""))
   const [logoUrl, setLogoUrl] = useState(String(initialCache.logo_url ?? user.user_metadata?.logo_url ?? ""))
+  const [bookingPolicy, setBookingPolicy] = useState(String(initialCache.booking_policy ?? user.user_metadata?.booking_policy ?? ""))
 
   // Save operation state
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -1372,6 +1372,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           if (data.website !== undefined) setWebsite(data.website || "")
           if (data.instagram !== undefined) setInstagram(data.instagram || "")
           if (data.facebook !== undefined) setFacebook(data.facebook || "")
+          if (data.booking_policy !== undefined) setBookingPolicy(data.booking_policy || "")
           if (data.banner_url) setBannerUrl(data.banner_url)
           if (data.logo_url) setLogoUrl(data.logo_url)
 
@@ -1409,6 +1410,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
       website: website.trim(),
       instagram: instagram.trim(),
       facebook: facebook.trim(),
+      booking_policy: bookingPolicy.trim(),
       banner_url: bannerUrl,
       logo_url: logoUrl,
       owner_name: String(user.user_metadata?.full_name ?? "Luigi Opalia"),
@@ -1431,6 +1433,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             industry: profileData.industry,
             phone: profileData.phone,
             business_hours: profileData.business_hours,
+            booking_policy: profileData.booking_policy,
             business_profile: profileData,
             banner_url: profileData.banner_url,
             logo_url: profileData.logo_url,
@@ -1578,7 +1581,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
               setLogoUrl={setLogoUrl}
             />
           ) : active === "Booking preferences" ? (
-            <BookingPreferences />
+            <BookingPreferences policy={bookingPolicy} setPolicy={setBookingPolicy} />
           ) : active === "Notifications" ? (
             <NotificationsSettings />
           ) : active === "Account" ? (

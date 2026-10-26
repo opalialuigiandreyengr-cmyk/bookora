@@ -59,10 +59,14 @@ export default function App() {
       setUser(nextUser)
       setOnboardingDone(Boolean(nextUser?.user_metadata?.onboarding_complete))
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       const nextUser = session?.user ?? null
       setUser(nextUser)
       setOnboardingDone(Boolean(nextUser?.user_metadata?.onboarding_complete))
+      if (event === "SIGNED_IN" && nextUser) {
+        const name = String(nextUser.user_metadata?.full_name ?? nextUser.email?.split("@")[0] ?? "there")
+        showToast(`Welcome back, ${name}!`)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
