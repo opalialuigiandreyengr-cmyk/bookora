@@ -330,6 +330,13 @@ function BookingPreferences({
   setCancellationNoticeHours,
   bufferMinutes,
   setBufferMinutes,
+  formFields,
+  setFormFields,
+  additionalInfo,
+  setAdditionalInfo,
+  paymentReceiptUrl,
+  setPaymentReceiptUrl,
+  userId,
 }: {
   policy: string
   setPolicy: (value: string) => void
@@ -343,11 +350,18 @@ function BookingPreferences({
   setCancellationNoticeHours: (value: string) => void
   bufferMinutes: string
   setBufferMinutes: (value: string) => void
+  formFields: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean }
+  setFormFields: (value: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean }) => void
+  additionalInfo: string
+  setAdditionalInfo: (value: string) => void
+  paymentReceiptUrl: string
+  setPaymentReceiptUrl: (value: string) => void
+  userId: string
 }) {
   const [visible, setVisible] = useState(true)
   const [reminders, setReminders] = useState(true)
   const [buffer, setBuffer] = useState(true)
-  const [fields, setFields] = useState({ phone: true, notes: false, address: false })
+  const [uploadingReceipt, setUploadingReceipt] = useState(false)
   return (
     <div className="preferences-settings-stack">
       <section className="settings-card preference-card">
@@ -501,8 +515,10 @@ function BookingPreferences({
         <div className="contact-field-list">
           {[
             ["phone", "Phone number", "Ask customers for a phone number"],
-            ["notes", "Booking notes", "Let customers add a note to their booking"],
             ["address", "Address", "Collect a customer address when needed"],
+            ["notes", "Additional information", "Let customers add a note to their booking"],
+            ["designPeg", "Design peg", "Let customers attach an inspiration photo"],
+            ["paymentReceipt", "Payment receipt", "Let customers attach proof of payment"],
           ].map(([key, label, description]) => (
             <div className="preference-toggle" key={key}>
               <div>
@@ -512,14 +528,38 @@ function BookingPreferences({
               <label className="settings-switch">
                 <input
                   type="checkbox"
-                  checked={fields[key as keyof typeof fields]}
-                  onChange={(event) => setFields((current) => ({ ...current, [key]: event.target.checked }))}
+                  checked={formFields[key as keyof typeof formFields]}
+                  onChange={(event) => setFormFields({ ...formFields, [key]: event.target.checked })}
                 />
                 <i />
               </label>
             </div>
           ))}
         </div>
+        <label className="preference-policy-field">
+          <span>Additional info shown to customers</span>
+          <textarea value={additionalInfo} onChange={(event) => setAdditionalInfo(event.target.value)} placeholder="Example: Prices vary by design complexity. Final quote confirmed after review." />
+        </label>
+        <div className="preference-upload-row">
+          <div>
+            <strong>Payment receipt image</strong>
+            <p>Upload the payment guide or QR image customers should see.</p>
+          </div>
+          <label className="settings-upload-button">
+            <input type="file" accept="image/*" hidden disabled={uploadingReceipt} onChange={async (event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              setUploadingReceipt(true)
+              try {
+                const url = await uploadBrandImage(file, `${userId}/payment-receipt.jpg`, 900, 900, 0.82)
+                setPaymentReceiptUrl(url)
+              } catch { showToast("Could not upload payment image") }
+              finally { setUploadingReceipt(false) }
+            }} />
+            <UploadCloud size={15} /> {uploadingReceipt ? "Uploading…" : paymentReceiptUrl ? "Change image" : "Upload image"}
+          </label>
+        </div>
+        {paymentReceiptUrl && <img src={paymentReceiptUrl} alt="Payment receipt guide" className="settings-payment-image-preview" />}
       </section>
     </div>
   )
@@ -1367,6 +1407,15 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
   const [slotSize, setSlotSize] = useState(String(initialCache.booking_slot_size_minutes ?? user.user_metadata?.booking_slot_size_minutes ?? "30"))
   const [cancellationNoticeHours, setCancellationNoticeHours] = useState(String(initialCache.booking_cancellation_notice_hours ?? user.user_metadata?.booking_cancellation_notice_hours ?? "24"))
   const [bufferMinutes, setBufferMinutes] = useState(String(initialCache.booking_buffer_minutes ?? user.user_metadata?.booking_buffer_minutes ?? "0"))
+  const [formFields, setFormFields] = useState({
+    phone: initialCache.booking_show_phone ?? user.user_metadata?.booking_show_phone ?? true,
+    address: initialCache.booking_show_address ?? user.user_metadata?.booking_show_address ?? false,
+    notes: initialCache.booking_show_notes ?? user.user_metadata?.booking_show_notes ?? true,
+    designPeg: initialCache.booking_show_design_peg ?? user.user_metadata?.booking_show_design_peg ?? true,
+    paymentReceipt: initialCache.booking_show_payment_receipt ?? user.user_metadata?.booking_show_payment_receipt ?? false,
+  })
+  const [additionalInfo, setAdditionalInfo] = useState(String(initialCache.booking_additional_info ?? user.user_metadata?.booking_additional_info ?? "Prices vary depending on design complexity. Your final quote will be confirmed after reviewing your request."))
+  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState(String(initialCache.payment_receipt_url ?? user.user_metadata?.payment_receipt_url ?? ""))
 
   // Save operation state
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -1408,6 +1457,15 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           if (data.booking_slot_size_minutes !== undefined) setSlotSize(String(data.booking_slot_size_minutes ?? 30))
           if (data.booking_cancellation_notice_hours !== undefined) setCancellationNoticeHours(String(data.booking_cancellation_notice_hours ?? 24))
           if (data.booking_buffer_minutes !== undefined) setBufferMinutes(String(data.booking_buffer_minutes ?? 0))
+          setFormFields((current) => ({
+            phone: data.booking_show_phone ?? current.phone,
+            address: data.booking_show_address ?? current.address,
+            notes: data.booking_show_notes ?? current.notes,
+            designPeg: data.booking_show_design_peg ?? current.designPeg,
+            paymentReceipt: data.booking_show_payment_receipt ?? current.paymentReceipt,
+          }))
+          if (data.booking_additional_info !== undefined) setAdditionalInfo(data.booking_additional_info || "")
+          if (data.payment_receipt_url !== undefined) setPaymentReceiptUrl(data.payment_receipt_url || "")
           if (data.banner_url) setBannerUrl(data.banner_url)
           if (data.logo_url) setLogoUrl(data.logo_url)
 
@@ -1451,6 +1509,13 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
       booking_slot_size_minutes: Math.max(5, Number(slotSize) || 30),
       booking_cancellation_notice_hours: Math.max(0, Number(cancellationNoticeHours) || 0),
       booking_buffer_minutes: Math.max(0, Number(bufferMinutes) || 0),
+      booking_show_phone: formFields.phone,
+      booking_show_address: formFields.address,
+      booking_show_notes: formFields.notes,
+      booking_show_design_peg: formFields.designPeg,
+      booking_show_payment_receipt: formFields.paymentReceipt,
+      booking_additional_info: additionalInfo.trim(),
+      payment_receipt_url: paymentReceiptUrl,
       banner_url: bannerUrl,
       logo_url: logoUrl,
       owner_name: String(user.user_metadata?.full_name ?? "Luigi Opalia"),
@@ -1479,6 +1544,13 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             booking_slot_size_minutes: profileData.booking_slot_size_minutes,
             booking_cancellation_notice_hours: profileData.booking_cancellation_notice_hours,
             booking_buffer_minutes: profileData.booking_buffer_minutes,
+            booking_show_phone: profileData.booking_show_phone,
+            booking_show_address: profileData.booking_show_address,
+            booking_show_notes: profileData.booking_show_notes,
+            booking_show_design_peg: profileData.booking_show_design_peg,
+            booking_show_payment_receipt: profileData.booking_show_payment_receipt,
+            booking_additional_info: profileData.booking_additional_info,
+            payment_receipt_url: profileData.payment_receipt_url,
             business_profile: profileData,
             banner_url: profileData.banner_url,
             logo_url: profileData.logo_url,
@@ -1639,6 +1711,13 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
               setCancellationNoticeHours={setCancellationNoticeHours}
               bufferMinutes={bufferMinutes}
               setBufferMinutes={setBufferMinutes}
+              formFields={formFields}
+              setFormFields={setFormFields}
+              additionalInfo={additionalInfo}
+              setAdditionalInfo={setAdditionalInfo}
+              paymentReceiptUrl={paymentReceiptUrl}
+              setPaymentReceiptUrl={setPaymentReceiptUrl}
+              userId={user.id}
             />
           ) : active === "Notifications" ? (
             <NotificationsSettings />

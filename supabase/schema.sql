@@ -110,6 +110,13 @@ create table if not exists public.business_profiles (
     booking_slot_size_minutes integer default 30,
     booking_cancellation_notice_hours integer default 24,
     booking_buffer_minutes integer default 0,
+    booking_show_phone boolean default true,
+    booking_show_address boolean default false,
+    booking_show_notes boolean default true,
+    booking_show_design_peg boolean default true,
+    booking_show_payment_receipt boolean default false,
+    booking_additional_info text default '',
+    payment_receipt_url text default '',
     banner_url text default '',
     logo_url text default '',
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -129,6 +136,20 @@ alter table public.business_profiles
     add column if not exists booking_cancellation_notice_hours integer default 24;
 alter table public.business_profiles
     add column if not exists booking_buffer_minutes integer default 0;
+alter table public.business_profiles
+    add column if not exists booking_show_phone boolean default true;
+alter table public.business_profiles
+    add column if not exists booking_show_address boolean default false;
+alter table public.business_profiles
+    add column if not exists booking_show_notes boolean default true;
+alter table public.business_profiles
+    add column if not exists booking_show_design_peg boolean default true;
+alter table public.business_profiles
+    add column if not exists booking_show_payment_receipt boolean default false;
+alter table public.business_profiles
+    add column if not exists booking_additional_info text default '';
+alter table public.business_profiles
+    add column if not exists payment_receipt_url text default '';
 
 -- Index for id lookup
 create index if not exists idx_business_profiles_id on public.business_profiles (id);
@@ -301,6 +322,7 @@ create table if not exists public.appointments (
     customer_name text not null,
     customer_email text not null,
     customer_phone text not null,
+    customer_address text default '',
     customer_note text default '',
     service_names text not null,
     total_price text not null default '₱0',

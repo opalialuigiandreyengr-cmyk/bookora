@@ -70,6 +70,13 @@ type BusinessProfile = {
   booking_slot_size_minutes?: number | null
   booking_cancellation_notice_hours?: number | null
   booking_buffer_minutes?: number | null
+  booking_show_phone?: boolean | null
+  booking_show_address?: boolean | null
+  booking_show_notes?: boolean | null
+  booking_show_design_peg?: boolean | null
+  booking_show_payment_receipt?: boolean | null
+  booking_additional_info?: string | null
+  payment_receipt_url?: string | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
   owner_name?: string | null
 }
@@ -245,9 +252,11 @@ export function CustomerBookingPage() {
   const [time, setTime] = useState("")
   const [bookedTimes, setBookedTimes] = useState<BookedTime[]>([])
   const [bookingTimesLoading, setBookingTimesLoading] = useState(false)
-  const [details, setDetails] = useState({ name: "", email: "", phone: "", note: "" })
+  const [details, setDetails] = useState({ name: "", email: "", phone: "", address: "", note: "" })
   const [pegImage, setPegImage] = useState<string>("")
   const [pegImageName, setPegImageName] = useState<string>("")
+  const [paymentReceipt, setPaymentReceipt] = useState<string>("")
+  const [paymentReceiptName, setPaymentReceiptName] = useState<string>("")
   const [submittingBooking, setSubmittingBooking] = useState(false)
 
   const bookingSlug = profile?.slug || urlSlug
@@ -265,6 +274,15 @@ export function CustomerBookingPage() {
   // Real Reviews state (no fake reviews)
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewFilter, setReviewFilter] = useState<"all" | "5" | "4" | "recent">("all")
+
+  useEffect(() => {
+    if (!currentUser) return
+    setDetails((prev) => ({
+      ...prev,
+      name: String(currentUser.user_metadata?.full_name ?? currentUser.email?.split("@")[0] ?? prev.name),
+      email: currentUser.email || prev.email,
+    }))
+  }, [currentUser])
 
   useEffect(() => {
     const footer = footerRef.current
@@ -399,6 +417,17 @@ export function CustomerBookingPage() {
     setPegImageName("")
   }
 
+  const handlePaymentReceiptUpload = (file: File) => {
+    if (!file || !file.type.startsWith("image/")) {
+      alert("Please select a valid image file (PNG, JPG, WEBP).")
+      return
+    }
+    setPaymentReceiptName(file.name)
+    const reader = new FileReader()
+    reader.onload = (event) => setPaymentReceipt(String(event.target?.result || ""))
+    reader.readAsDataURL(file)
+  }
+
   // Never render placeholder tenant data while the public booking data is loading.
   const visibleServices = liveServices
   const activeCategories = serviceCategories
@@ -512,6 +541,12 @@ export function CustomerBookingPage() {
     .map((policy) => policy.trim())
     .filter(Boolean) || defaultBookingPolicies
   const schedule = profile?.business_hours ?? []
+  const showPhoneField = profile?.booking_show_phone ?? true
+  const showAddressField = profile?.booking_show_address ?? false
+  const showNotesField = profile?.booking_show_notes ?? true
+  const showDesignPegField = profile?.booking_show_design_peg ?? true
+  const showPaymentReceiptField = profile?.booking_show_payment_receipt ?? false
+  const additionalInfo = profile?.booking_additional_info?.trim() || "Prices vary depending on design complexity. Your final quote will be confirmed after reviewing your request."
   const minimumNoticeHours = Math.max(0, Number(profile?.booking_min_notice_hours ?? 2))
   const maximumBookingDays = Math.max(1, Number(profile?.booking_max_days ?? 60))
   const bookingSlotSize = Math.max(5, Number(profile?.booking_slot_size_minutes ?? 30))
@@ -678,7 +713,7 @@ export function CustomerBookingPage() {
       const client = supabase
 
       try {
-        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, business_hours, owner_name"
+        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_additional_info, payment_receipt_url, business_hours, owner_name"
         const profileQuery = () => client.from("business_profiles").select(profileFields)
         let profileResult: any = activeSlug
           ? await profileQuery().eq("slug", activeSlug).limit(1)
@@ -686,7 +721,7 @@ export function CustomerBookingPage() {
 
         // Keep older deployments usable until the booking_policy migration is
         // applied in Supabase.
-        if (profileResult.error?.message?.includes("booking_policy")) {
+        if (profileResult.error?.message?.includes("booking_policy") || profileResult.error?.message?.includes("booking_show_phone")) {
           const legacyFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, business_hours, owner_name"
           const legacyQuery = () => client.from("business_profiles").select(legacyFields)
           profileResult = activeSlug
@@ -1393,9 +1428,8 @@ export function CustomerBookingPage() {
                   <UserRound size={19} />
                 </div>
                 <div>
-                  <p className="booking-kicker">Almost there</p>
                   <h2>Your details</h2>
-                  <p>We’ll use these to confirm your appointment and send details.</p>
+                  <p>Confirm your booking details.</p>
                 </div>
               </div>
 
@@ -1410,17 +1444,7 @@ export function CustomerBookingPage() {
                     Sign in with Google / Email →
                   </button>
                 </div>
-              ) : (
-                <div className="user-logged-badge" style={{ marginBottom: 18 }}>
-                  <div className="user-logged-badge-left">
-                    <CheckCircle2 size={16} />
-                    <span>
-                      Signed in as <strong>{String(currentUser.user_metadata?.full_name ?? currentUser.email?.split("@")[0])}</strong> ({currentUser.email})
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>Details auto-filled</span>
-                </div>
-              )}
+              ) : null}
 
               <form
                 className="details-form"
@@ -1433,6 +1457,7 @@ export function CustomerBookingPage() {
                     const noteContent = [
                       details.note.trim(),
                       pegImageName ? `[Peg Reference Attached: ${pegImageName}]` : "",
+                      paymentReceiptName ? `[Payment Receipt Attached: ${paymentReceiptName}]` : "",
                     ].filter(Boolean).join("\n")
 
                     const appointmentPayload = {
@@ -1440,6 +1465,7 @@ export function CustomerBookingPage() {
                       customer_name: details.name.trim(),
                       customer_email: details.email.trim(),
                       customer_phone: details.phone.trim(),
+                      customer_address: details.address.trim(),
                       customer_note: noteContent,
                       service_names: selectedServiceLabel,
                       total_price: totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel,
@@ -1488,6 +1514,7 @@ export function CustomerBookingPage() {
                   <input
                     autoComplete="name"
                     value={details.name}
+                    disabled={Boolean(currentUser)}
                     onChange={(event) => updateDetail("name", event.target.value)}
                     placeholder="e.g. Maria Santos"
                     required
@@ -1501,12 +1528,13 @@ export function CustomerBookingPage() {
                       type="email"
                       autoComplete="email"
                       value={details.email}
+                      disabled={Boolean(currentUser)}
                       onChange={(event) => updateDetail("email", event.target.value)}
                       placeholder="you@example.com"
                       required
                     />
                   </label>
-                  <label>
+                  {showPhoneField && <label>
                     Mobile number
                     <input
                       type="tel"
@@ -1516,11 +1544,18 @@ export function CustomerBookingPage() {
                       placeholder="09XX XXX XXXX"
                       required
                     />
-                  </label>
+                  </label>}
                 </div>
 
-                {/* Peg attachment */}
-                <div className="peg-attachment-field">
+                {showAddressField && (
+                  <label>
+                    Address
+                    <input autoComplete="street-address" value={details.address} onChange={(event) => updateDetail("address", event.target.value)} placeholder="Street, barangay, city" required />
+                  </label>
+                )}
+
+                {/* Optional customer fields configured by the business */}
+                {showDesignPegField && <div className="peg-attachment-field">
                   <div className="peg-field-header">
                     <span>
                       Design peg / Inspo photo <span className="optional">Optional</span>
@@ -1582,15 +1617,26 @@ export function CustomerBookingPage() {
                   <textarea
                     value={details.note}
                     onChange={(event) => updateDetail("note", event.target.value)}
-                    placeholder="Describe requested styling, shape, colors, or notes (e.g. short square, chrome French tip, 3D charms)..."
+                    placeholder="Additional information (optional)"
                     rows={2}
                     className="peg-textarea"
                   />
 
-                  <small className="details-peg-hint">
-                    ✨ <em>Prices vary depending on design complexity. Your final quote will be confirmed upon review of your peg.</em>
-                  </small>
-                </div>
+                </div>}
+
+                {additionalInfo && <small className="details-peg-hint"><em>{additionalInfo}</em></small>}
+
+                {showPaymentReceiptField && (
+                  <div className="peg-attachment-field">
+                    <div className="peg-field-header"><span>Payment receipt <span className="optional">Optional</span></span></div>
+                    <label htmlFor="payment-receipt-input" className="peg-dropzone">
+                      <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
+                      <div className="peg-dropzone-icon"><Camera size={21} /></div>
+                      <div className="peg-dropzone-text"><strong>{paymentReceiptName || "Attach payment receipt"}</strong><span>PNG, JPG, WEBP</span></div>
+                    </label>
+                    {profile?.payment_receipt_url && <img src={profile.payment_receipt_url} alt="Payment instructions" className="payment-guide-image" />}
+                  </div>
+                )}
 
                 <div className="booking-summary">
                   <div className="booking-summary-grid">
