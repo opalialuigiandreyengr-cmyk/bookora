@@ -105,6 +105,11 @@ create table if not exists public.business_profiles (
     instagram text default '',
     facebook text default '',
     booking_policy text default '',
+    booking_min_notice_hours integer default 2,
+    booking_max_days integer default 60,
+    booking_slot_size_minutes integer default 30,
+    booking_cancellation_notice_hours integer default 24,
+    booking_buffer_minutes integer default 0,
     banner_url text default '',
     logo_url text default '',
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -114,6 +119,16 @@ create table if not exists public.business_profiles (
 -- Safe migration for projects where business_profiles already exists.
 alter table public.business_profiles
     add column if not exists booking_policy text default '';
+alter table public.business_profiles
+    add column if not exists booking_min_notice_hours integer default 2;
+alter table public.business_profiles
+    add column if not exists booking_max_days integer default 60;
+alter table public.business_profiles
+    add column if not exists booking_slot_size_minutes integer default 30;
+alter table public.business_profiles
+    add column if not exists booking_cancellation_notice_hours integer default 24;
+alter table public.business_profiles
+    add column if not exists booking_buffer_minutes integer default 0;
 
 -- Index for id lookup
 create index if not exists idx_business_profiles_id on public.business_profiles (id);
@@ -291,11 +306,15 @@ create table if not exists public.appointments (
     total_price text not null default '₱0',
     appointment_date text not null,
     appointment_time text not null,
+    duration_minutes integer,
+    buffer_minutes integer default 0,
     status text not null default 'pending',
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 create index if not exists idx_appointments_business_id on public.appointments (business_id);
+alter table public.appointments add column if not exists duration_minutes integer;
+alter table public.appointments add column if not exists buffer_minutes integer default 0;
 
 alter table public.appointments enable row level security;
 
@@ -324,6 +343,34 @@ create policy "Public can insert appointments"
 
 grant select, update, delete on public.appointments to authenticated;
 grant insert on public.appointments to anon, authenticated;
+
+-- Return only occupied time ranges for public booking availability checks.
+-- Customer details remain protected by the appointments RLS policies above.
+create or replace function public.get_public_booked_times(
+    p_business_id uuid,
+    p_appointment_date text
+)
+returns table (
+    appointment_time text,
+    duration_minutes integer,
+    buffer_minutes integer
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+    select
+        a.appointment_time,
+        a.duration_minutes,
+        coalesce(a.buffer_minutes, 0)
+    from public.appointments a
+    where a.business_id = p_business_id
+      and a.appointment_date = p_appointment_date
+      and lower(coalesce(a.status, 'pending')) not in ('cancelled', 'canceled', 'declined', 'rejected')
+$$;
+
+grant execute on function public.get_public_booked_times(uuid, text) to anon, authenticated;
 
 -- ============================================================================
 -- Business Profiles - Owner Name column

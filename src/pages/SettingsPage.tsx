@@ -317,11 +317,36 @@ function Hours({
   )
 }
 
-function BookingPreferences({ policy, setPolicy }: { policy: string; setPolicy: (value: string) => void }) {
+function BookingPreferences({
+  policy,
+  setPolicy,
+  minNoticeHours,
+  setMinNoticeHours,
+  maxDays,
+  setMaxDays,
+  slotSize,
+  setSlotSize,
+  cancellationNoticeHours,
+  setCancellationNoticeHours,
+  bufferMinutes,
+  setBufferMinutes,
+}: {
+  policy: string
+  setPolicy: (value: string) => void
+  minNoticeHours: string
+  setMinNoticeHours: (value: string) => void
+  maxDays: string
+  setMaxDays: (value: string) => void
+  slotSize: string
+  setSlotSize: (value: string) => void
+  cancellationNoticeHours: string
+  setCancellationNoticeHours: (value: string) => void
+  bufferMinutes: string
+  setBufferMinutes: (value: string) => void
+}) {
   const [visible, setVisible] = useState(true)
   const [reminders, setReminders] = useState(true)
   const [buffer, setBuffer] = useState(true)
-  const [slotSize, setSlotSize] = useState("30")
   const [fields, setFields] = useState({ phone: true, notes: false, address: false })
   return (
     <div className="preferences-settings-stack">
@@ -363,7 +388,7 @@ function BookingPreferences({ policy, setPolicy }: { policy: string; setPolicy: 
         <div className="settings-form-grid preference-form-grid">
           <label>
             <span>Minimum notice</span>
-            <select defaultValue="2">
+            <select value={minNoticeHours} onChange={(event) => setMinNoticeHours(event.target.value)}>
               <option value="0">No minimum</option>
               <option value="2">2 hours</option>
               <option value="24">24 hours</option>
@@ -372,7 +397,7 @@ function BookingPreferences({ policy, setPolicy }: { policy: string; setPolicy: 
           </label>
           <label>
             <span>How far ahead clients can book</span>
-            <select defaultValue="60">
+            <select value={maxDays} onChange={(event) => setMaxDays(event.target.value)}>
               <option value="30">30 days</option>
               <option value="60">60 days</option>
               <option value="90">90 days</option>
@@ -390,7 +415,7 @@ function BookingPreferences({ policy, setPolicy }: { policy: string; setPolicy: 
           </label>
           <label>
             <span>Cancellation notice</span>
-            <select defaultValue="24">
+            <select value={cancellationNoticeHours} onChange={(event) => setCancellationNoticeHours(event.target.value)}>
               <option value="0">Anytime</option>
               <option value="2">2 hours</option>
               <option value="6">6 hours</option>
@@ -403,7 +428,7 @@ function BookingPreferences({ policy, setPolicy }: { policy: string; setPolicy: 
           </label>
           <label>
             <span>Time between appointments</span>
-            <select defaultValue="0">
+            <select value={bufferMinutes} onChange={(event) => setBufferMinutes(event.target.value)}>
               <option value="0">No buffer</option>
               <option value="5">5 minutes</option>
               <option value="10">10 minutes</option>
@@ -1337,6 +1362,11 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
   const [bannerUrl, setBannerUrl] = useState(String(initialCache.banner_url ?? user.user_metadata?.banner_url ?? ""))
   const [logoUrl, setLogoUrl] = useState(String(initialCache.logo_url ?? user.user_metadata?.logo_url ?? ""))
   const [bookingPolicy, setBookingPolicy] = useState(String(initialCache.booking_policy ?? user.user_metadata?.booking_policy ?? ""))
+  const [minNoticeHours, setMinNoticeHours] = useState(String(initialCache.booking_min_notice_hours ?? user.user_metadata?.booking_min_notice_hours ?? "2"))
+  const [maxDays, setMaxDays] = useState(String(initialCache.booking_max_days ?? user.user_metadata?.booking_max_days ?? "60"))
+  const [slotSize, setSlotSize] = useState(String(initialCache.booking_slot_size_minutes ?? user.user_metadata?.booking_slot_size_minutes ?? "30"))
+  const [cancellationNoticeHours, setCancellationNoticeHours] = useState(String(initialCache.booking_cancellation_notice_hours ?? user.user_metadata?.booking_cancellation_notice_hours ?? "24"))
+  const [bufferMinutes, setBufferMinutes] = useState(String(initialCache.booking_buffer_minutes ?? user.user_metadata?.booking_buffer_minutes ?? "0"))
 
   // Save operation state
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -1373,6 +1403,11 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           if (data.instagram !== undefined) setInstagram(data.instagram || "")
           if (data.facebook !== undefined) setFacebook(data.facebook || "")
           if (data.booking_policy !== undefined) setBookingPolicy(data.booking_policy || "")
+          if (data.booking_min_notice_hours !== undefined) setMinNoticeHours(String(data.booking_min_notice_hours ?? 2))
+          if (data.booking_max_days !== undefined) setMaxDays(String(data.booking_max_days ?? 60))
+          if (data.booking_slot_size_minutes !== undefined) setSlotSize(String(data.booking_slot_size_minutes ?? 30))
+          if (data.booking_cancellation_notice_hours !== undefined) setCancellationNoticeHours(String(data.booking_cancellation_notice_hours ?? 24))
+          if (data.booking_buffer_minutes !== undefined) setBufferMinutes(String(data.booking_buffer_minutes ?? 0))
           if (data.banner_url) setBannerUrl(data.banner_url)
           if (data.logo_url) setLogoUrl(data.logo_url)
 
@@ -1411,6 +1446,11 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
       instagram: instagram.trim(),
       facebook: facebook.trim(),
       booking_policy: bookingPolicy.trim(),
+      booking_min_notice_hours: Math.max(0, Number(minNoticeHours) || 0),
+      booking_max_days: Math.max(1, Number(maxDays) || 60),
+      booking_slot_size_minutes: Math.max(5, Number(slotSize) || 30),
+      booking_cancellation_notice_hours: Math.max(0, Number(cancellationNoticeHours) || 0),
+      booking_buffer_minutes: Math.max(0, Number(bufferMinutes) || 0),
       banner_url: bannerUrl,
       logo_url: logoUrl,
       owner_name: String(user.user_metadata?.full_name ?? "Luigi Opalia"),
@@ -1434,6 +1474,11 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             phone: profileData.phone,
             business_hours: profileData.business_hours,
             booking_policy: profileData.booking_policy,
+            booking_min_notice_hours: profileData.booking_min_notice_hours,
+            booking_max_days: profileData.booking_max_days,
+            booking_slot_size_minutes: profileData.booking_slot_size_minutes,
+            booking_cancellation_notice_hours: profileData.booking_cancellation_notice_hours,
+            booking_buffer_minutes: profileData.booking_buffer_minutes,
             business_profile: profileData,
             banner_url: profileData.banner_url,
             logo_url: profileData.logo_url,
@@ -1581,7 +1626,20 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
               setLogoUrl={setLogoUrl}
             />
           ) : active === "Booking preferences" ? (
-            <BookingPreferences policy={bookingPolicy} setPolicy={setBookingPolicy} />
+            <BookingPreferences
+              policy={bookingPolicy}
+              setPolicy={setBookingPolicy}
+              minNoticeHours={minNoticeHours}
+              setMinNoticeHours={setMinNoticeHours}
+              maxDays={maxDays}
+              setMaxDays={setMaxDays}
+              slotSize={slotSize}
+              setSlotSize={setSlotSize}
+              cancellationNoticeHours={cancellationNoticeHours}
+              setCancellationNoticeHours={setCancellationNoticeHours}
+              bufferMinutes={bufferMinutes}
+              setBufferMinutes={setBufferMinutes}
+            />
           ) : active === "Notifications" ? (
             <NotificationsSettings />
           ) : active === "Account" ? (

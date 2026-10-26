@@ -65,6 +65,11 @@ type BusinessProfile = {
   instagram?: string | null
   facebook?: string | null
   booking_policy?: string | null
+  booking_min_notice_hours?: number | null
+  booking_max_days?: number | null
+  booking_slot_size_minutes?: number | null
+  booking_cancellation_notice_hours?: number | null
+  booking_buffer_minutes?: number | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
   owner_name?: string | null
 }
@@ -95,10 +100,18 @@ type AppointmentRecord = {
   service_names: string
   appointment_date: string
   appointment_time: string
+  duration_minutes?: number | null
+  buffer_minutes?: number | null
   total_price: string
   status: string
   customer_note?: string
   created_at: string
+}
+
+type BookedTime = {
+  appointment_time: string
+  duration_minutes?: number | null
+  buffer_minutes?: number | null
 }
 
 const fallbackCategories: ServiceCategory[] = [
@@ -118,11 +131,11 @@ const fallbackServices: Service[] = [
   { id: "home-max-4", name: "Home Service (Maximum of 4pax)", description: "₱200 [EACH] · Up to 4 clients", duration: "0 min", price: "₱200", category: "Home Service", categoryId: "cat-home" },
 ]
 
-const timeSlots = ["9:00 AM", "10:30 AM", "12:00 PM", "1:30 PM", "3:00 PM", "4:30 PM"]
-
 const philippinesDateParts = () => Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).filter((part) => part.type !== "literal").map((part) => [part.type, part.value])) as Record<string, string>
 const philippinesTodayKey = () => { const parts = philippinesDateParts(); return `${parts.year}-${parts.month}-${parts.day}` }
 const calendarKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`
+const addDaysToKey = (key: string, days: number) => { const [year, month, day] = key.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); date.setUTCDate(date.getUTCDate() + days); return calendarKey(date) }
+const formatSlotTime = (minutes: number) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" }).format(new Date(Date.UTC(1970, 0, 1, Math.floor(minutes / 60), minutes % 60)))
 const calendarLabel = (key: string) => { const [year, month, day] = key.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return { day: new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(date), date: String(day), month: new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date) } }
 const restorePublicServiceOrder = (services: Service[], businessId: string) => {
   try {
@@ -230,6 +243,8 @@ export function CustomerBookingPage() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => philippinesTodayKey())
   const [calendarMonth, setCalendarMonth] = useState(() => { const [year, month] = philippinesTodayKey().split("-").map(Number); return new Date(Date.UTC(year, month - 1, 1)) })
   const [time, setTime] = useState("")
+  const [bookedTimes, setBookedTimes] = useState<BookedTime[]>([])
+  const [bookingTimesLoading, setBookingTimesLoading] = useState(false)
   const [details, setDetails] = useState({ name: "", email: "", phone: "", note: "" })
   const [pegImage, setPegImage] = useState<string>("")
   const [pegImageName, setPegImageName] = useState<string>("")
@@ -497,13 +512,29 @@ export function CustomerBookingPage() {
     .map((policy) => policy.trim())
     .filter(Boolean) || defaultBookingPolicies
   const schedule = profile?.business_hours ?? []
+  const minimumNoticeHours = Math.max(0, Number(profile?.booking_min_notice_hours ?? 2))
+  const maximumBookingDays = Math.max(1, Number(profile?.booking_max_days ?? 60))
+  const bookingSlotSize = Math.max(5, Number(profile?.booking_slot_size_minutes ?? 30))
+  const bookingBufferMinutes = Math.max(0, Number(profile?.booking_buffer_minutes ?? 0))
   const philippinesTimeZone = "Asia/Manila"
   const formatScheduleTime = (value?: string) => value ? new Intl.DateTimeFormat("en-US", { timeZone: philippinesTimeZone, hour: "numeric", minute: "2-digit" }).format(new Date(`1970-01-01T${value}:00+08:00`)) : "Closed"
   const timeToMinutes = (value?: string) => value ? Number(value.split(":")[0]) * 60 + Number(value.split(":")[1] || 0) : -1
+  const slotLabelToMinutes = (value?: string) => {
+    if (!value) return -1
+    const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+    if (!match) return -1
+    let hour = Number(match[1])
+    const minute = Number(match[2])
+    const meridiem = match[3].toUpperCase()
+    if (hour === 12) hour = 0
+    if (meridiem === "PM") hour += 12
+    return hour * 60 + minute
+  }
   const philippinesNow = new Intl.DateTimeFormat("en-US", { timeZone: philippinesTimeZone, weekday: "long", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date())
   const todayName = philippinesNow.find((part) => part.type === "weekday")?.value || ""
   const todaySchedule = schedule.find((item) => item.day.toLowerCase() === todayName.toLowerCase())
   const currentMinutes = Number(philippinesNow.find((part) => part.type === "hour")?.value || 0) * 60 + Number(philippinesNow.find((part) => part.type === "minute")?.value || 0)
+  const latestBookableDateKey = addDaysToKey(todayKey, maximumBookingDays)
   const isOpenNow = Boolean(todaySchedule?.open && currentMinutes >= timeToMinutes(todaySchedule.start) && currentMinutes < timeToMinutes(todaySchedule.end))
   const weekdayOrder = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
   const todayIndex = weekdayOrder.findIndex((day) => day.toLowerCase() === todayName.toLowerCase())
@@ -522,6 +553,33 @@ export function CustomerBookingPage() {
     const date = new Date(Date.UTC(year, month - 1, day))
     return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date)
   }, [selectedDateKey])
+  const slotOverlapsBookedTime = (start: number, duration: number, booked: BookedTime) => {
+    const bookedStart = slotLabelToMinutes(booked.appointment_time)
+    if (bookedStart < 0) return false
+    const bookedDuration = Math.max(bookingSlotSize, Number(booked.duration_minutes || bookingSlotSize))
+    const bookedBuffer = Math.max(0, Number(booked.buffer_minutes || 0))
+    return start < bookedStart + bookedDuration + bookedBuffer && start + duration > bookedStart
+  }
+  const availableSlotsForDate = (dateKey: string) => {
+    const [year, month, day] = dateKey.split("-").map(Number)
+    const date = new Date(Date.UTC(year, month - 1, day))
+    const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date)
+    const daySchedule = schedule.find((item) => item.day.toLowerCase() === weekday.toLowerCase())
+    if (!daySchedule?.open || !daySchedule.start || !daySchedule.end) return []
+
+    const openingMinutes = timeToMinutes(daySchedule.start)
+    const closingMinutes = timeToMinutes(daySchedule.end)
+    const requiredMinutes = Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes
+    const earliestTime = dateKey === todayKey ? currentMinutes + minimumNoticeHours * 60 : openingMinutes
+    const slots: string[] = []
+    for (let start = openingMinutes; start + requiredMinutes <= closingMinutes; start += bookingSlotSize) {
+      if (start < earliestTime) continue
+      const hasConflict = bookedTimes.some((booked) => slotOverlapsBookedTime(start, requiredMinutes, booked))
+      if (!hasConflict) slots.push(formatSlotTime(start))
+    }
+    return slots
+  }
+  const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, todayKey, totalDurationMinutes])
 
   const isSelectedDateClosed = useMemo(() => {
     if (!schedule.length) return false
@@ -620,7 +678,7 @@ export function CustomerBookingPage() {
       const client = supabase
 
       try {
-        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, business_hours, owner_name"
+        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, business_hours, owner_name"
         const profileQuery = () => client.from("business_profiles").select(profileFields)
         let profileResult: any = activeSlug
           ? await profileQuery().eq("slug", activeSlug).limit(1)
@@ -629,7 +687,8 @@ export function CustomerBookingPage() {
         // Keep older deployments usable until the booking_policy migration is
         // applied in Supabase.
         if (profileResult.error?.message?.includes("booking_policy")) {
-          const legacyQuery = () => client.from("business_profiles").select(profileFields.replace(", booking_policy", ""))
+          const legacyFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, business_hours, owner_name"
+          const legacyQuery = () => client.from("business_profiles").select(legacyFields)
           profileResult = activeSlug
             ? await legacyQuery().eq("slug", activeSlug).limit(1)
             : await legacyQuery().order("created_at", { ascending: true }).limit(1)
@@ -683,6 +742,35 @@ export function CustomerBookingPage() {
     loadPublicBookingData().catch(() => undefined)
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    const loadBookedTimes = async () => {
+      if (!supabase || !profile?.id || !selectedDateKey) {
+        setBookedTimes([])
+        return
+      }
+      setBookingTimesLoading(true)
+      try {
+        const { data, error } = await supabase.rpc("get_public_booked_times", {
+          p_business_id: profile.id,
+          p_appointment_date: selectedDateKey,
+        })
+        if (!active) return
+        setBookedTimes(error ? [] : ((data ?? []) as BookedTime[]))
+      } catch {
+        if (active) setBookedTimes([])
+      } finally {
+        if (active) setBookingTimesLoading(false)
+      }
+    }
+    loadBookedTimes().catch(() => undefined)
+    return () => { active = false }
+  }, [profile?.id, selectedDateKey])
+
+  useEffect(() => {
+    if (time && !availableTimeSlots.includes(time)) setTime("")
+  }, [availableTimeSlots, time])
 
   // Load reviews from Supabase and localStorage fallback (no fake reviews)
   const loadReviews = async (businessId: string) => {
@@ -980,7 +1068,7 @@ export function CustomerBookingPage() {
         </section>
       )}
 
-      {profile?.banner_url && (
+      {profile?.banner_url && step === 1 && (
         <section className="booking-mobile-profile" aria-label={`${businessName} profile`}>
           <div className="booking-mobile-profile-identity">
             <span className="booking-mobile-profile-logo">
@@ -1014,7 +1102,7 @@ export function CustomerBookingPage() {
       {/* Main Booking Interactive Layout */}
       <div className={`booking-layout ${step >= 2 ? "date-time-layout" : ""}`} id="booking-flow">
         {/* Left Side: Business Profile Summary */}
-        <aside className="booking-business-panel">
+        {step === 1 && <aside className="booking-business-panel">
           {!profile.banner_url && <div className="business-identity">
             <div className="business-avatar">{profile?.logo_url ? <img src={profile.logo_url} alt="" /> : businessInitial}</div>
             <div>
@@ -1110,7 +1198,7 @@ export function CustomerBookingPage() {
           <p className="business-note">
             <Sparkles size={16} /> Appointments are held for 10 minutes upon confirmation.
           </p>
-        </aside>
+        </aside>}
 
         {/* Right Side: Step Wizard */}
         <section className={`booking-card ${step === 1 ? "service-selection-card" : ""}`} aria-labelledby="choose-service">
@@ -1196,20 +1284,16 @@ export function CustomerBookingPage() {
           {/* STEP 2: Pick Date & Time */}
           {step === 2 && (
             <div className="booking-step">
-              <button className="booking-back" type="button" onClick={() => setStep(1)}>
-                <ChevronLeft size={16} /> Back to services
-              </button>
-              <div className="step-heading">
+              <div className="step-heading date-time-step-heading">
+                <button className="booking-back booking-back-icon" type="button" aria-label="Back to services" title="Back to services" onClick={() => setStep(1)}>
+                  <ChevronLeft size={17} />
+                </button>
                 <div className="step-icon">
                   <CalendarDays size={19} />
                 </div>
                 <div>
-                  <p className="booking-kicker">
-                    {selectedServiceLabel}
-                    {formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
-                  </p>
                   <h2>Pick a date & time</h2>
-                  <p>All times are shown in Philippine Standard Time (PST).</p>
+                  <p>Philippine time (PST).</p>
                 </div>
               </div>
 
@@ -1247,7 +1331,7 @@ export function CustomerBookingPage() {
                 </div>
                 <div className="calendar-grid">
                   {calendarDays.map((day) => {
-                    const disabled = day.key < todayKey
+                    const disabled = day.key < todayKey || day.key > latestBookableDateKey || availableSlotsForDate(day.key).length === 0
                     return (
                       <button
                         key={day.key}
@@ -1274,7 +1358,7 @@ export function CustomerBookingPage() {
                   </small>
                 </div>
                 <div className="time-grid">
-                  {timeSlots.map((slot) => (
+                  {bookingTimesLoading ? <p className="time-empty">Checking availability…</p> : availableTimeSlots.length ? availableTimeSlots.map((slot) => (
                     <button
                       key={slot}
                       className={`time-option ${time === slot ? "selected" : ""}`}
@@ -1283,7 +1367,7 @@ export function CustomerBookingPage() {
                     >
                       {slot}
                     </button>
-                  ))}
+                  )) : <p className="time-empty">No available times for this date.</p>}
                 </div>
               </div>
 
@@ -1301,10 +1385,10 @@ export function CustomerBookingPage() {
           {/* STEP 3: Customer Details & Design Peg */}
           {step === 3 && (
             <div className="booking-step">
-              <button className="booking-back" type="button" onClick={() => setStep(2)}>
-                <ChevronLeft size={16} /> Back to date & time
-              </button>
-              <div className="step-heading">
+              <div className="step-heading date-time-step-heading">
+                <button className="booking-back booking-back-icon" type="button" aria-label="Back to date and time" title="Back to date and time" onClick={() => setStep(2)}>
+                  <ChevronLeft size={17} />
+                </button>
                 <div className="step-icon">
                   <UserRound size={19} />
                 </div>
@@ -1344,6 +1428,7 @@ export function CustomerBookingPage() {
                   event.preventDefault()
                   if (!canContinue || submittingBooking) return
                   setSubmittingBooking(true)
+                  let bookingSaved = false
                   try {
                     const noteContent = [
                       details.note.trim(),
@@ -1360,10 +1445,19 @@ export function CustomerBookingPage() {
                       total_price: totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel,
                       appointment_date: selectedDateKey,
                       appointment_time: time,
+                      duration_minutes: Math.max(bookingSlotSize, totalDurationMinutes),
+                      buffer_minutes: bookingBufferMinutes,
                       status: "pending",
                     }
 
                     if (supabase && profile?.id) {
+                      const { data: latestBookedTimes, error: availabilityError } = await supabase.rpc("get_public_booked_times", {
+                        p_business_id: profile.id,
+                        p_appointment_date: selectedDateKey,
+                      })
+                      if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes, booked))) {
+                        throw new Error("That time was just booked. Please choose another available time.")
+                      }
                       const { error } = await supabase.from("appointments").insert(appointmentPayload)
                       if (error) throw error
                     }
@@ -1379,11 +1473,13 @@ export function CustomerBookingPage() {
                       })
                       localStorage.setItem(localKey, JSON.stringify(prevBookings))
                     }
+                    bookingSaved = true
                   } catch (err) {
-                    console.warn("Notice: appointment saved locally", err)
+                    console.warn("Unable to save appointment", err)
+                    showToast(err instanceof Error ? err.message : "We could not save your booking. Please try again.")
                   } finally {
                     setSubmittingBooking(false)
-                    setStep(4)
+                    if (bookingSaved) setStep(4)
                   }
                 }}
               >
