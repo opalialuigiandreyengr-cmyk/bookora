@@ -26,12 +26,17 @@ export default function App() {
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [showPasskey, setShowPasskey] = useState(false)
 
+  const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(hostname)
   const cookieSlug = getCrossSubdomainCookie("bookora_client_slug")
-  const clientSlug = user?.user_metadata?.client_slug || cookieSlug
+  // A shared subdomain cookie may be left by a previous client session. It
+  // must never turn a root-domain business login into a client redirect.
+  const clientSlug = isRootDomain ? user?.user_metadata?.client_slug : (user?.user_metadata?.client_slug || cookieSlug)
   const isClient = Boolean(
-    user?.user_metadata?.account_type === "client" ||
-    user?.user_metadata?.role === "client" ||
-    clientSlug
+    !isRootDomain && (
+      user?.user_metadata?.account_type === "client" ||
+      user?.user_metadata?.role === "client" ||
+      clientSlug
+    )
   )
 
   useEffect(() => {
@@ -64,12 +69,6 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return
-    const isRootDomain =
-      hostname === "bookoraph.com" ||
-      hostname === "www.bookoraph.com" ||
-      hostname === "bookora.com" ||
-      hostname === "www.bookora.com"
-
     const returnUrl = getCrossSubdomainCookie("bookora_client_return")
 
     if (isClient) {
@@ -98,12 +97,6 @@ export default function App() {
 
   // If user is a verified client from a custom slug business
   if (user && isClient) {
-    const isRootDomain =
-      hostname === "bookoraph.com" ||
-      hostname === "www.bookoraph.com" ||
-      hostname === "bookora.com" ||
-      hostname === "www.bookora.com"
-
     if (isRootDomain && clientSlug) {
       const rootDomain = hostname.includes("bookoraph.com") ? "bookoraph.com" : "bookora.com"
       window.location.replace(`https://${clientSlug}.${rootDomain}/`)

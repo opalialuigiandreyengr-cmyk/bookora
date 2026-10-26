@@ -55,10 +55,13 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
       setMessage(error.message)
     } else {
       const loggedUser = signInData.user
+      const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(window.location.hostname)
       const isClient = Boolean(
-        loggedUser?.user_metadata?.account_type === "client" ||
-        loggedUser?.user_metadata?.role === "client" ||
-        loggedUser?.user_metadata?.client_slug
+        !isRootDomain && (
+          loggedUser?.user_metadata?.account_type === "client" ||
+          loggedUser?.user_metadata?.role === "client" ||
+          loggedUser?.user_metadata?.client_slug
+        )
       )
       if (isClient) {
         const clientSlug = loggedUser.user_metadata?.client_slug
