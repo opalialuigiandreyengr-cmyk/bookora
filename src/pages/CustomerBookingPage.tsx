@@ -260,11 +260,23 @@ export function CustomerBookingPage() {
   const [paymentReceipt, setPaymentReceipt] = useState<string>("")
   const [paymentReceiptName, setPaymentReceiptName] = useState<string>("")
   const [summaryDateVisible, setSummaryDateVisible] = useState(true)
+  const [stepTransitionLoading, setStepTransitionLoading] = useState(false)
   const [submittingBooking, setSubmittingBooking] = useState(false)
+  const stepTransitionTimer = useRef<number | null>(null)
 
   const bookingSlug = profile?.slug || urlSlug
   const scrollBookingPageToTop = () => {
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }))
+  }
+  const transitionToBookingStep = (nextStep: number) => {
+    if (stepTransitionTimer.current !== null) window.clearTimeout(stepTransitionTimer.current)
+    setStepTransitionLoading(true)
+    setStep(nextStep)
+    scrollBookingPageToTop()
+    stepTransitionTimer.current = window.setTimeout(() => {
+      setStepTransitionLoading(false)
+      stepTransitionTimer.current = null
+    }, 450)
   }
 
   // Auth & user states
@@ -275,7 +287,9 @@ export function CustomerBookingPage() {
   const [showMyBookings, setShowMyBookings] = useState(false)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
   const [footerVisible, setFooterVisible] = useState(false)
+  const [reviewsVisible, setReviewsVisible] = useState(false)
   const footerRef = useRef<HTMLElement | null>(null)
+  const reviewsRef = useRef<HTMLElement | null>(null)
 
   // Real Reviews state (no fake reviews)
   const [reviews, setReviews] = useState<Review[]>([])
@@ -291,6 +305,12 @@ export function CustomerBookingPage() {
   }, [currentUser])
 
   useEffect(() => {
+    return () => {
+      if (stepTransitionTimer.current !== null) window.clearTimeout(stepTransitionTimer.current)
+    }
+  }, [])
+
+  useEffect(() => {
     const footer = footerRef.current
     if (!footer || typeof IntersectionObserver === "undefined") return
 
@@ -300,6 +320,19 @@ export function CustomerBookingPage() {
     )
 
     observer.observe(footer)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const reviewsSection = reviewsRef.current
+    if (!reviewsSection || typeof IntersectionObserver === "undefined") return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setReviewsVisible(entry.isIntersecting),
+      { threshold: 0.12 },
+    )
+
+    observer.observe(reviewsSection)
     return () => observer.disconnect()
   }, [])
 
@@ -935,7 +968,15 @@ export function CustomerBookingPage() {
   }
 
   return (
-    <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""} ${footerVisible ? "footer-visible" : ""}`}>
+    <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""} ${footerVisible ? "footer-visible" : ""} ${reviewsVisible ? "reviews-visible" : ""}`}>
+      {stepTransitionLoading && (
+        <div className="booking-step-transition" role="status" aria-live="polite" aria-label="Checking booking availability">
+          <div className="booking-step-transition-card">
+            <Loader2 size={30} className="animate-spin" />
+            <span>Checking availability…</span>
+          </div>
+        </div>
+      )}
       {/* Top Header */}
       <header className="booking-header">
         <a className="booking-brand" href="/" aria-label={`${bookingBrandName} booking page`}>
@@ -1332,8 +1373,7 @@ export function CustomerBookingPage() {
                       return
                     }
                     setSummaryDateVisible(false)
-                    setStep(2)
-                    scrollBookingPageToTop()
+                    transitionToBookingStep(2)
                   }}
                 >
                   Book <ArrowRight size={17} />
@@ -1424,7 +1464,7 @@ export function CustomerBookingPage() {
                       key={slot}
                       className={`time-option ${time === slot ? "selected" : ""}`}
                       type="button"
-                      onClick={() => { setTime(slot); setSummaryDateVisible(false); setStep(3); scrollBookingPageToTop() }}
+                      onClick={() => { setTime(slot); setSummaryDateVisible(false); transitionToBookingStep(3) }}
                     >
                       {slot}
                     </button>
@@ -1932,7 +1972,7 @@ export function CustomerBookingPage() {
       </section>
 
       {/* Real Reviews Section */}
-      <section className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
+      <section ref={reviewsRef} className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
         <div className="section-intro">
           <div>
             <h2 id="reviews-title" className="booking-section-label">REVIEWS</h2>
