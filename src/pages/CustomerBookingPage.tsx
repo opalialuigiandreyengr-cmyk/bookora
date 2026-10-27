@@ -39,6 +39,7 @@ import { BookingServicesPage } from "@/pages/booking/BookingServicesPage"
 import { BookingDateTimePage } from "@/pages/booking/BookingDateTimePage"
 import { BookingDetailsPage } from "@/pages/booking/BookingDetailsPage"
 import { BookingSuccessPage } from "@/pages/booking/BookingSuccessPage"
+import { MyBookingsPage } from "@/pages/booking/MyBookingsPage"
 
 type Service = {
   id: string
@@ -122,6 +123,8 @@ type AppointmentRecord = {
   customer_note?: string
   peg_image_path?: string | null
   payment_receipt_path?: string | null
+  peg_image_url?: string | null
+  payment_receipt_url?: string | null
   created_at: string
 }
 
@@ -246,6 +249,7 @@ export function CustomerBookingPage() {
   const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
   const urlSlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug : ""
   const manageBookingsRequested = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("manage") === "bookings"
+  const bookingsPathRequested = typeof window !== "undefined" && pathParts[0] === "bookings"
   const selectedServicesStorageKey = `bookora_selected_services_${urlSlug || "default"}`
 
   const getBookingStepFromUrl = (): BookingStep => {
@@ -330,13 +334,31 @@ export function CustomerBookingPage() {
     navigateToBookingStep(fallbackStep, true)
     scrollBookingPageToTop()
   }
+  const openBookingsPage = () => {
+    const nextUrl = new URL(window.location.href)
+    nextUrl.pathname = "/bookings"
+    nextUrl.searchParams.delete("manage")
+    nextUrl.searchParams.delete("step")
+    window.history.pushState({ ...(window.history.state || {}), bookoraBookingsPage: true }, "", nextUrl.toString())
+    setShowBookingsPage(true)
+    setAccountOpen(false)
+    scrollBookingPageToTop()
+  }
+  const closeBookingsPage = () => {
+    const nextUrl = new URL(window.location.href)
+    nextUrl.searchParams.delete("manage")
+    if (nextUrl.pathname.endsWith("/bookings")) nextUrl.pathname = "/booking"
+    window.history.pushState({ ...(window.history.state || {}), bookoraBookingsPage: false }, "", nextUrl.toString())
+    setShowBookingsPage(false)
+    scrollBookingPageToTop()
+  }
 
   // Auth & user states
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [showAllReviewsModal, setShowAllReviewsModal] = useState(false)
-  const [showMyBookings, setShowMyBookings] = useState(false)
+  const [showBookingsPage, setShowBookingsPage] = useState(manageBookingsRequested || bookingsPathRequested)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
   const welcomeToastUserId = useRef<string | null>(null)
   const [footerVisible, setFooterVisible] = useState(false)
@@ -841,7 +863,7 @@ export function CustomerBookingPage() {
   }, [reviews])
 
   // Lock background body scroll when any modal is active
-  const isAnyModalOpen = Boolean(showAuthModal || showReviewModal || showMyBookings || showAllReviewsModal)
+  const isAnyModalOpen = Boolean(showAuthModal || showReviewModal || showAllReviewsModal)
 
   useEffect(() => {
     if (!isAnyModalOpen) return
@@ -1021,6 +1043,21 @@ export function CustomerBookingPage() {
         if (!error && data) list = data as AppointmentRecord[]
       } catch {}
     }
+
+    if (supabase && list.length) {
+      const storageClient = supabase
+      list = await Promise.all(list.map(async (booking) => {
+        const [pegResult, receiptResult] = await Promise.all([
+          booking.peg_image_path ? storageClient.storage.from("booking-attachments").createSignedUrl(booking.peg_image_path, 3600) : Promise.resolve({ data: null }),
+          booking.payment_receipt_path ? storageClient.storage.from("booking-attachments").createSignedUrl(booking.payment_receipt_path, 3600) : Promise.resolve({ data: null }),
+        ])
+        return {
+          ...booking,
+          peg_image_url: pegResult.data?.signedUrl || null,
+          payment_receipt_url: receiptResult.data?.signedUrl || null,
+        }
+      }))
+    }
     try {
       const local = JSON.parse(localStorage.getItem(`bookora_local_bookings_${normalizedEmail}`) || "[]")
       const ids = new Set(list.map((item) => item.id))
@@ -1032,10 +1069,9 @@ export function CustomerBookingPage() {
   }
 
   useEffect(() => {
-    if (!manageBookingsRequested) return
+    if (!showBookingsPage) return
     if (currentUser?.email) fetchUserBookings(currentUser.email)
-    setShowMyBookings(true)
-  }, [manageBookingsRequested, currentUser?.email])
+  }, [showBookingsPage, currentUser?.email])
 
   const canContinue = step === 1
     ? selectedServices.length > 0
@@ -1091,6 +1127,27 @@ export function CustomerBookingPage() {
           </button>
         </div>
       </main>
+    )
+  }
+
+  if (showBookingsPage) {
+    return (
+      <MyBookingsPage
+        businessName={businessName}
+        businessLocation={businessLocation}
+        businessLogo={profile.logo_url}
+        customerEmail={currentUser?.email}
+        bookings={customerBookings}
+        onBack={closeBookingsPage}
+        onBookNew={() => {
+          closeBookingsPage()
+          navigateToBookingStep(1, true)
+        }}
+        onSignIn={() => {
+          closeBookingsPage()
+          setShowAuthModal(true)
+        }}
+      />
     )
   }
 
@@ -1170,9 +1227,7 @@ export function CustomerBookingPage() {
                     type="button"
                     role="menuitem"
                     onClick={() => {
-                      setAccountOpen(false)
-                      if (currentUser?.email) fetchUserBookings(currentUser.email)
-                      setShowMyBookings(true)
+                      openBookingsPage()
                     }}
                   >
                     <CalendarDays size={15} /> My bookings
@@ -1261,8 +1316,7 @@ export function CustomerBookingPage() {
               type="button"
               onClick={() => {
                 setMenuOpen(false)
-                if (currentUser.email) fetchUserBookings(currentUser.email)
-                setShowMyBookings(true)
+                openBookingsPage()
               }}
             >
               My Bookings <ArrowRight size={16} />
@@ -1676,14 +1730,10 @@ export function CustomerBookingPage() {
                     const paymentReceiptPath = await uploadBookingAttachment(paymentReceipt, paymentReceiptName, "receipt")
                     const noteContent = [
                       details.note.trim(),
-                      pegImageName ? `[Peg Reference Attached: ${pegImageName}]` : "",
-                      paymentReceiptName ? `[Payment Receipt Attached: ${paymentReceiptName}]` : "",
-                      pegImagePath ? `[Peg Storage Path: ${pegImagePath}]` : "",
-                      paymentReceiptPath ? `[Receipt Storage Path: ${paymentReceiptPath}]` : "",
-                    ].filter(Boolean).join("\n")
+                    ].filter(Boolean).join(" ")
 
                     const bookingId = crypto.randomUUID()
-                    const manageBookingsUrl = `${window.location.origin}/booking?slug=${encodeURIComponent(bookingBrandName)}&manage=bookings`
+                    const manageBookingsUrl = `${window.location.origin}/bookings?slug=${encodeURIComponent(bookingBrandName)}`
 
                     const appointmentPayload = {
                       id: bookingId,
@@ -1757,6 +1807,9 @@ export function CustomerBookingPage() {
                           businessLocation,
                           ownerName: ownerFullName,
                           serviceNames: selectedServiceLabel,
+                          customerNote: details.note.trim(),
+                          pegImageDataUrl: pegImage,
+                          paymentReceiptDataUrl: paymentReceipt,
                           appointmentDate: calendarEmailLabel(selectedDateKey),
                           appointmentDateKey: selectedDateKey,
                           appointmentTime: appointmentTimeRange,
@@ -2450,21 +2503,7 @@ export function CustomerBookingPage() {
         />
       )}
 
-      {/* MODAL 3: My Bookings Modal */}
-      {showMyBookings && (
-        <MyBookingsModal
-          onClose={() => setShowMyBookings(false)}
-          bookings={customerBookings}
-          businessName={businessName}
-          onBookNew={() => {
-            setShowMyBookings(false)
-            navigateToBookingStep(1, true)
-            document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })
-          }}
-        />
-      )}
-
-      {/* MODAL 4: All Reviews Modal (Opens when user clicks "View all reviews") */}
+      {/* MODAL 3: All Reviews Modal (Opens when user clicks "View all reviews") */}
       {showAllReviewsModal && (
         <AllReviewsModal
           onClose={() => setShowAllReviewsModal(false)}

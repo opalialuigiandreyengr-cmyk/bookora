@@ -13,6 +13,9 @@ type BookingEmailPayload = {
   businessLocation: string
   ownerName: string
   serviceNames: string
+  customerNote?: string
+  pegImageDataUrl?: string
+  paymentReceiptDataUrl?: string
   appointmentDate: string
   appointmentDateKey: string
   appointmentTime: string
@@ -91,10 +94,13 @@ Deno.serve(async (request) => {
   const serviceNames = escapeHtml(payload.serviceNames || "Requested services")
   const businessLocation = escapeHtml(payload.businessLocation || "")
   const ownerName = escapeHtml(payload.ownerName || "the studio owner")
+  const customerNote = escapeHtml(payload.customerNote || "")
   const businessInitial = escapeHtml((payload.businessName || "B").trim().charAt(0).toUpperCase())
   const logoCandidate = payload.businessLogoUrl?.trim() || ""
   const remoteLogoUrl = /^https?:\/\//i.test(logoCandidate) ? escapeHtml(logoCandidate) : ""
   const dataLogo = parseDataImage(logoCandidate)
+  const pegImage = parseDataImage(payload.pegImageDataUrl?.trim() || "")
+  const receiptImage = parseDataImage(payload.paymentReceiptDataUrl?.trim() || "")
   const hasLogo = Boolean(remoteLogoUrl || dataLogo)
   const brandMark = hasLogo
     ? `<img src="cid:business-logo" alt="" width="44" height="44" style="display:block;border:0;border-radius:10px;object-fit:cover">`
@@ -139,6 +145,8 @@ Deno.serve(async (request) => {
           : dataLogo
             ? [{ content: dataLogo.content, filename: dataLogo.filename, content_id: "business-logo" }]
             : []),
+        ...(pegImage ? [{ content: pegImage.content, filename: `design-peg.${pegImage.filename.split(".").pop()}`, content_id: "design-peg" }] : []),
+        ...(receiptImage ? [{ content: receiptImage.content, filename: `payment-receipt.${receiptImage.filename.split(".").pop()}`, content_id: "payment-receipt" }] : []),
       ],
       text: [
         `Hi ${payload.customerName || "there"},`,
@@ -148,6 +156,9 @@ Deno.serve(async (request) => {
         `When: ${payload.appointmentDate} · ${payload.appointmentTime}`,
         `With: ${payload.ownerName}`,
         `Estimated total: ${payload.totalPrice}`,
+        ...(payload.customerNote ? [`Note: ${payload.customerNote}`] : []),
+        ...(pegImage ? ["Design peg: attached"] : []),
+        ...(receiptImage ? ["Payment receipt: attached"] : []),
         "",
         `${payload.businessName} will review your request and contact you soon.`,
         `Manage bookings: ${payload.manageBookingsUrl}`,
@@ -176,6 +187,9 @@ Deno.serve(async (request) => {
                     <p style="margin:0"><strong>Location:</strong> ${businessLocation}</p>
                   </td></tr>
                 </table>
+                ${customerNote ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.6"><strong>Note:</strong> ${customerNote}</p>` : ""}
+                ${pegImage ? `<div style="margin-top:18px"><p style="margin:0 0 8px;font-size:14px;font-weight:700">Design peg</p><img src="cid:design-peg" alt="Design peg attached to booking" width="240" style="display:block;width:100%;max-width:240px;height:auto;border:1px solid #eaded8;border-radius:10px"></div>` : ""}
+                ${receiptImage ? `<div style="margin-top:18px"><p style="margin:0 0 8px;font-size:14px;font-weight:700">Payment receipt</p><img src="cid:payment-receipt" alt="Payment receipt attached to booking" width="240" style="display:block;width:100%;max-width:240px;height:auto;border:1px solid #eaded8;border-radius:10px"></div>` : ""}
                 <p style="margin:18px 0 14px;font-size:14px;line-height:1.6">${businessName} will review your request and contact you soon.</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:7px;background:#d85b53">
                   <a href="${escapeHtml(payload.manageBookingsUrl)}" style="display:inline-block;padding:12px 18px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700">Manage bookings</a>
