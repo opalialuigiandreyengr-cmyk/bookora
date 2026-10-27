@@ -236,7 +236,10 @@ export function CustomerBookingPage() {
   const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
   const urlSlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug : ""
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(() => {
+    const savedStep = window.history.state?.bookoraBookingStep
+    return savedStep === 2 || savedStep === 3 ? savedStep : 1
+  })
   const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem("bookora-booking-theme") === "dark")
   const [profile, setProfile] = useState<BusinessProfile | null>(null)
   const [liveServices, setLiveServices] = useState<Service[]>([])
@@ -270,6 +273,7 @@ export function CustomerBookingPage() {
   }
   const transitionToBookingStep = (nextStep: number) => {
     if (stepTransitionTimer.current !== null) window.clearTimeout(stepTransitionTimer.current)
+    window.history.pushState({ ...(window.history.state || {}), bookoraBookingStep: nextStep }, "", window.location.href)
     setStepTransitionLoading(true)
     setStep(nextStep)
     scrollBookingPageToTop()
@@ -277,6 +281,13 @@ export function CustomerBookingPage() {
       setStepTransitionLoading(false)
       stepTransitionTimer.current = null
     }, 800)
+  }
+  const goBackBookingStep = (fallbackStep: number) => {
+    if (step > 1 && window.history.state?.bookoraBookingStep === step) {
+      window.history.back()
+      return
+    }
+    setStep(fallbackStep)
   }
 
   // Auth & user states
@@ -311,6 +322,19 @@ export function CustomerBookingPage() {
   }, [])
 
   useEffect(() => {
+    window.history.replaceState({ ...(window.history.state || {}), bookoraBookingStep: step }, "", window.location.href)
+    const handlePopState = () => {
+      const savedStep = window.history.state?.bookoraBookingStep
+      setStep(savedStep === 2 || savedStep === 3 ? savedStep : 1)
+      setStepTransitionLoading(false)
+      scrollBookingPageToTop()
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+  }, [])
+
+  useEffect(() => {
     const footer = footerRef.current
     if (!footer || typeof IntersectionObserver === "undefined") return
 
@@ -324,16 +348,20 @@ export function CustomerBookingPage() {
   }, [])
 
   useEffect(() => {
-    const reviewsSection = reviewsRef.current
-    if (!reviewsSection || typeof IntersectionObserver === "undefined") return
+    const updateReviewsVisibility = () => {
+      const reviewsSection = reviewsRef.current
+      if (!reviewsSection) return
+      const bounds = reviewsSection.getBoundingClientRect()
+      setReviewsVisible(bounds.top < window.innerHeight && bounds.bottom > 0)
+    }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => setReviewsVisible(entry.isIntersecting),
-      { threshold: 0.01 },
-    )
-
-    observer.observe(reviewsSection)
-    return () => observer.disconnect()
+    updateReviewsVisibility()
+    window.addEventListener("scroll", updateReviewsVisibility, { passive: true })
+    window.addEventListener("resize", updateReviewsVisibility)
+    return () => {
+      window.removeEventListener("scroll", updateReviewsVisibility)
+      window.removeEventListener("resize", updateReviewsVisibility)
+    }
   }, [])
 
   // Listen to Supabase auth state & persist client details directly in Supabase
@@ -1383,7 +1411,7 @@ export function CustomerBookingPage() {
           {step === 2 && (
             <div className="booking-step">
               <div className="step-heading date-time-step-heading">
-                <button className="booking-back booking-back-icon" type="button" aria-label="Back to services" title="Back to services" onClick={() => setStep(1)}>
+                <button className="booking-back booking-back-icon" type="button" aria-label="Back to services" title="Back to services" onClick={() => goBackBookingStep(1)}>
                   <ChevronLeft size={17} />
                 </button>
                 <div className="step-icon">
@@ -1506,7 +1534,7 @@ export function CustomerBookingPage() {
           {step === 3 && (
             <div className="booking-step">
               <div className="step-heading date-time-step-heading">
-                <button className="booking-back booking-back-icon" type="button" aria-label="Back to date and time" title="Back to date and time" onClick={() => setStep(2)}>
+                <button className="booking-back booking-back-icon" type="button" aria-label="Back to date and time" title="Back to date and time" onClick={() => goBackBookingStep(2)}>
                   <ChevronLeft size={17} />
                 </button>
                 <div className="step-icon">
@@ -1738,7 +1766,7 @@ export function CustomerBookingPage() {
                     {summaryDateVisible && <span>{selectedPriceDisplay || "₱0"}</span>}
                   </div>
                   {summaryDateVisible && <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>}
-                  {summaryDateVisible && <button type="button" className="booking-summary-toggle" onClick={() => setStep(2)} aria-label="Change appointment date and time" title="Change appointment date and time">
+                  {summaryDateVisible && <button type="button" className="booking-summary-toggle" onClick={() => goBackBookingStep(2)} aria-label="Change appointment date and time" title="Change appointment date and time">
                     <span className="booking-summary-date-label"><small>{calendarLongLabel(selectedDateKey)} {appointmentTimeRange}</small></span>
                     <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</small></span>
                     <Pencil size={14} aria-hidden="true" />
