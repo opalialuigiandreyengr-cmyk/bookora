@@ -113,6 +113,8 @@ type AppointmentRecord = {
   total_price: string
   status: string
   customer_note?: string
+  peg_image_path?: string | null
+  payment_receipt_path?: string | null
   created_at: string
 }
 
@@ -470,6 +472,10 @@ export function CustomerBookingPage() {
       alert("Please select a valid image file (PNG, JPG, WEBP).")
       return
     }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Please choose an image smaller than 5 MB.")
+      return
+    }
     setPegImageName(file.name)
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -489,10 +495,29 @@ export function CustomerBookingPage() {
       alert("Please select a valid image file (PNG, JPG, WEBP).")
       return
     }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Please choose an image smaller than 5 MB.")
+      return
+    }
     setPaymentReceiptName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => setPaymentReceipt(String(event.target?.result || ""))
     reader.readAsDataURL(file)
+  }
+
+  const uploadBookingAttachment = async (dataUrl: string, fileName: string, kind: "peg" | "receipt") => {
+    if (!dataUrl || !supabase || !profile?.id) return ""
+    const response = await fetch(dataUrl)
+    const blob = await response.blob()
+    const safeName = (fileName || `${kind}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "-")
+    const path = `${profile.id}/${selectedDateKey}/${kind}-${crypto.randomUUID()}-${safeName}`
+    const { error } = await supabase.storage.from("booking-attachments").upload(path, blob, {
+      contentType: blob.type || "image/jpeg",
+      cacheControl: "31536000",
+      upsert: false,
+    })
+    if (error) throw new Error(`Unable to upload ${kind === "peg" ? "design peg" : "payment receipt"}: ${error.message}`)
+    return path
   }
 
   // Never render placeholder tenant data while the public booking data is loading.
@@ -942,7 +967,11 @@ export function CustomerBookingPage() {
     setCustomerBookings(list)
   }
 
-  const canContinue = step === 1 ? selectedServices.length > 0 : step === 2 ? Boolean(time) : Boolean(details.name.trim() && (details.email.trim() || details.phone.trim()))
+  const canContinue = step === 1
+    ? selectedServices.length > 0
+    : step === 2
+      ? Boolean(time)
+      : Boolean(details.name.trim() && (details.email.trim() || details.phone.trim()) && (!showPaymentReceiptField || paymentReceipt))
   const toggleService = (id: string) => setServiceIds((current) => current.includes(id) ? current.filter((serviceId) => serviceId !== id) : [...current, id])
   const updateDetail = (key: keyof typeof details, value: string) => setDetails((current) => ({ ...current, [key]: value }))
 
@@ -1567,10 +1596,14 @@ export function CustomerBookingPage() {
                   setSubmittingBooking(true)
                   let bookingSaved = false
                   try {
+                    const pegImagePath = await uploadBookingAttachment(pegImage, pegImageName, "peg")
+                    const paymentReceiptPath = await uploadBookingAttachment(paymentReceipt, paymentReceiptName, "receipt")
                     const noteContent = [
                       details.note.trim(),
                       pegImageName ? `[Peg Reference Attached: ${pegImageName}]` : "",
                       paymentReceiptName ? `[Payment Receipt Attached: ${paymentReceiptName}]` : "",
+                      pegImagePath ? `[Peg Storage Path: ${pegImagePath}]` : "",
+                      paymentReceiptPath ? `[Receipt Storage Path: ${paymentReceiptPath}]` : "",
                     ].filter(Boolean).join("\n")
 
                     const appointmentPayload = {
@@ -1586,6 +1619,8 @@ export function CustomerBookingPage() {
                       appointment_time: time,
                       duration_minutes: Math.max(bookingSlotSize, totalDurationMinutes),
                       buffer_minutes: bookingBufferMinutes,
+                      peg_image_path: pegImagePath || null,
+                      payment_receipt_path: paymentReceiptPath || null,
                       status: "pending",
                     }
 
@@ -1610,7 +1645,7 @@ export function CustomerBookingPage() {
                       // Keep compatibility with Supabase projects that have not
                       // applied the newer appointment columns yet.
                       if (isMissingAppointmentColumn) {
-                        const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, ...legacyPayload } = appointmentPayload
+                        const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
                         const legacyResult = await supabase.from("appointments").insert(legacyPayload)
                         error = legacyResult.error
                       }
@@ -1765,7 +1800,7 @@ export function CustomerBookingPage() {
                     <div className="peg-field-header"><span>Payment receipt</span></div>
                     {!paymentReceipt ? (
                       <label htmlFor="payment-receipt-input" className="peg-dropzone">
-                        <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" required onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
+                        <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
                         <div className="peg-dropzone-icon"><Camera size={21} /></div>
                         <div className="peg-dropzone-text"><strong>Attach payment receipt</strong><span>Tap to upload or take a photo Â· PNG, JPG, WEBP</span></div>
                       </label>

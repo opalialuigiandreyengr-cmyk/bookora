@@ -337,6 +337,40 @@ create table if not exists public.appointments (
 create index if not exists idx_appointments_business_id on public.appointments (business_id);
 alter table public.appointments add column if not exists duration_minutes integer;
 alter table public.appointments add column if not exists buffer_minutes integer default 0;
+alter table public.appointments add column if not exists peg_image_path text;
+alter table public.appointments add column if not exists payment_receipt_path text;
+
+-- Private customer-uploaded booking attachments. Guests may upload into the
+-- published business folder; only the owning business can read or delete them.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('booking-attachments', 'booking-attachments', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = false, file_size_limit = 5242880, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
+drop policy if exists "Public can upload booking attachments" on storage.objects;
+create policy "Public can upload booking attachments" on storage.objects for insert to anon, authenticated
+    with check (
+        bucket_id = 'booking-attachments'
+        and exists (
+            select 1 from public.business_profiles profile
+            where profile.id::text = (storage.foldername(name))[1]
+              and profile.slug is not null
+              and length(trim(profile.slug)) > 0
+        )
+    );
+
+drop policy if exists "Business owners can view booking attachments" on storage.objects;
+create policy "Business owners can view booking attachments" on storage.objects for select to authenticated
+    using (
+        bucket_id = 'booking-attachments'
+        and (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+drop policy if exists "Business owners can delete booking attachments" on storage.objects;
+create policy "Business owners can delete booking attachments" on storage.objects for delete to authenticated
+    using (
+        bucket_id = 'booking-attachments'
+        and (storage.foldername(name))[1] = auth.uid()::text
+    );
 
 alter table public.appointments enable row level security;
 

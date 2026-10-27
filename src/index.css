@@ -5308,6 +5308,12 @@ svg { stroke-width: 1.8; }
 .customer-booking-page.date-time-page:has(.booking-summary-step-two) .booking-footer {
   padding-bottom: 80px;
 }
+.customer-booking-page.date-time-page:has(.booking-success) .booking-footer {
+  padding-bottom: 24px;
+}
+.booking-success .confirmed-card {
+  display: none;
+}
 
 .customer-booking-page .booking-footer-links {
   display: flex;
