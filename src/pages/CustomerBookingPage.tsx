@@ -276,7 +276,7 @@ export function CustomerBookingPage() {
     stepTransitionTimer.current = window.setTimeout(() => {
       setStepTransitionLoading(false)
       stepTransitionTimer.current = null
-    }, 450)
+    }, 800)
   }
 
   // Auth & user states
@@ -329,7 +329,7 @@ export function CustomerBookingPage() {
 
     const observer = new IntersectionObserver(
       ([entry]) => setReviewsVisible(entry.isIntersecting),
-      { threshold: 0.12 },
+      { threshold: 0.01 },
     )
 
     observer.observe(reviewsSection)
@@ -970,11 +970,8 @@ export function CustomerBookingPage() {
   return (
     <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""} ${footerVisible ? "footer-visible" : ""} ${reviewsVisible ? "reviews-visible" : ""}`}>
       {stepTransitionLoading && (
-        <div className="booking-step-transition" role="status" aria-live="polite" aria-label="Checking booking availability">
-          <div className="booking-step-transition-card">
-            <Loader2 size={30} className="animate-spin" />
-            <span>Checking availability…</span>
-          </div>
+        <div className="booking-step-transition" role="status" aria-live="polite" aria-label="Loading booking step">
+          <Loader2 size={38} className="animate-spin" />
         </div>
       )}
       {/* Top Header */}
