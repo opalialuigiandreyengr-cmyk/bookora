@@ -1868,7 +1868,7 @@ export function CustomerBookingPage() {
                       <label htmlFor="payment-receipt-input" className="peg-dropzone">
                         <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.blur(); if (file) handlePaymentReceiptUpload(file) }} />
                         <div className="peg-dropzone-icon"><Camera size={21} /></div>
-                        <div className="peg-dropzone-text"><strong>Attach payment receipt</strong><span>Tap to upload or take a photo Â· PNG, JPG, WEBP</span></div>
+                        <div className="peg-dropzone-text"><strong>Attach payment receipt</strong><span>Tap to upload or take a photo · PNG, JPG, WEBP</span></div>
                       </label>
                     ) : (
                       <div className="peg-preview-card">
@@ -2010,25 +2010,25 @@ export function CustomerBookingPage() {
         </section>
       </div>
 
-      {step === 3 && typeof document !== "undefined" && createPortal(
+      {false && step === 3 && typeof document !== "undefined" && createPortal(
         <div className={`booking-summary booking-summary-sticky booking-summary-step-three booking-summary-portal ${summaryDateVisible ? "" : "is-collapsed"}`}>
           <div className="booking-summary-pay-row">
             <span>Total to pay</span>
             <span className="booking-summary-pay-actions">
-              <strong>{selectedPriceDisplay || "â‚±0"}</strong>
+                      <strong>{selectedPriceDisplay || "₱0"}</strong>
               <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide date and time" : "Show date and time"} aria-expanded={summaryDateVisible}>
                 <ChevronDown size={15} />
               </button>
             </span>
           </div>
           <div className="booking-summary-service-row">
-            <strong>{selectedServiceLabel}{summaryDateVisible ? "" : ` Â· ${formattedTotalDuration || `${bookingSlotSize} min`}`}</strong>
-            {summaryDateVisible && <span>{selectedPriceDisplay || "â‚±0"}</span>}
+                    <strong>{selectedServiceLabel}{summaryDateVisible ? "" : ` · ${formattedTotalDuration || `${bookingSlotSize} min`}`}</strong>
+                    {summaryDateVisible && <span>{selectedPriceDisplay || "₱0"}</span>}
           </div>
           {summaryDateVisible && <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>}
           {summaryDateVisible && <button type="button" className="booking-summary-toggle" onClick={() => goBackBookingStep(2)} aria-label="Change appointment date and time" title="Change appointment date and time">
             <span className="booking-summary-date-label"><small>{calendarLongLabel(selectedDateKey)} {appointmentTimeRange}</small></span>
-            <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} Â· {time}</small></span>
+                    <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</small></span>
             <Pencil size={14} aria-hidden="true" />
           </button>}
           <div className="booking-summary-footer">
