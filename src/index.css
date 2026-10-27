@@ -1501,6 +1501,7 @@ svg { stroke-width: 1.8; }
 @media (max-width: 580px) { .field-row { grid-template-columns: 1fr; gap: 16px; } }
 .details-peg-hint { display: block; margin-top: 6px; color: #8c7167; font-size: 12px; line-height: 1.45; }
 .payment-guide-image { display: block; width: min(240px, 100%); max-height: 180px; object-fit: contain; margin: 10px auto 0; border-radius: 10px; border: 1px solid #eaded8; }
+.payment-guide-note { display: block; margin: 7px auto 0; color: #8c7167; font-size: 11px; line-height: 1.4; text-align: center; }
 .details-form input:disabled { color: #6d7782; background: #f4f2f0; border-color: #e1ddd9; cursor: not-allowed; }
 
 /* Peg Image Attachment Field */
@@ -1584,7 +1585,7 @@ svg { stroke-width: 1.8; }
 .booking-summary-footer .secure-note { margin: 0; font-size: 10px; }
 .booking-summary-footer .booking-primary { min-height: 34px; padding: 8px 13px; font-size: 11px; }
 @media (max-width: 760px) {
-  .date-time-page .booking-summary-sticky { position: fixed; right: 0; bottom: 0; left: 0; width: auto; margin: 0; border-radius: 14px 14px 0 0; grid-template-columns: 1fr; }
+  .date-time-page .booking-summary-sticky { position: fixed !important; right: 0; bottom: 0; left: 0; z-index: 30; width: auto; margin: 0; border-radius: 14px 14px 0 0; grid-template-columns: 1fr; transform: translateZ(0); }
   .date-time-page .booking-summary-sticky .booking-summary-details { grid-column: 1 / -1; }
   .date-time-page .booking-summary-sticky .booking-summary-footer { grid-column: 1 / -1; }
   .booking-summary-footer { align-items: stretch; }

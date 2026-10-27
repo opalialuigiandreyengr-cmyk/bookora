@@ -1742,12 +1742,41 @@ export function CustomerBookingPage() {
                 {showPaymentReceiptField && (
                   <div className="peg-attachment-field">
                     <div className="peg-field-header"><span>Payment receipt</span></div>
-                    <label htmlFor="payment-receipt-input" className="peg-dropzone">
-                      <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" required onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
-                      <div className="peg-dropzone-icon"><Camera size={21} /></div>
-                      <div className="peg-dropzone-text"><strong>{paymentReceiptName || "Attach payment receipt"}</strong><span>PNG, JPG, WEBP</span></div>
-                    </label>
-                    {profile?.payment_receipt_url && <img src={profile.payment_receipt_url} alt="Payment instructions" className="payment-guide-image" />}
+                    {!paymentReceipt ? (
+                      <label htmlFor="payment-receipt-input" className="peg-dropzone">
+                        <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" required onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
+                        <div className="peg-dropzone-icon"><Camera size={21} /></div>
+                        <div className="peg-dropzone-text"><strong>Attach payment receipt</strong><span>Tap to upload or take a photo Â· PNG, JPG, WEBP</span></div>
+                      </label>
+                    ) : (
+                      <div className="peg-preview-card">
+                        <img src={paymentReceipt} alt="Payment receipt preview" className="peg-preview-thumb" />
+                        <div className="peg-preview-info">
+                          <span className="peg-badge">
+                            <Check size={12} /> Photo attached
+                          </span>
+                          <strong className="peg-file-title" title={paymentReceiptName}>
+                            {paymentReceiptName || "Payment-receipt.jpg"}
+                          </strong>
+                          <label htmlFor="payment-receipt-replace" className="peg-replace-label">
+                            <input
+                              id="payment-receipt-replace"
+                              type="file"
+                              accept="image/*"
+                              className="peg-file-input"
+                              onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }}
+                            />
+                            Change photo
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                    {profile?.payment_receipt_url && (
+                      <>
+                        <img src={profile.payment_receipt_url} alt="Payment QR code and instructions" className="payment-guide-image" />
+                        <small className="payment-guide-note">Scan this image to pay, or save the QR image for later.</small>
+                      </>
+                    )}
                   </div>
                 )}
 
