@@ -1585,7 +1585,8 @@ svg { stroke-width: 1.8; }
 .booking-summary-footer .secure-note { margin: 0; font-size: 10px; }
 .booking-summary-footer .booking-primary { min-height: 34px; padding: 8px 13px; font-size: 11px; }
 @media (max-width: 760px) {
-  .date-time-page .booking-summary-sticky { position: fixed !important; right: 0; bottom: 0; left: 0; z-index: 30; width: auto; margin: 0; border-radius: 14px 14px 0 0; grid-template-columns: 1fr; transform: translateZ(0); }
+  .date-time-page .booking-summary-step-two,
+  .date-time-page .booking-summary-step-three { position: fixed !important; inset: auto 0 0 !important; z-index: 30; width: auto; margin: 0; border-radius: 14px 14px 0 0; grid-template-columns: 1fr; transform: none !important; }
   .date-time-page .booking-summary-sticky .booking-summary-details { grid-column: 1 / -1; }
   .date-time-page .booking-summary-sticky .booking-summary-footer { grid-column: 1 / -1; }
   .booking-summary-footer { align-items: stretch; }

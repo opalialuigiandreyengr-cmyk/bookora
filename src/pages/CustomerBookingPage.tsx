@@ -1597,7 +1597,23 @@ export function CustomerBookingPage() {
                       if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes, booked))) {
                         throw new Error("That time was just booked. Please choose another available time.")
                       }
-                      const { error } = await supabase.from("appointments").insert(appointmentPayload)
+                      let { error } = await supabase.from("appointments").insert(appointmentPayload)
+                      const errorText = error ? `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase() : ""
+                      const isMissingAppointmentColumn = Boolean(error && (
+                        error.code === "PGRST204" ||
+                        errorText.includes("schema cache") ||
+                        errorText.includes("customer_address") ||
+                        errorText.includes("duration_minutes") ||
+                        errorText.includes("buffer_minutes")
+                      ))
+
+                      // Keep compatibility with Supabase projects that have not
+                      // applied the newer appointment columns yet.
+                      if (isMissingAppointmentColumn) {
+                        const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, ...legacyPayload } = appointmentPayload
+                        const legacyResult = await supabase.from("appointments").insert(legacyPayload)
+                        error = legacyResult.error
+                      }
                       if (error) throw error
                     }
 
@@ -1615,7 +1631,12 @@ export function CustomerBookingPage() {
                     bookingSaved = true
                   } catch (err) {
                     console.warn("Unable to save appointment", err)
-                    showToast(err instanceof Error ? err.message : "We could not save your booking. Please try again.")
+                    const errorMessage = err instanceof Error
+                      ? err.message
+                      : typeof err === "object" && err !== null && "message" in err
+                        ? String((err as { message?: unknown }).message || "We could not save your booking. Please try again.")
+                        : "We could not save your booking. Please try again."
+                    showToast(errorMessage)
                   } finally {
                     setSubmittingBooking(false)
                     if (bookingSaved) setStep(4)
