@@ -5401,6 +5401,89 @@ svg { stroke-width: 1.8; }
   }
 }
 
+/* Success is a focused confirmation route: keep the header, message, and
+   Bookora credit inside one viewport instead of carrying the public profile
+   page's long-scroll composition into the final state. */
+.customer-booking-page.success-page-route {
+  display: flex;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  flex-direction: column;
+}
+.success-page-route .booking-banner,
+.success-page-route .booking-mobile-profile,
+.success-page-route .booking-discovery,
+.success-page-route .studio-story,
+.success-page-route .team-section,
+.success-page-route .reviews-section {
+  display: none !important;
+}
+.success-page-route .booking-header {
+  flex: 0 0 auto;
+}
+.success-page-route .booking-layout {
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  flex: 1 1 auto;
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+.success-page-route .booking-card {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.success-page-route .booking-success-page {
+  height: 100%;
+  min-height: 0;
+  padding: 16px 20px 18px;
+}
+.success-page-route .booking-success {
+  width: min(520px, 100%);
+  min-height: 0;
+  padding: 16px 20px;
+}
+.success-page-route .success-check {
+  width: 50px;
+  height: 50px;
+  margin-bottom: 12px;
+}
+.success-page-route .booking-success h2 {
+  font-size: 23px;
+}
+.success-page-route .success-copy {
+  margin: 7px 0 16px;
+  line-height: 1.45;
+}
+.success-page-route .booking-secondary {
+  min-height: 38px;
+  margin-top: 14px;
+}
+.success-page-route .success-footer {
+  margin-top: 14px;
+  color: #667085;
+  line-height: 1.4;
+}
+.success-page-route .success-footer svg {
+  flex: 0 0 auto;
+  color: #c25750;
+  stroke-width: 2.25;
+}
+.success-page-route .booking-footer {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 10px 20px 16px;
+}
+
 /* Dark theme polish: warm layered surfaces, readable muted text, and mobile-safe controls. */
 .booking-dark {
   --booking-dark-bg: #17181b;

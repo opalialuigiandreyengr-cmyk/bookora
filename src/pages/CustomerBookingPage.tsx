@@ -338,6 +338,7 @@ export function CustomerBookingPage() {
   const [showAllReviewsModal, setShowAllReviewsModal] = useState(false)
   const [showMyBookings, setShowMyBookings] = useState(false)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
+  const welcomeToastUserId = useRef<string | null>(null)
   const [footerVisible, setFooterVisible] = useState(false)
   const [reviewsVisible, setReviewsVisible] = useState(false)
   const footerRef = useRef<HTMLElement | null>(null)
@@ -505,8 +506,13 @@ export function CustomerBookingPage() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       syncUserAsClient(session?.user ?? null)
       if (event === "SIGNED_IN" && session?.user) {
-        const name = String(session.user.user_metadata?.full_name ?? session.user.email?.split("@")[0] ?? "there")
-        showToast(`Welcome back, ${name}!`)
+        if (welcomeToastUserId.current !== session.user.id) {
+          welcomeToastUserId.current = session.user.id
+          const name = String(session.user.user_metadata?.full_name ?? session.user.email?.split("@")[0] ?? "there")
+          showToast(`Welcome back, ${name}!`)
+        }
+      } else if (event === "SIGNED_OUT") {
+        welcomeToastUserId.current = null
       }
     })
     return () => listener.subscription.unsubscribe()
@@ -1006,19 +1012,17 @@ export function CustomerBookingPage() {
 
   // Load user appointments
   const fetchUserBookings = async (email: string) => {
+    const normalizedEmail = email.trim().toLowerCase()
     let list: AppointmentRecord[] = []
     if (supabase) {
       try {
         const { data, error } = await supabase
-          .from("appointments")
-          .select("*")
-          .eq("customer_email", email)
-          .order("created_at", { ascending: false })
+          .rpc("get_customer_appointments", { p_email: normalizedEmail })
         if (!error && data) list = data as AppointmentRecord[]
       } catch {}
     }
     try {
-      const local = JSON.parse(localStorage.getItem(`bookora_local_bookings_${email}`) || "[]")
+      const local = JSON.parse(localStorage.getItem(`bookora_local_bookings_${normalizedEmail}`) || "[]")
       const ids = new Set(list.map((item) => item.id))
       local.forEach((item: AppointmentRecord) => {
         if (!ids.has(item.id)) list.push(item)
@@ -1091,7 +1095,7 @@ export function CustomerBookingPage() {
   }
 
   return (
-    <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""} ${footerVisible ? "footer-visible" : ""} ${reviewsVisible ? "reviews-visible" : ""}`}>
+    <main className={`customer-booking-page ${darkMode ? "booking-dark" : ""} ${step >= 2 ? "date-time-page" : ""} ${step === 4 ? "success-page-route" : ""} ${footerVisible ? "footer-visible" : ""} ${reviewsVisible ? "reviews-visible" : ""}`}>
       {stepTransitionLoading && (
         <div className="booking-step-transition" role="status" aria-live="polite" aria-label="Loading booking step">
           <Loader2 size={38} className="animate-spin" />
@@ -1730,7 +1734,7 @@ export function CustomerBookingPage() {
 
                     // Store locally so customer can see it in "My Bookings"
                     if (details.email) {
-                      const localKey = `bookora_local_bookings_${details.email.trim()}`
+                      const localKey = `bookora_local_bookings_${details.email.trim().toLowerCase()}`
                       const prevBookings = JSON.parse(localStorage.getItem(localKey) || "[]")
                       prevBookings.unshift({
                         ...appointmentPayload,

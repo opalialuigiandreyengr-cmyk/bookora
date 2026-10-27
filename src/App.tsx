@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { ServicesPage } from "@/pages/ServicesPage"
@@ -25,6 +25,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [showPasskey, setShowPasskey] = useState(false)
+  const welcomeToastUserId = useRef<string | null>(null)
 
   const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(hostname)
   const cookieSlug = getCrossSubdomainCookie("bookora_client_slug")
@@ -64,8 +65,13 @@ export default function App() {
       setUser(nextUser)
       setOnboardingDone(Boolean(nextUser?.user_metadata?.onboarding_complete))
       if (event === "SIGNED_IN" && nextUser) {
-        const name = String(nextUser.user_metadata?.full_name ?? nextUser.email?.split("@")[0] ?? "there")
-        showToast(`Welcome back, ${name}!`)
+        if (welcomeToastUserId.current !== nextUser.id) {
+          welcomeToastUserId.current = nextUser.id
+          const name = String(nextUser.user_metadata?.full_name ?? nextUser.email?.split("@")[0] ?? "there")
+          showToast(`Welcome back, ${name}!`)
+        }
+      } else if (event === "SIGNED_OUT") {
+        welcomeToastUserId.current = null
       }
     })
     return () => listener.subscription.unsubscribe()
