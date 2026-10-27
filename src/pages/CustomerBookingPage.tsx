@@ -35,6 +35,10 @@ import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
 import { setCrossSubdomainCookie } from "@/lib/domain"
 import { createPortal } from "react-dom"
+import { BookingServicesPage } from "@/pages/booking/BookingServicesPage"
+import { BookingDateTimePage } from "@/pages/booking/BookingDateTimePage"
+import { BookingDetailsPage } from "@/pages/booking/BookingDetailsPage"
+import { BookingSuccessPage } from "@/pages/booking/BookingSuccessPage"
 
 type Service = {
   id: string
@@ -554,7 +558,9 @@ export function CustomerBookingPage() {
   const restoreBookingScroll = (scrollTop: number) => {
     const restore = () => window.scrollTo({ top: scrollTop, behavior: "auto" })
     requestAnimationFrame(restore)
-    window.setTimeout(restore, 140)
+    window.setTimeout(restore, 60)
+    window.setTimeout(restore, 180)
+    window.setTimeout(restore, 420)
   }
 
   const uploadBookingAttachment = async (dataUrl: string, fileName: string, kind: "peg" | "receipt") => {
@@ -1410,6 +1416,7 @@ export function CustomerBookingPage() {
         <section className={`booking-card ${step === 1 ? "service-selection-card" : ""}`} aria-labelledby="choose-service">
           {/* STEP 1: Select Services */}
           {step === 1 && (
+            <BookingServicesPage>
             <div className="booking-step">
               <div className="step-heading">
                 <div className="step-icon">
@@ -1485,11 +1492,13 @@ export function CustomerBookingPage() {
                   Book <ArrowRight size={17} />
                 </button>
               </div>
-            </div>
+              </div>
+            </BookingServicesPage>
           )}
 
           {/* STEP 2: Pick Date & Time */}
           {step === 2 && (
+            <BookingDateTimePage>
             <div className="booking-step">
               <div className="step-heading date-time-step-heading">
                 <button className="booking-back booking-back-icon" type="button" aria-label="Back to services" title="Back to services" onClick={() => goBackBookingStep(1)}>
@@ -1609,10 +1618,12 @@ export function CustomerBookingPage() {
                 </span>
               </div>
             </div>
+            </BookingDateTimePage>
           )}
 
           {/* STEP 3: Customer Details & Design Peg */}
           {step === 3 && (
+            <BookingDetailsPage>
             <div className="booking-step">
               <div className="step-heading date-time-step-heading">
                 <button className="booking-back booking-back-icon" type="button" aria-label="Back to date and time" title="Back to date and time" onClick={() => goBackBookingStep(2)}>
@@ -1798,6 +1809,7 @@ export function CustomerBookingPage() {
                         className="peg-file-input"
                         onChange={(e) => {
                           const file = e.target.files?.[0]
+                          e.currentTarget.blur()
                           if (file) handlePegImageUpload(file)
                         }}
                       />
@@ -1827,6 +1839,7 @@ export function CustomerBookingPage() {
                             className="peg-file-input"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
+                              e.currentTarget.blur()
                               if (file) handlePegImageUpload(file)
                             }}
                           />
@@ -1853,7 +1866,7 @@ export function CustomerBookingPage() {
                     <div className="peg-field-header"><span>Payment receipt</span></div>
                     {!paymentReceipt ? (
                       <label htmlFor="payment-receipt-input" className="peg-dropzone">
-                        <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }} />
+                        <input id="payment-receipt-input" type="file" accept="image/*" className="peg-file-input" onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.blur(); if (file) handlePaymentReceiptUpload(file) }} />
                         <div className="peg-dropzone-icon"><Camera size={21} /></div>
                         <div className="peg-dropzone-text"><strong>Attach payment receipt</strong><span>Tap to upload or take a photo Â· PNG, JPG, WEBP</span></div>
                       </label>
@@ -1873,7 +1886,7 @@ export function CustomerBookingPage() {
                               type="file"
                               accept="image/*"
                               className="peg-file-input"
-                              onChange={(event) => { const file = event.target.files?.[0]; if (file) handlePaymentReceiptUpload(file) }}
+                              onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.blur(); if (file) handlePaymentReceiptUpload(file) }}
                             />
                             Change photo
                           </label>
@@ -1937,10 +1950,12 @@ export function CustomerBookingPage() {
                 </div>
               </form>
             </div>
+            </BookingDetailsPage>
           )}
 
           {/* STEP 4: Booking Confirmation */}
           {step === 4 && (
+            <BookingSuccessPage>
             <div className="booking-success">
               <div className="success-check">
                 <Check size={28} />
@@ -1990,6 +2005,7 @@ export function CustomerBookingPage() {
                 <Mail size={15} /> Need to make a change or send your peg photos? Reply to your confirmation email.
               </p>
             </div>
+            </BookingSuccessPage>
           )}
         </section>
       </div>
