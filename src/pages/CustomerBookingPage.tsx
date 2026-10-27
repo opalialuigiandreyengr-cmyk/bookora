@@ -1047,9 +1047,11 @@ export function CustomerBookingPage() {
     if (supabase && list.length) {
       const storageClient = supabase
       list = await Promise.all(list.map(async (booking) => {
+        const pegPath = booking.peg_image_path || booking.customer_note?.match(/\[Peg Storage Path:\s*([^\]]+)\]/i)?.[1] || ""
+        const receiptPath = booking.payment_receipt_path || booking.customer_note?.match(/\[(?:Payment )?Receipt Storage Path:\s*([^\]]+)\]/i)?.[1] || ""
         const [pegResult, receiptResult] = await Promise.all([
-          booking.peg_image_path ? storageClient.storage.from("booking-attachments").createSignedUrl(booking.peg_image_path, 3600) : Promise.resolve({ data: null }),
-          booking.payment_receipt_path ? storageClient.storage.from("booking-attachments").createSignedUrl(booking.payment_receipt_path, 3600) : Promise.resolve({ data: null }),
+          pegPath ? storageClient.storage.from("booking-attachments").createSignedUrl(pegPath, 3600) : Promise.resolve({ data: null }),
+          receiptPath ? storageClient.storage.from("booking-attachments").createSignedUrl(receiptPath, 3600) : Promise.resolve({ data: null }),
         ])
         return {
           ...booking,
@@ -1135,6 +1137,7 @@ export function CustomerBookingPage() {
       <MyBookingsPage
         businessName={businessName}
         businessLocation={businessLocation}
+        ownerName={ownerFullName}
         businessLogo={profile.logo_url}
         customerEmail={currentUser?.email}
         bookings={customerBookings}
