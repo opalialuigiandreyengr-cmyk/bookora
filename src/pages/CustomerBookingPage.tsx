@@ -237,6 +237,7 @@ export function CustomerBookingPage() {
   const pathParts = typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean) : []
   const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
   const urlSlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug : ""
+  const selectedServicesStorageKey = `bookora_selected_services_${urlSlug || "default"}`
 
   const [step, setStep] = useState(() => {
     const savedStep = window.history.state?.bookoraBookingStep
@@ -253,7 +254,15 @@ export function CustomerBookingPage() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [policyAcknowledged, setPolicyAcknowledged] = useState(false)
-  const [serviceIds, setServiceIds] = useState<string[]>([])
+  const [serviceIds, setServiceIds] = useState<string[]>(() => {
+    try {
+      const saved = window.localStorage.getItem(selectedServicesStorageKey)
+      const parsed = saved ? JSON.parse(saved) : []
+      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []
+    } catch {
+      return []
+    }
+  })
   const [selectedDateKey, setSelectedDateKey] = useState(() => philippinesTodayKey())
   const [calendarMonth, setCalendarMonth] = useState(() => { const [year, month] = philippinesTodayKey().split("-").map(Number); return new Date(Date.UTC(year, month - 1, 1)) })
   const [time, setTime] = useState("")
@@ -316,6 +325,14 @@ export function CustomerBookingPage() {
       email: currentUser.email || prev.email,
     }))
   }, [currentUser])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(selectedServicesStorageKey, JSON.stringify(serviceIds))
+    } catch {
+      // Storage may be unavailable in private browsing; booking still works.
+    }
+  }, [selectedServicesStorageKey, serviceIds])
 
   useEffect(() => {
     return () => {
@@ -476,11 +493,13 @@ export function CustomerBookingPage() {
       alert("Please choose an image smaller than 5 MB.")
       return
     }
+    const scrollTop = window.scrollY
     setPegImageName(file.name)
     const reader = new FileReader()
     reader.onload = (e) => {
       const result = e.target?.result as string
       setPegImage(result)
+      restoreBookingScroll(scrollTop)
     }
     reader.readAsDataURL(file)
   }
@@ -499,10 +518,20 @@ export function CustomerBookingPage() {
       alert("Please choose an image smaller than 5 MB.")
       return
     }
+    const scrollTop = window.scrollY
     setPaymentReceiptName(file.name)
     const reader = new FileReader()
-    reader.onload = (event) => setPaymentReceipt(String(event.target?.result || ""))
+    reader.onload = (event) => {
+      setPaymentReceipt(String(event.target?.result || ""))
+      restoreBookingScroll(scrollTop)
+    }
     reader.readAsDataURL(file)
+  }
+
+  const restoreBookingScroll = (scrollTop: number) => {
+    const restore = () => window.scrollTo({ top: scrollTop, behavior: "auto" })
+    requestAnimationFrame(restore)
+    window.setTimeout(restore, 140)
   }
 
   const uploadBookingAttachment = async (dataUrl: string, fileName: string, kind: "peg" | "receipt") => {
