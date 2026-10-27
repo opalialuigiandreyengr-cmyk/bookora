@@ -155,6 +155,7 @@ const addDaysToKey = (key: string, days: number) => { const [year, month, day] =
 const formatSlotTime = (minutes: number) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" }).format(new Date(Date.UTC(1970, 0, 1, Math.floor(minutes / 60), minutes % 60)))
 const calendarLabel = (key: string) => { const [year, month, day] = key.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return { day: new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(date), date: String(day), month: new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date) } }
 const calendarLongLabel = (key: string) => { const [year, month, day] = key.split("-").map(Number); return new Intl.DateTimeFormat("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day))) }
+const calendarEmailLabel = (key: string) => { const [year, month, day] = key.split("-").map(Number); return new Intl.DateTimeFormat("en-US", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day))) }
 const restorePublicServiceOrder = (services: Service[], businessId: string) => {
   try {
     const saved = JSON.parse(window.localStorage.getItem(`bookora-services-order-${businessId}`) ?? "[]") as string[]
@@ -244,6 +245,7 @@ export function CustomerBookingPage() {
   const pathParts = typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean) : []
   const pathSlug = (pathParts[0] === "book" || pathParts[0] === "booking") && pathParts[1] ? decodeURIComponent(pathParts[1]) : ""
   const urlSlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug : ""
+  const manageBookingsRequested = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("manage") === "bookings"
   const selectedServicesStorageKey = `bookora_selected_services_${urlSlug || "default"}`
 
   const getBookingStepFromUrl = (): BookingStep => {
@@ -1025,6 +1027,12 @@ export function CustomerBookingPage() {
     setCustomerBookings(list)
   }
 
+  useEffect(() => {
+    if (!manageBookingsRequested) return
+    if (currentUser?.email) fetchUserBookings(currentUser.email)
+    setShowMyBookings(true)
+  }, [manageBookingsRequested, currentUser?.email])
+
   const canContinue = step === 1
     ? selectedServices.length > 0
     : step === 2
@@ -1670,7 +1678,11 @@ export function CustomerBookingPage() {
                       paymentReceiptPath ? `[Receipt Storage Path: ${paymentReceiptPath}]` : "",
                     ].filter(Boolean).join("\n")
 
+                    const bookingId = crypto.randomUUID()
+                    const manageBookingsUrl = `${window.location.origin}/booking?slug=${encodeURIComponent(bookingBrandName)}&manage=bookings`
+
                     const appointmentPayload = {
+                      id: bookingId,
                       business_id: profile?.id || "demo-business",
                       customer_name: details.name.trim(),
                       customer_email: details.email.trim(),
@@ -1722,10 +1734,35 @@ export function CustomerBookingPage() {
                       const prevBookings = JSON.parse(localStorage.getItem(localKey) || "[]")
                       prevBookings.unshift({
                         ...appointmentPayload,
-                        id: `apt-${Date.now()}`,
                         created_at: new Date().toISOString(),
                       })
                       localStorage.setItem(localKey, JSON.stringify(prevBookings))
+                    }
+
+                    if (supabase && details.email.trim()) {
+                      const { error: emailError } = await supabase.functions.invoke("send-booking-email", {
+                        body: {
+                          customerEmail: details.email.trim(),
+                          customerName: details.name.trim(),
+                          businessName,
+                          // The profile logo may be stored as a Supabase URL or as a
+                          // data-image. Preserve either form for the email function;
+                          // resolving a data-image through URL() can make the value
+                          // unusable for inline email attachments.
+                          businessLogoUrl: profile?.logo_url?.trim() || "",
+                          businessLocation,
+                          ownerName: ownerFullName,
+                          serviceNames: selectedServiceLabel,
+                          appointmentDate: calendarEmailLabel(selectedDateKey),
+                          appointmentDateKey: selectedDateKey,
+                          appointmentTime: appointmentTimeRange,
+                          durationMinutes: Math.max(bookingSlotSize, totalDurationMinutes),
+                          totalPrice: appointmentPayload.total_price,
+                          bookingId,
+                          manageBookingsUrl,
+                        },
+                      })
+                      if (emailError) console.warn("Unable to send booking confirmation email", emailError)
                     }
                     bookingSaved = true
                   } catch (err) {
@@ -1954,8 +1991,8 @@ export function CustomerBookingPage() {
           )}
 
           {/* STEP 4: Booking Confirmation */}
-          {step === 4 && (
-            <BookingSuccessPage>
+          {step === 4 && false && (
+            <div>
             <div className="booking-success">
               <div className="success-check">
                 <Check size={28} />
@@ -2005,7 +2042,25 @@ export function CustomerBookingPage() {
                 <Mail size={15} /> Need to make a change or send your peg photos? Reply to your confirmation email.
               </p>
             </div>
-            </BookingSuccessPage>
+            </div>
+          )}
+          {step === 4 && (
+            <BookingSuccessPage
+              email={details.email}
+              businessName={businessName}
+              businessLocation={businessLocation}
+              selectedServiceLabel={selectedServiceLabel}
+              selectedDate={selectedDate}
+              time={time}
+              selectedPriceDisplay={selectedPriceDisplay}
+              pegImage={pegImage}
+              onBookAnother={() => {
+                navigateToBookingStep(1, true)
+                setServiceIds([])
+                setTime("")
+                removePegImage()
+              }}
+            />
           )}
         </section>
       </div>
