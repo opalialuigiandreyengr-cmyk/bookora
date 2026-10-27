@@ -34,6 +34,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
 import { setCrossSubdomainCookie } from "@/lib/domain"
+import { createPortal } from "react-dom"
 
 type Service = {
   id: string
@@ -48,6 +49,8 @@ type Service = {
 }
 
 type ServiceCategory = { id: string; name: string }
+
+type BookingStep = 1 | 2 | 3 | 4
 
 type BusinessProfile = {
   id: string
@@ -239,9 +242,19 @@ export function CustomerBookingPage() {
   const urlSlug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("slug")?.trim() || pathSlug || hostSlug : ""
   const selectedServicesStorageKey = `bookora_selected_services_${urlSlug || "default"}`
 
+  const getBookingStepFromUrl = (): BookingStep => {
+    const routeStep = new URLSearchParams(window.location.search).get("step")
+    if (routeStep === "success") return 4
+    if (routeStep === "2") return 2
+    if (routeStep === "3") return 3
+    return 1
+  }
+
+  const initialBookingStep = getBookingStepFromUrl()
   const [step, setStep] = useState(() => {
+    if (new URLSearchParams(window.location.search).has("step")) return initialBookingStep
     const savedStep = window.history.state?.bookoraBookingStep
-    return savedStep === 2 || savedStep === 3 ? savedStep : 1
+    return savedStep === 2 || savedStep === 3 || savedStep === 4 ? savedStep : initialBookingStep
   })
   const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem("bookora-booking-theme") === "dark")
   const [profile, setProfile] = useState<BusinessProfile | null>(null)
@@ -282,23 +295,34 @@ export function CustomerBookingPage() {
   const scrollBookingPageToTop = () => {
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }))
   }
-  const transitionToBookingStep = (nextStep: number) => {
-    if (stepTransitionTimer.current !== null) window.clearTimeout(stepTransitionTimer.current)
-    window.history.pushState({ ...(window.history.state || {}), bookoraBookingStep: nextStep }, "", window.location.href)
-    setStepTransitionLoading(true)
+  const navigateToBookingStep = (nextStep: BookingStep, replace = false) => {
+    const nextUrl = new URL(window.location.href)
+    if (nextStep === 1) nextUrl.searchParams.delete("step")
+    else if (nextStep === 4) nextUrl.searchParams.set("step", "success")
+    else nextUrl.searchParams.set("step", String(nextStep))
+
+    const nextState = { ...(window.history.state || {}), bookoraBookingStep: nextStep }
+    if (replace) window.history.replaceState(nextState, "", nextUrl.toString())
+    else window.history.pushState(nextState, "", nextUrl.toString())
     setStep(nextStep)
+  }
+  const transitionToBookingStep = (nextStep: BookingStep) => {
+    if (stepTransitionTimer.current !== null) window.clearTimeout(stepTransitionTimer.current)
+    navigateToBookingStep(nextStep)
+    setStepTransitionLoading(true)
     scrollBookingPageToTop()
     stepTransitionTimer.current = window.setTimeout(() => {
       setStepTransitionLoading(false)
       stepTransitionTimer.current = null
     }, 800)
   }
-  const goBackBookingStep = (fallbackStep: number) => {
+  const goBackBookingStep = (fallbackStep: BookingStep) => {
     if (step > 1 && window.history.state?.bookoraBookingStep === step) {
       window.history.back()
       return
     }
-    setStep(fallbackStep)
+    navigateToBookingStep(fallbackStep, true)
+    scrollBookingPageToTop()
   }
 
   // Auth & user states
@@ -341,10 +365,9 @@ export function CustomerBookingPage() {
   }, [])
 
   useEffect(() => {
-    window.history.replaceState({ ...(window.history.state || {}), bookoraBookingStep: step }, "", window.location.href)
+    navigateToBookingStep(initialBookingStep, true)
     const handlePopState = () => {
-      const savedStep = window.history.state?.bookoraBookingStep
-      setStep(savedStep === 2 || savedStep === 3 ? savedStep : 1)
+      setStep(getBookingStepFromUrl())
       setStepTransitionLoading(false)
       scrollBookingPageToTop()
     }
@@ -1618,6 +1641,7 @@ export function CustomerBookingPage() {
               ) : null}
 
               <form
+                id="booking-details-form"
                 className="details-form"
                 onSubmit={async (event) => {
                   event.preventDefault()
@@ -1703,7 +1727,7 @@ export function CustomerBookingPage() {
                     showToast(errorMessage)
                   } finally {
                     setSubmittingBooking(false)
-                    if (bookingSaved) setStep(4)
+                    if (bookingSaved) transitionToBookingStep(4)
                   }
                 }}
               >
@@ -1954,7 +1978,7 @@ export function CustomerBookingPage() {
                 className="booking-secondary"
                 type="button"
                 onClick={() => {
-                  setStep(1)
+                  navigateToBookingStep(1, true)
                   setServiceIds([])
                   setTime("")
                   removePegImage()
@@ -1969,6 +1993,37 @@ export function CustomerBookingPage() {
           )}
         </section>
       </div>
+
+      {step === 3 && typeof document !== "undefined" && createPortal(
+        <div className={`booking-summary booking-summary-sticky booking-summary-step-three booking-summary-portal ${summaryDateVisible ? "" : "is-collapsed"}`}>
+          <div className="booking-summary-pay-row">
+            <span>Total to pay</span>
+            <span className="booking-summary-pay-actions">
+              <strong>{selectedPriceDisplay || "â‚±0"}</strong>
+              <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide date and time" : "Show date and time"} aria-expanded={summaryDateVisible}>
+                <ChevronDown size={15} />
+              </button>
+            </span>
+          </div>
+          <div className="booking-summary-service-row">
+            <strong>{selectedServiceLabel}{summaryDateVisible ? "" : ` Â· ${formattedTotalDuration || `${bookingSlotSize} min`}`}</strong>
+            {summaryDateVisible && <span>{selectedPriceDisplay || "â‚±0"}</span>}
+          </div>
+          {summaryDateVisible && <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>}
+          {summaryDateVisible && <button type="button" className="booking-summary-toggle" onClick={() => goBackBookingStep(2)} aria-label="Change appointment date and time" title="Change appointment date and time">
+            <span className="booking-summary-date-label"><small>{calendarLongLabel(selectedDateKey)} {appointmentTimeRange}</small></span>
+            <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} Â· {time}</small></span>
+            <Pencil size={14} aria-hidden="true" />
+          </button>}
+          <div className="booking-summary-footer">
+            <span className="secure-note">No payment required today</span>
+            <button className="booking-primary" type="submit" form="booking-details-form" disabled={!canContinue || submittingBooking}>
+              {submittingBooking ? <><Loader2 size={16} className="animate-spin" /><span>Confirming...</span></> : <>Confirm booking <ArrowRight size={17} /></>}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Featured Treatments (Dynamic real services) */}
       {false && <section className="booking-discovery" id="services" aria-labelledby="services-title">
@@ -2020,7 +2075,7 @@ export function CustomerBookingPage() {
                   if (!serviceIds.includes(service.id)) {
                     setServiceIds([service.id])
                   }
-                  setStep(1)
+                  navigateToBookingStep(1, true)
                   document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })
                 }}
               >
@@ -2328,7 +2383,7 @@ export function CustomerBookingPage() {
           businessName={businessName}
           onBookNew={() => {
             setShowMyBookings(false)
-            setStep(1)
+            navigateToBookingStep(1, true)
             document.getElementById("booking-flow")?.scrollIntoView({ behavior: "smooth" })
           }}
         />
