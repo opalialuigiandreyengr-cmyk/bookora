@@ -57,7 +57,7 @@ const sidebarIcons = [
 ]
 
 const GRID_START_HOUR = 8 // default 8:00 AM (expands to fit earlier bookings)
-const GRID_END_HOUR = 19 // default 7:00 PM (expands to fit later bookings)
+const GRID_END_HOUR = 23 // default 11:00 PM (expands to fit later bookings)
 const HOUR_HEIGHT_PX = 64
 
 export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSignOut: () => void }) {
