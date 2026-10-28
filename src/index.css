@@ -5031,17 +5031,17 @@ svg { stroke-width: 1.8; }
 /* ==========================================================================
    Customer Booking: Strict 14px Body Content Across All Sections (Exclude Header)
    ========================================================================== */
-.customer-booking-page p,
-.customer-booking-page small,
-.customer-booking-page label,
-.customer-booking-page input,
-.customer-booking-page textarea,
-.customer-booking-page li,
-.customer-booking-page blockquote,
-.customer-booking-page span:not(.booking-header, .booking-header *, .radio-indicator, .radio-indicator *, .team-avatar, .business-avatar, .reviews-big-number, .reviews-stars-visual, .reviews-count-caption),
-.customer-booking-page a:not(.booking-header, .booking-header *),
-.customer-booking-page button:not(.booking-header, .booking-header *),
-.customer-booking-page strong:not(h1 *, h2 *, .date-option strong, .reviews-big-number, .booking-summary-total strong, .confirmed-date strong, .story-main, .story-stats strong),
+.customer-booking-page:not(.my-bookings-page) p,
+.customer-booking-page:not(.my-bookings-page) small,
+.customer-booking-page:not(.my-bookings-page) label,
+.customer-booking-page:not(.my-bookings-page) input,
+.customer-booking-page:not(.my-bookings-page) textarea,
+.customer-booking-page:not(.my-bookings-page) li,
+.customer-booking-page:not(.my-bookings-page) blockquote,
+.customer-booking-page:not(.my-bookings-page) span:not(.booking-header, .booking-header *, .radio-indicator, .radio-indicator *, .team-avatar, .business-avatar, .reviews-big-number, .reviews-stars-visual, .reviews-count-caption),
+.customer-booking-page:not(.my-bookings-page) a:not(.booking-header, .booking-header *),
+.customer-booking-page:not(.my-bookings-page) button:not(.booking-header, .booking-header *),
+.customer-booking-page:not(.my-bookings-page) strong:not(h1 *, h2 *, .date-option strong, .reviews-big-number, .booking-summary-total strong, .confirmed-date strong, .story-main, .story-stats strong),
 .service-copy,
 .service-copy strong,
 .service-copy > span,
@@ -5590,24 +5590,24 @@ svg { stroke-width: 1.8; }
 }
 
 .my-booking-date-badge.is-large {
-  width: 68px;
-  border-radius: 16px;
-  box-shadow: 0 6px 18px rgba(194, 87, 80, 0.09);
+  width: 60px;
+  border-radius: 14px;
+  box-shadow: 0 5px 14px rgba(194, 87, 80, 0.09);
 }
 
 .my-booking-date-badge.is-large .my-booking-date-month {
-  padding: 5px 0 4px;
-  font-size: 10.5px !important;
+  padding: 4px 0 3px;
+  font-size: 9.5px !important;
 }
 
 .my-booking-date-badge.is-large .my-booking-date-day {
-  padding: 5px 0 2px;
-  font-size: 26px !important;
+  padding: 3px 0 1px;
+  font-size: 23px !important;
 }
 
 .my-booking-date-badge.is-large .my-booking-date-weekday {
-  padding: 0 0 7px;
-  font-size: 10px !important;
+  padding: 0 0 5px;
+  font-size: 9px !important;
 }
 
 /* List Card Inner Layout */
@@ -5702,13 +5702,13 @@ svg { stroke-width: 1.8; }
 }
 
 /* ============================================================================
-   DETAIL VIEW (Image 2)
+   DETAIL VIEW (Image 2 - Compact & Punchy Price)
    ============================================================================ */
 .my-booking-detail-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 10px 16px;
   background: #fbf8f6;
   border-bottom: 1px solid #f2eae6;
   position: sticky;
@@ -5719,12 +5719,12 @@ svg { stroke-width: 1.8; }
 .my-booking-detail-back {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   border: 0;
-  padding: 4px 6px 4px 0;
+  padding: 3px 6px 3px 0;
   background: transparent;
   color: #263446;
-  font-size: 15px !important;
+  font-size: 14px !important;
   font-weight: 600;
   cursor: pointer;
 }
@@ -5738,8 +5738,8 @@ svg { stroke-width: 1.8; }
 }
 
 .my-booking-detail-more {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 0;
   background: transparent;
@@ -5789,10 +5789,10 @@ svg { stroke-width: 1.8; }
   color: #c84b43;
 }
 
-/* Detail Hero Banner */
+/* Detail Hero Banner (Compact) */
 .my-booking-detail-hero {
   position: relative;
-  padding: 22px 20px 18px;
+  padding: 14px 16px 13px;
   background:
     radial-gradient(circle at 88% 18%, rgba(246, 211, 204, 0.65) 0%, transparent 52%),
     linear-gradient(135deg, #fdf3f1 0%, #fae6e2 62%, #f8dcd6 100%);
@@ -5801,67 +5801,68 @@ svg { stroke-width: 1.8; }
 
 .my-booking-detail-hero-row {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 13px;
 }
 
 .my-booking-detail-hero-copy {
   min-width: 0;
   flex: 1;
-  padding-top: 2px;
 }
 
 .my-booking-detail-title {
-  margin: 8px 0 2px;
+  margin: 5px 0 1px;
   color: #142032;
-  font-size: 20px !important;
+  font-size: 18px !important;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
 
+.my-booking-detail-subrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .my-booking-detail-subtitle {
   margin: 0;
   color: #6e7b8b;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   font-weight: 500;
 }
 
-.my-booking-detail-hero-price {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-
-.my-booking-detail-hero-price strong {
-  color: #c84b43;
-  font-size: 24px !important;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+.my-booking-detail-price {
+  color: #c84b43 !important;
+  font-size: 25px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.035em;
   line-height: 1;
+  flex-shrink: 0;
 }
 
-/* Detail Body & White Card */
+/* Detail Body & White Card (Compact) */
 .my-booking-detail-body {
-  padding: 16px 20px 36px;
+  padding: 12px 16px 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .my-booking-info-card {
   background: #ffffff;
   border: 1px solid #f0e7e4;
-  border-radius: 20px;
-  padding: 4px 18px;
-  box-shadow: 0 6px 20px rgba(22, 34, 52, 0.04);
+  border-radius: 16px;
+  padding: 2px 14px;
+  box-shadow: 0 4px 16px rgba(22, 34, 52, 0.035);
 }
 
 .my-booking-info-row {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 15px 0;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 0;
   border-bottom: 1px solid #f3ece9;
 }
 
@@ -5874,14 +5875,14 @@ svg { stroke-width: 1.8; }
 }
 
 .my-booking-info-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: #fbeae7;
   color: #c85a52;
   display: grid;
   place-items: center;
-  flex: 0 0 40px;
+  flex: 0 0 34px;
 }
 
 .my-booking-info-text {
@@ -5889,40 +5890,40 @@ svg { stroke-width: 1.8; }
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .my-booking-info-label {
   color: #8491a1;
-  font-size: 11.5px !important;
+  font-size: 11px !important;
   font-weight: 500;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .my-booking-info-primary {
   color: #142032;
-  font-size: 14.5px !important;
+  font-size: 13.5px !important;
   font-weight: 800;
   letter-spacing: -0.015em;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .my-booking-info-secondary {
   color: #6c7888;
-  font-size: 12.5px !important;
+  font-size: 12px !important;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .my-booking-view-map-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 8px 12px;
-  border-radius: 10px;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 9px;
   background: #fbeae7;
   color: #c85a52;
-  font-size: 11.5px !important;
+  font-size: 11px !important;
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
@@ -5935,42 +5936,42 @@ svg { stroke-width: 1.8; }
 }
 
 .my-booking-info-extra {
-  padding: 14px 0;
+  padding: 10px 0;
   border-top: 1px solid #f3ece9;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .my-booking-note-box {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
   background: #faf6f4;
   color: #4f5d6e;
-  font-size: 12.5px !important;
-  line-height: 1.45;
+  font-size: 12px !important;
+  line-height: 1.4;
 }
 
-/* Booking ID Bar */
+/* Booking ID Bar (Compact) */
 .my-booking-id-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
   background: #f2f1f4;
   border: 1px solid #e7e5eb;
 }
 
 .my-booking-id-file-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   background: #e7e5ec;
   color: #334155;
   display: grid;
   place-items: center;
-  flex: 0 0 34px;
+  flex: 0 0 30px;
 }
 
 .my-booking-id-copy-text {
@@ -5978,27 +5979,29 @@ svg { stroke-width: 1.8; }
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .my-booking-id-copy-text span {
   color: #7c8998;
-  font-size: 11px !important;
+  font-size: 10.5px !important;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .my-booking-id-copy-text strong {
   color: #64748b;
-  font-size: 11.5px !important;
+  font-size: 11px !important;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.25;
 }
 
 .my-booking-id-copy-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -6006,7 +6009,7 @@ svg { stroke-width: 1.8; }
   display: grid;
   place-items: center;
   cursor: pointer;
-  flex: 0 0 34px;
+  flex: 0 0 30px;
 }
 
 .my-booking-id-copy-btn:hover {
@@ -6014,28 +6017,28 @@ svg { stroke-width: 1.8; }
   color: #162234;
 }
 
-/* Detail Action Buttons */
+/* Detail Action Buttons (Compact) */
 .my-booking-detail-actions {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-top: 2px;
 }
 
 .my-booking-reschedule-btn {
   width: 100%;
-  height: 48px;
+  height: 42px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #d1564e 0%, #c2453d 100%);
   color: #ffffff;
-  font-size: 14.5px !important;
+  font-size: 13.5px !important;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(194, 69, 61, 0.22);
+  box-shadow: 0 6px 14px rgba(194, 69, 61, 0.2);
   transition: transform 0.16s ease, filter 0.16s ease;
 }
 
@@ -6046,8 +6049,8 @@ svg { stroke-width: 1.8; }
 
 .my-booking-cancel-btn {
   width: 100%;
-  height: 48px;
-  border-radius: 14px;
+  height: 42px;
+  border-radius: 12px;
   border: 1px solid #e6e0dd;
   background: #ffffff;
   color: #2b394a;

@@ -171,8 +171,15 @@ export function MyBookingsPage({
   }, [businessAddress, businessCountry, businessLocation])
 
   const serviceCategoryLabel = useMemo(() => {
-    if (businessIndustry?.trim()) return businessIndustry.trim()
-    if (/nail|gel|manicure|pedicure/i.test(businessName)) return "Nail Service"
+    const raw = businessIndustry?.trim() || ""
+    if (/nail|gel|manicure|pedicure/i.test(raw) || /nail|gel|manicure|pedicure/i.test(businessName)) {
+      return "Nail Service"
+    }
+    if (raw) {
+      return raw
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase())
+    }
     return "Nail Service"
   }, [businessIndustry, businessName])
 
@@ -340,16 +347,15 @@ export function MyBookingsPage({
 
               <div className="my-booking-detail-hero-copy">
                 <span className={`my-booking-status-pill is-${statusKind} has-check`}>
-                  {statusKind === "approved" && <Check size={11} strokeWidth={2.8} />}
+                  {statusKind === "approved" && <Check size={10} strokeWidth={2.8} />}
                   {statusLabel}
                 </span>
                 <h1 className="my-booking-detail-title">{selectedBooking.service_names}</h1>
-                <p className="my-booking-detail-subtitle">{serviceCategoryLabel}</p>
+                <div className="my-booking-detail-subrow">
+                  <p className="my-booking-detail-subtitle">{serviceCategoryLabel}</p>
+                  <strong className="my-booking-detail-price">{selectedBooking.total_price}</strong>
+                </div>
               </div>
-            </div>
-
-            <div className="my-booking-detail-hero-price">
-              <strong>{selectedBooking.total_price}</strong>
             </div>
           </section>
 
@@ -359,7 +365,7 @@ export function MyBookingsPage({
               {/* Row 1: Date & Time */}
               <div className="my-booking-info-row">
                 <div className="my-booking-info-icon">
-                  <CalendarDays size={18} />
+                  <CalendarDays size={16} />
                 </div>
                 <div className="my-booking-info-text">
                   <span className="my-booking-info-label">Date &amp; Time</span>
@@ -373,7 +379,7 @@ export function MyBookingsPage({
               {/* Row 2: With */}
               <div className="my-booking-info-row">
                 <div className="my-booking-info-icon">
-                  <UserRound size={18} />
+                  <UserRound size={16} />
                 </div>
                 <div className="my-booking-info-text">
                   <span className="my-booking-info-label">With</span>
@@ -384,7 +390,7 @@ export function MyBookingsPage({
               {/* Row 3: Estimated Total */}
               <div className="my-booking-info-row">
                 <div className="my-booking-info-icon">
-                  <Tag size={18} />
+                  <Tag size={16} />
                 </div>
                 <div className="my-booking-info-text">
                   <span className="my-booking-info-label">Estimated Total</span>
@@ -395,7 +401,7 @@ export function MyBookingsPage({
               {/* Row 4: Location + View Map */}
               <div className="my-booking-info-row is-location-row">
                 <div className="my-booking-info-icon">
-                  <MapPin size={18} />
+                  <MapPin size={16} />
                 </div>
                 <div className="my-booking-info-text">
                   <span className="my-booking-info-label">Location</span>
@@ -408,7 +414,7 @@ export function MyBookingsPage({
                   rel="noreferrer"
                   className="my-booking-view-map-btn"
                 >
-                  <Map size={13} />
+                  <Map size={12} />
                   <span>View Map</span>
                 </a>
               </div>
