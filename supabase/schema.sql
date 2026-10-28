@@ -415,14 +415,7 @@ create policy "Business owners can update own appointments"
 drop policy if exists "Public can insert appointments" on public.appointments;
 create policy "Public can insert appointments"
     on public.appointments for insert to anon, authenticated
-    with check (
-        exists (
-            select 1 from public.business_profiles profile
-            where profile.id = appointments.business_id
-              and profile.slug is not null
-              and length(trim(profile.slug)) > 0
-        )
-    );
+    with check (business_id is not null);
 
 grant select, update, delete on public.appointments to authenticated;
 grant insert on public.appointments to anon, authenticated;

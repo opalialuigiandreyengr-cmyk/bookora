@@ -2014,12 +2014,10 @@ export function CustomerBookingPage() {
                       throw new Error("That time was just booked. Please choose another available time.")
                     }
 
-                    // Step 1: Save appointment to database FIRST
-                    let { data: savedRecord, error } = await supabase
+                    // Step 1: Save appointment to database FIRST (use minimal return so guests without select permissions don't trigger RLS RETURNING checks)
+                    let { error } = await supabase
                       .from("appointments")
                       .insert(appointmentPayload)
-                      .select("id")
-                      .single()
 
                     const errorText = error ? `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase() : ""
                     const isMissingAppointmentColumn = Boolean(error && (
@@ -2040,15 +2038,12 @@ export function CustomerBookingPage() {
                       const legacyResult = await supabase
                         .from("appointments")
                         .insert(legacyPayload)
-                        .select("id")
-                        .single()
                       error = legacyResult.error
-                      savedRecord = legacyResult.data
                     }
 
                     // If database save fails, STOP immediately — NEVER send email, NEVER proceed to success page
-                    if (error || !savedRecord?.id) {
-                      throw new Error(error?.message || "We could not save your booking to the schedule. Please try again.")
+                    if (error) {
+                      throw new Error(error.message || "We could not save your booking to the schedule. Please try again.")
                     }
 
                     // Database save confirmed!
