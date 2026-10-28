@@ -29,7 +29,7 @@ const restoreServiceOrder = (services: Service[], businessId: string) => {
 
 export function ServicesPage({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const name = String(user.user_metadata?.business_name ?? "Your business")
-  const select = (item: string) => window.location.assign(item === "Settings" ? "/settings" : "/dashboard")
+  const select = (item: string) => window.location.assign(item === "Settings" ? "/settings" : item === "Calendar" ? "/calendar" : item === "Services" ? "/services" : "/dashboard")
   return <div className="dashboard-shell services-standalone-shell"><aside className="dashboard-sidebar"><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = sidebarIcons[index]; return <button key={item} className={item === "Services" ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div></div></aside><div className="dashboard-content services-standalone-content"><ServicesContent user={user} onSignOut={onSignOut} /></div></div>
 }
 

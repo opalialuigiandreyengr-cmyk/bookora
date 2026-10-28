@@ -18,6 +18,10 @@ export function DashboardPage({ user, onSignOut }: { user: User; onSignOut: () =
       window.location.assign("/services")
       return
     }
+    if (item === "Calendar") {
+      window.location.assign("/calendar")
+      return
+    }
     setActive(item)
     setOpen(false)
     window.history.replaceState({}, "", item === "Settings" ? "/settings" : "/dashboard")

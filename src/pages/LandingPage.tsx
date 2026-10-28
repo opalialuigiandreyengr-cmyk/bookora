@@ -63,8 +63,8 @@ export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
   const [loginModalOpen, setLoginModalOpen] = useState(false)
 
   const openLogin = () => {
-    setLoginModalOpen(true)
     setMenuOpen(false)
+    window.location.href = "/login"
   }
 
   const handleSwitchToSignup = () => {
@@ -117,8 +117,8 @@ export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
         </nav>
         <div className="header-actions">
           <button className="language"><Globe2 /> EN</button>
-          <Button className="header-login" variant="outline" onClick={openLogin}>
-            Log in
+          <Button className="header-login" variant="outline" asChild>
+            <a href="/login">Log in</a>
           </Button>
           <Button className="header-start-button" asChild>
             <a href="/signup">

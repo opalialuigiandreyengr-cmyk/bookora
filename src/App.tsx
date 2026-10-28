@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { ServicesPage } from "@/pages/ServicesPage"
+import { CalendarPage } from "@/pages/CalendarPage"
 import { LandingPage } from "@/pages/LandingPage"
 import { SignupPage } from "@/pages/SignupPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
@@ -96,7 +97,7 @@ export default function App() {
         return
       }
       // Clients should never be redirected to business onboarding or salon dashboard
-      const internalBusinessRoutes = ["/dashboard", "/onboarding", "/services", "/settings"]
+      const internalBusinessRoutes = ["/dashboard", "/onboarding", "/services", "/calendar", "/settings"]
       if (internalBusinessRoutes.includes(window.location.pathname)) {
         const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
         window.history.replaceState({}, "", destination)
@@ -104,7 +105,15 @@ export default function App() {
       }
       return
     }
-    const destination = onboardingDone ? (window.location.pathname === "/services" ? "/services" : "/dashboard") : "/onboarding"
+    const destination = onboardingDone
+      ? window.location.pathname === "/services"
+        ? "/services"
+        : window.location.pathname === "/calendar"
+          ? "/calendar"
+          : window.location.pathname === "/settings"
+            ? "/settings"
+            : "/dashboard"
+      : "/onboarding"
     if (window.location.pathname !== destination) window.history.replaceState({}, "", destination)
   }, [user, onboardingDone, isClient, clientSlug, hostname])
 
@@ -117,20 +126,47 @@ export default function App() {
     }
 
     const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
-    if (["/dashboard", "/onboarding", "/services", "/settings"].includes(pathname)) {
+    if (["/dashboard", "/onboarding", "/services", "/calendar", "/settings"].includes(pathname)) {
       window.location.replace(destination)
       return null
     }
-    if (["/signup", "/register", "/get-started", "/auth"].includes(pathname)) {
+    if (["/signup", "/login", "/register", "/get-started", "/auth"].includes(pathname)) {
       return <><ToastViewport /><SignupPage /></>
     }
     return <><ToastViewport /><LandingPage clientUser={user} /></>
   }
 
   if (user && !onboardingDone) return <><ToastViewport /><OnboardingPage user={user} onComplete={() => { setOnboardingDone(true); if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskey(true) }} /></>
-  if (user && onboardingDone) return <><ToastViewport />{window.location.pathname === "/services" ? <ServicesPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} /> : <><DashboardPage user={user} onSignOut={async () => { await supabase?.auth.signOut(); window.history.replaceState({}, "", "/") }} />{showPasskey && <PasskeyModal onClose={(dontAskAgain) => { if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true"); setShowPasskey(false) }} />}</>}</>
+  if (user && onboardingDone) {
+    const handleSignOut = async () => {
+      await supabase?.auth.signOut()
+      window.history.replaceState({}, "", "/")
+    }
+    return (
+      <>
+        <ToastViewport />
+        {window.location.pathname === "/services" ? (
+          <ServicesPage user={user} onSignOut={handleSignOut} />
+        ) : window.location.pathname === "/calendar" ? (
+          <CalendarPage user={user} onSignOut={handleSignOut} />
+        ) : (
+          <>
+            <DashboardPage user={user} onSignOut={handleSignOut} />
+            {showPasskey && (
+              <PasskeyModal
+                onClose={(dontAskAgain) => {
+                  if (dontAskAgain) localStorage.setItem("bookora-passkey-prompted", "true")
+                  setShowPasskey(false)
+                }}
+              />
+            )}
+          </>
+        )}
+      </>
+    )
+  }
 
-  const isPreviewPath = window.location.pathname === "/dashboard" || window.location.pathname === "/settings" || window.location.pathname === "/services" || window.location.search.includes("demo=true")
+  const isPreviewPath = window.location.pathname === "/dashboard" || window.location.pathname === "/settings" || window.location.pathname === "/services" || window.location.pathname === "/calendar" || window.location.search.includes("demo=true")
   if (isPreviewPath) {
     const previewUser: User = {
       id: "preview-user-123",
@@ -144,10 +180,25 @@ export default function App() {
       created_at: new Date().toISOString(),
       email: "luigi@bookora.com",
     }
-    return <><ToastViewport />{window.location.pathname === "/services" ? <ServicesPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} /> : <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />}</>
+    const handlePreviewSignOut = () => {
+      window.history.replaceState({}, "", "/")
+      window.location.href = "/"
+    }
+    return (
+      <>
+        <ToastViewport />
+        {window.location.pathname === "/services" ? (
+          <ServicesPage user={previewUser} onSignOut={handlePreviewSignOut} />
+        ) : window.location.pathname === "/calendar" ? (
+          <CalendarPage user={previewUser} onSignOut={handlePreviewSignOut} />
+        ) : (
+          <DashboardPage user={previewUser} onSignOut={handlePreviewSignOut} />
+        )}
+      </>
+    )
   }
 
-  if (["/signup", "/register", "/get-started", "/auth"].includes(pathname)) {
+  if (["/signup", "/login", "/register", "/get-started", "/auth"].includes(pathname)) {
     return <><ToastViewport /><SignupPage /></>
   }
 

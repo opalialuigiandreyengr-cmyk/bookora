@@ -310,8 +310,19 @@ export function AuthCard({
 }
 
 export function SignupPage() {
-  const initialMode = new URLSearchParams(window.location.search).get("mode") === "login" ? "login" : "signup"
+  const initialMode =
+    window.location.pathname === "/login" || new URLSearchParams(window.location.search).get("mode") === "login"
+      ? "login"
+      : "signup"
   const [authMode, setAuthMode] = useState<"signup" | "login">(initialMode)
+
+  const handleSetMode = (nextMode: "signup" | "login") => {
+    setAuthMode(nextMode)
+    const nextPath = nextMode === "login" ? "/login" : "/signup"
+    if (window.location.pathname !== nextPath) {
+      window.history.replaceState({}, "", nextPath)
+    }
+  }
 
   return (
     <div className="signup-ref-shell">
@@ -393,14 +404,14 @@ export function SignupPage() {
               <button
                 type="button"
                 className="signup-ref-back-link"
-                onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}
+                onClick={() => handleSetMode(authMode === "login" ? "signup" : "login")}
               >
                 <span>{authMode === "login" ? "Create account" : "Log in"}</span>
               </button>
             </div>
 
             <div className="signup-ref-right-body">
-              <AuthCard mode={authMode} setMode={setAuthMode} />
+              <AuthCard mode={authMode} setMode={handleSetMode} />
             </div>
           </section>
         </div>
