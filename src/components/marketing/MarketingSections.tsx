@@ -70,15 +70,15 @@ export function MarketingSections() {
             </div>
           </div>
         </div>
-        <div className="pricing-grid">{plans.map(({ icon: Icon, ...plan }) => <article className={`price-plan ${plan.recommended ? "recommended" : ""}`} key={plan.name}>{plan.recommended && <span className="plan-badge"><Crown /> Best for growing salons</span>}<div className="plan-heading"><span className="plan-icon"><Icon /></span><div><h3>{plan.name}</h3><p>{plan.description}</p></div></div><div className="plan-price"><strong>{plan.price}</strong><span>/ month</span></div><ul>{plan.features.map((feature) => <li key={feature}><Check /> {feature}</li>)}</ul><Button variant={plan.recommended ? "default" : "outline"} asChild><a href="#signup">{plan.action}<ArrowRight /></a></Button></article>)}</div>
+        <div className="pricing-grid">{plans.map(({ icon: Icon, ...plan }) => <article className={`price-plan ${plan.recommended ? "recommended" : ""}`} key={plan.name}>{plan.recommended && <span className="plan-badge"><Crown /> Best for growing salons</span>}<div className="plan-heading"><span className="plan-icon"><Icon /></span><div><h3>{plan.name}</h3><p>{plan.description}</p></div></div><div className="plan-price"><strong>{plan.price}</strong><span>/ month</span></div><ul>{plan.features.map((feature) => <li key={feature}><Check /> {feature}</li>)}</ul><Button variant={plan.recommended ? "default" : "outline"} asChild><a href="/signup">{plan.action}<ArrowRight /></a></Button></article>)}</div>
       </section>
 
       <section className="faq-section marketing-section" id="faq" aria-labelledby="faq-title">
-        <div className="faq-intro"><p className="section-kicker">FAQs</p><h2 id="faq-title">Frequently asked questions.</h2><p>Find answers to common questions about Bookora.</p><Button variant="outline" asChild><a href="#signup">View all FAQs <ArrowRight /></a></Button></div>
+        <div className="faq-intro"><p className="section-kicker">FAQs</p><h2 id="faq-title">Frequently asked questions.</h2><p>Find answers to common questions about Bookora.</p><Button variant="outline" asChild><a href="/signup">View all FAQs <ArrowRight /></a></Button></div>
         <div className="faq-list">{faqs.map((question, index) => <details key={question} open={index === 0}><summary>{question}<ChevronDown /></summary><p>{index === 0 ? "Start with the free plan and upgrade when your salon is ready. No credit card is required." : "Yes — Bookora keeps your schedule, services, and client details organized as your business grows."}</p></details>)}</div>
         <section className="closing-cta" aria-label="Get started with Bookora">
           <div><p className="section-kicker">Ready to simplify your bookings?</p><h2>Make booking the easiest part of your day.</h2></div>
-          <div><p>Set up your booking page and give clients an easier way to book.</p><Button size="lg" asChild><a href="#signup">Get started free <ArrowRight /></a></Button></div>
+          <div><p>Set up your booking page and give clients an easier way to book.</p><Button size="lg" asChild><a href="/signup">Get started free <ArrowRight /></a></Button></div>
         </section>
       </section>
 

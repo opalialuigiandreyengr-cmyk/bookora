@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { ServicesPage } from "@/pages/ServicesPage"
 import { LandingPage } from "@/pages/LandingPage"
+import { SignupPage } from "@/pages/SignupPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
 import { PasskeyModal } from "@/pages/PasskeyModal"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
@@ -120,6 +121,9 @@ export default function App() {
       window.location.replace(destination)
       return null
     }
+    if (["/signup", "/register", "/get-started", "/auth"].includes(pathname)) {
+      return <><ToastViewport /><SignupPage /></>
+    }
     return <><ToastViewport /><LandingPage clientUser={user} /></>
   }
 
@@ -141,6 +145,10 @@ export default function App() {
       email: "luigi@bookora.com",
     }
     return <><ToastViewport />{window.location.pathname === "/services" ? <ServicesPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} /> : <DashboardPage user={previewUser} onSignOut={() => { window.history.replaceState({}, "", "/"); window.location.href = "/" }} />}</>
+  }
+
+  if (["/signup", "/register", "/get-started", "/auth"].includes(pathname)) {
+    return <><ToastViewport /><SignupPage /></>
   }
 
   return <><ToastViewport /><LandingPage /></>

@@ -1,305 +1,13 @@
-import { FormEvent, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { ArrowRight, BarChart3, Bell, CalendarDays, Check, CirclePlay, CreditCard, Eye, EyeOff, Globe2, Home, ListChecks, Loader2, LockKeyhole, Mail, Menu, Scissors, Settings2, Users, X } from "lucide-react"
+import { ArrowRight, BarChart3, Bell, CalendarDays, Check, CirclePlay, CreditCard, Globe2, Home, ListChecks, Menu, Scissors, Settings2, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { hasSupabaseConfig, supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase"
 import { Logo } from "@/components/brand/Logo"
 import { MarketingSections } from "@/components/marketing/MarketingSections"
 import { LoginModal } from "@/pages/LoginModal"
-import { clearCrossSubdomainCookie } from "@/lib/domain"
 
 const features = [[CalendarDays, "Online Booking", "Let clients book 24/7 from any device."], [Users, "Manage Staff", "Set schedules, assign services and track availability."], [ListChecks, "Custom Services", "Add services, prices, duration and packages."], [CreditCard, "Accept Payments", "In-salon or online payments, all in one place."], [Bell, "Automated Reminders", "Reduce no-shows with email and SMS reminders."], [BarChart3, "Reports & Growth", "Track bookings, revenue and your best services."]] as const
-
-function AuthCard({ mode, setMode }: { mode: "signup" | "login"; setMode: (m: "signup" | "login") => void }) {
-  const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle")
-  const [loadingProvider, setLoadingProvider] = useState<"google" | "apple" | "email" | null>(null)
-  const [message, setMessage] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const isLogin = mode === "login"
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!supabase) {
-      setStatus("error")
-      setLoadingProvider(null)
-      setMessage("Connect Supabase first by adding your environment variables.")
-      return
-    }
-    const form = new FormData(event.currentTarget)
-    const email = String(form.get("email") ?? "").trim()
-    const password = String(form.get("password") ?? "")
-
-    setLoadingProvider("email")
-    setStatus("loading")
-    setMessage("")
-
-    if (isLogin) {
-      const { data: signInData, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) {
-        setStatus("error")
-        setLoadingProvider(null)
-        setMessage(error.message)
-      } else {
-        const loggedUser = signInData.user
-        const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(window.location.hostname)
-        if (isRootDomain) {
-          clearCrossSubdomainCookie("bookora_client_slug")
-          clearCrossSubdomainCookie("bookora_client_return")
-          setStatus("success")
-          setMessage("Signed in successfully! Opening your workspaceâ€¦")
-          window.setTimeout(() => { window.location.href = "/dashboard" }, 300)
-          return
-        }
-        const isClient = Boolean(
-          !isRootDomain && (
-            loggedUser?.user_metadata?.account_type === "client" ||
-            loggedUser?.user_metadata?.role === "client" ||
-            loggedUser?.user_metadata?.client_slug
-          )
-        )
-        if (isClient) {
-          const clientSlug = loggedUser.user_metadata?.client_slug
-          const busName = loggedUser.user_metadata?.client_business_name || clientSlug || "your studio"
-          setStatus("success")
-          setMessage(`Signed in as a client of ${busName}! Taking you to your booking page…`)
-          window.setTimeout(() => {
-            const target = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
-            window.location.href = target
-          }, 800)
-          return
-        }
-        setStatus("success")
-        setMessage("Signed in successfully! Loading your workspace…")
-      }
-    } else {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
-          data: {
-            account_type: "business",
-            role: "business",
-          },
-        },
-      })
-      if (error) {
-        setStatus("error")
-        setLoadingProvider(null)
-        setMessage(error.message)
-      } else {
-        setStatus("success")
-        setMessage(data.session ? "Your account is ready." : "Check your email to confirm your account.")
-      }
-    }
-  }
-
-  const oauth = async (provider: "google" | "apple") => {
-    if (!supabase) {
-      setStatus("error")
-      setLoadingProvider(null)
-      setMessage("Connect Supabase first by adding your environment variables.")
-      return
-    }
-    setLoadingProvider(provider)
-    setStatus("loading")
-    setMessage("")
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-      if (error) {
-        setStatus("error")
-        setLoadingProvider(null)
-        setMessage(error.message)
-      }
-    } catch (err: any) {
-      setStatus("error")
-      setLoadingProvider(null)
-      setMessage(err?.message || `${provider} sign-in failed.`)
-    }
-  }
-
-  return (
-    <Card className="signup-card" id="signup">
-      {/* Centered Loading Spinner Overlay */}
-      {status === "loading" && loadingProvider && (
-        <div className="signup-card-loading-overlay">
-          <div className="customer-modal-loading-card">
-            <div className="customer-modal-spinner-wrap">
-              <Loader2 size={32} className="animate-spin customer-modal-spinner" />
-            </div>
-            <h3>
-              {loadingProvider === "google"
-                ? "Connecting to Google"
-                : loadingProvider === "apple"
-                ? "Connecting to Apple"
-                : isLogin
-                ? "Signing in"
-                : "Creating your account"}
-            </h3>
-            <p>
-              {loadingProvider === "google"
-                ? "Please wait while we connect your Google account…"
-                : "Please wait a moment while we process your request…"}
-            </p>
-            <button
-              type="button"
-              className="customer-modal-loading-cancel"
-              onClick={() => {
-                setStatus("idle")
-                setLoadingProvider(null)
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="auth-card-pills" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={!isLogin}
-          className={`auth-card-pill ${!isLogin ? "active" : ""}`}
-          onClick={() => { setMode("signup"); setMessage(""); setStatus("idle") }}
-        >
-          Create account
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={isLogin}
-          className={`auth-card-pill ${isLogin ? "active" : ""}`}
-          onClick={() => { setMode("login"); setMessage(""); setStatus("idle") }}
-        >
-          Log in
-        </button>
-      </div>
-
-      <div style={{ textAlign: "center", paddingTop: 14 }}>
-        <div className="business-auth-pill">
-          <span className="business-auth-dot" />
-          <span>Bookora for Business · Salon Workspace</span>
-        </div>
-      </div>
-
-      <CardHeader>
-        <CardTitle>{isLogin ? "Welcome back" : "Create your account"}</CardTitle>
-        <CardDescription>
-          {isLogin ? "Sign in to manage your appointments and salon." : "Start accepting client bookings in minutes."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit}>
-          <FieldGroup>
-            <Field className="icon-field">
-              <FieldLabel htmlFor="hero-email">Email address</FieldLabel>
-              <div className="input-shell">
-                <Mail aria-hidden="true" />
-                <Input id="hero-email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
-              </div>
-            </Field>
-            <Field className="icon-field">
-              <FieldLabel htmlFor="hero-password">Password</FieldLabel>
-              <div className="input-shell">
-                <LockKeyhole aria-hidden="true" />
-                <Input
-                  id="hero-password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder={isLogin ? "Enter your password" : "At least 8 characters"}
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                  minLength={isLogin ? 1 : 8}
-                  required
-                />
-                <button
-                  className="password-toggle"
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </button>
-              </div>
-            </Field>
-          </FieldGroup>
-          <Button className="wide-button" size="lg" type="submit" disabled={status === "loading"}>
-            {status === "loading" && loadingProvider === "email" ? (
-              <>
-                <Loader2 className="animate-spin" />
-                <span>{isLogin ? "Signing in…" : "Creating account…"}</span>
-              </>
-            ) : isLogin ? (
-              "Sign in to account"
-            ) : (
-              "Create free account"
-            )}
-          </Button>
-          {(status === "error" || status === "success") && (
-            <p className={status === "error" ? "auth-error" : "auth-note"} role={status === "error" ? "alert" : "status"}>
-              {message}
-            </p>
-          )}
-          <div className="or-row"><Separator /><span>or continue with</span><Separator /></div>
-          <div className="social-buttons">
-            <Button variant="outline" type="button" onClick={() => oauth("google")} disabled={status === "loading"}>
-              {status === "loading" && loadingProvider === "google" ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  <span>Connecting to Google…</span>
-                </>
-              ) : (
-                <>
-                  <img className="social-logo" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" />
-                  <span>Continue with Google</span>
-                </>
-              )}
-            </Button>
-            <Button variant="outline" type="button" onClick={() => oauth("apple")} disabled={status === "loading"}>
-              <img className="social-logo" src="https://cdn.simpleicons.org/apple/111827" alt="" /> Continue with Apple
-            </Button>
-          </div>
-
-          <div className="auth-card-footer-switch">
-            {isLogin ? (
-              <p>
-                Don’t have an account yet?{" "}
-                <button type="button" className="auth-switch-link" onClick={() => { setMode("signup"); setMessage(""); setStatus("idle") }}>
-                  Create free account
-                </button>
-              </p>
-            ) : (
-              <p>
-                Already have an account?{" "}
-                <button type="button" className="auth-switch-link" onClick={() => { setMode("login"); setMessage(""); setStatus("idle") }}>
-                  Log in here
-                </button>
-              </p>
-            )}
-          </div>
-
-          {!isLogin && (
-            <p className="terms">By creating an account, you agree to our <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy.</a></p>
-          )}
-          {!hasSupabaseConfig && <p className="auth-note">OAuth is ready once Supabase environment variables are added.</p>}
-        </form>
-      </CardContent>
-    </Card>
-  )
-}
 
 const previewAppointments = [
   { className: "lilac", name: "Mia Santos", service: "Hair color", time: "9:00", style: { left: "1%", top: "14px" } },
@@ -346,14 +54,13 @@ function FeatureModal({ feature, onClose }: { feature: typeof features[number]; 
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [onClose])
 
-  return <div className="feature-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><section className="feature-modal" role="dialog" aria-modal="true" aria-labelledby="feature-modal-title"><button className="feature-modal-close" type="button" aria-label="Close feature details" onClick={onClose}><X /></button><span className="feature-modal-icon"><Icon /></span><p className="eyebrow">Bookora feature</p><h2 id="feature-modal-title">{title}</h2><p>{copy}</p><p>Keep this part of your business organized in one calm workspace, so you can spend less time on admin and more time with clients.</p><Button asChild><a href="#signup" onClick={onClose}>Get started free <ArrowRight /></a></Button></section></div>
+  return <div className="feature-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><section className="feature-modal" role="dialog" aria-modal="true" aria-labelledby="feature-modal-title"><button className="feature-modal-close" type="button" aria-label="Close feature details" onClick={onClose}><X /></button><span className="feature-modal-icon"><Icon /></span><p className="eyebrow">Bookora feature</p><h2 id="feature-modal-title">{title}</h2><p>{copy}</p><p>Keep this part of your business organized in one calm workspace, so you can spend less time on admin and more time with clients.</p><Button asChild><a href="/signup" onClick={onClose}>Get started free <ArrowRight /></a></Button></section></div>
 }
 
 export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeFeature, setActiveFeature] = useState<typeof features[number] | null>(null)
   const [loginModalOpen, setLoginModalOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup")
 
   const openLogin = () => {
     setLoginModalOpen(true)
@@ -361,11 +68,7 @@ export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
   }
 
   const handleSwitchToSignup = () => {
-    setAuthMode("signup")
-    const cardEl = document.getElementById("signup")
-    if (cardEl) {
-      cardEl.scrollIntoView({ behavior: "smooth" })
-    }
+    window.location.href = "/signup"
   }
 
   return (
@@ -418,7 +121,7 @@ export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
             Log in
           </Button>
           <Button className="header-start-button" asChild>
-            <a href="#signup" onClick={() => setAuthMode("signup")}>
+            <a href="/signup">
               <span className="desktop-cta-label">Get started free</span>
               <span className="mobile-cta-label">Start free</span>
             </a>
@@ -446,7 +149,7 @@ export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
             </p>
             <div className="hero-actions">
               <Button size="lg" asChild>
-                <a href="#signup" onClick={() => setAuthMode("signup")}>Get started free <ArrowRight /></a>
+                <a href="/signup">Get started free <ArrowRight /></a>
               </Button>
               <Button size="lg" variant="outline"><CirclePlay /> Watch demo</Button>
             </div>
@@ -457,7 +160,6 @@ export function LandingPage({ clientUser }: { clientUser?: User | null } = {}) {
             </div>
           </div>
           <ProductPreview />
-          <AuthCard mode={authMode} setMode={setAuthMode} />
         </div>
       </section>
 
