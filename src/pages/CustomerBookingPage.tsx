@@ -2027,7 +2027,7 @@ export function CustomerBookingPage() {
                     }
 
                     if (supabase && details.email.trim()) {
-                      const { error: emailError } = await supabase.functions.invoke("send-booking-email", {
+                      const { data: emailData, error: emailError } = await supabase.functions.invoke("send-booking-email", {
                         body: {
                           customerEmail: details.email.trim(),
                           customerName: details.name.trim(),
@@ -2052,7 +2052,11 @@ export function CustomerBookingPage() {
                           manageBookingsUrl,
                         },
                       })
-                      if (emailError) console.warn("Unable to send booking confirmation email", emailError)
+                      if (emailError) {
+                        console.warn("Unable to send booking confirmation email", emailError)
+                      } else if (emailData?.isSandboxRestriction) {
+                        console.warn("Resend Sandbox Notice: Delivery to guest email blocked by Resend testing sandbox. Add a custom domain in Resend to send to all guest emails.")
+                      }
                     }
                     bookingSaved = true
                   } catch (err) {
@@ -2074,7 +2078,6 @@ export function CustomerBookingPage() {
                   <input
                     autoComplete="name"
                     value={details.name}
-                    disabled={Boolean(currentUser)}
                     onChange={(event) => updateDetail("name", event.target.value)}
                     placeholder="e.g. Maria Santos"
                     required
@@ -2088,7 +2091,6 @@ export function CustomerBookingPage() {
                       type="email"
                       autoComplete="email"
                       value={details.email}
-                      disabled={Boolean(currentUser)}
                       onChange={(event) => updateDetail("email", event.target.value)}
                       placeholder="you@example.com"
                       required

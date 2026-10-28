@@ -204,6 +204,19 @@ Deno.serve(async (request) => {
     }),
   })
 
-  if (!response.ok) return json({ error: await response.text() }, response.status)
-  return json({ ok: true, data: await response.json() })
+  const resText = await response.text()
+  if (!response.ok) {
+    console.error("Resend delivery failed:", response.status, resText)
+    return json({
+      error: resText,
+      status: response.status,
+      isSandboxRestriction: response.status === 403 && (resText.includes("testing emails") || resText.includes("own email address")),
+    }, response.status)
+  }
+
+  let resData: any = null
+  try {
+    resData = JSON.parse(resText)
+  } catch {}
+  return json({ ok: true, data: resData })
 })
