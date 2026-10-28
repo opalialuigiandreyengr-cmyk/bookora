@@ -1066,13 +1066,33 @@ export function CustomerBookingPage() {
       }))
     }
     try {
-      const local = JSON.parse(localStorage.getItem(`bookora_local_bookings_${normalizedEmail}`) || "[]")
+      const localKey = `bookora_local_bookings_${normalizedEmail}`
+      const local = JSON.parse(localStorage.getItem(localKey) || "[]") as AppointmentRecord[]
+      let migratedLocal = false
+      const normalizedLocal = local.map((item) => {
+        const rawStatus = String(item.status || "").trim().toLowerCase()
+        if (!rawStatus || rawStatus === "pending") {
+          migratedLocal = true
+          return { ...item, status: "approved" }
+        }
+        return item
+      })
+      if (migratedLocal) {
+        localStorage.setItem(localKey, JSON.stringify(normalizedLocal))
+      }
       const ids = new Set(list.map((item) => item.id))
-      local.forEach((item: AppointmentRecord) => {
+      normalizedLocal.forEach((item) => {
         if (!ids.has(item.id)) list.push(item)
       })
     } catch {}
-    setCustomerBookings(list)
+    const normalizedList = list.map((item) => {
+      const rawStatus = String(item.status || "").trim().toLowerCase()
+      if (!rawStatus || rawStatus === "pending") {
+        return { ...item, status: "approved" }
+      }
+      return item
+    })
+    setCustomerBookings(normalizedList)
   }
 
   useEffect(() => {
@@ -1814,7 +1834,7 @@ export function CustomerBookingPage() {
                       buffer_minutes: bookingBufferMinutes,
                       peg_image_path: pegImagePath || null,
                       payment_receipt_path: paymentReceiptPath || null,
-                      status: "pending",
+                      status: "approved",
                     }
 
                     if (supabase && profile?.id) {
@@ -3481,8 +3501,8 @@ function MyBookingsModal({
             {bookings.map((booking) => (
               <div className="booking-item-card" key={booking.id}>
                 <div className="booking-item-top">
-                  <span className={`booking-status-tag ${booking.status === "confirmed" ? "confirmed" : "pending"}`}>
-                    <Check size={11} /> {booking.status || "Pending"}
+                  <span className="booking-status-tag confirmed">
+                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : "Approved"}
                   </span>
                   <strong style={{ color: "#d85b53", fontSize: 13.5 }}>{booking.total_price}</strong>
                 </div>

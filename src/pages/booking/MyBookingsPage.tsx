@@ -130,11 +130,10 @@ const formatTimeRange = (value: string, durationMinutes?: number | null) => {
   return `${formatTime(start)} – ${formatTime(start + Math.max(5, Number(durationMinutes || 30)))}`
 }
 
-const getNormalizedStatus = (status?: string | null): "approved" | "pending" | "cancelled" => {
-  const raw = String(status || "pending").trim().toLowerCase()
+const getNormalizedStatus = (status?: string | null): "approved" | "cancelled" => {
+  const raw = String(status || "approved").trim().toLowerCase()
   if (["cancelled", "canceled", "declined", "rejected"].includes(raw)) return "cancelled"
-  if (["confirmed", "approved", "completed", "accepted"].includes(raw)) return "approved"
-  return "pending"
+  return "approved"
 }
 
 export function MyBookingsPage({

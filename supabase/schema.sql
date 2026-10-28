@@ -330,7 +330,7 @@ create table if not exists public.appointments (
     appointment_time text not null,
     duration_minutes integer,
     buffer_minutes integer default 0,
-    status text not null default 'pending',
+    status text not null default 'approved',
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -339,6 +339,8 @@ alter table public.appointments add column if not exists duration_minutes intege
 alter table public.appointments add column if not exists buffer_minutes integer default 0;
 alter table public.appointments add column if not exists peg_image_path text;
 alter table public.appointments add column if not exists payment_receipt_path text;
+alter table public.appointments alter column status set default 'approved';
+update public.appointments set status = 'approved' where lower(coalesce(status, 'pending')) = 'pending';
 
 -- Private customer-uploaded booking attachments. Guests may upload into the
 -- published business folder; only the owning business can read or delete them.
