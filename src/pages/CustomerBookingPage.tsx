@@ -23,6 +23,8 @@ import {
   Moon,
   Pencil,
   Phone,
+  Receipt,
+  AlertCircle,
   Scissors,
   Sparkles,
   Star,
@@ -84,6 +86,10 @@ type BusinessProfile = {
   booking_show_notes?: boolean | null
   booking_show_design_peg?: boolean | null
   booking_show_payment_receipt?: boolean | null
+  booking_fee_enabled?: boolean | null
+  booking_fee_type?: string | null
+  booking_fee_amount?: number | string | null
+  booking_fee_note?: string | null
   booking_additional_info?: string | null
   payment_receipt_url?: string | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
@@ -731,7 +737,50 @@ export function CustomerBookingPage() {
   const showAddressField = profile?.booking_show_address ?? false
   const showNotesField = profile?.booking_show_notes ?? true
   const showDesignPegField = profile?.booking_show_design_peg ?? true
-  const showPaymentReceiptField = profile?.booking_show_payment_receipt ?? false
+  const bookingFeeInfo = useMemo(() => {
+    const isFeeEnabled = Boolean(profile?.booking_fee_enabled)
+    if (!isFeeEnabled) {
+      return {
+        enabled: false,
+        type: "fixed" as const,
+        rawVal: 0,
+        depositAmount: 0,
+        balanceAmount: totalPriceNum,
+        label: "",
+        note: profile?.booking_fee_note?.trim() || "",
+      }
+    }
+
+    const type = profile?.booking_fee_type === "percentage" ? "percentage" : ("fixed" as const)
+    const rawVal = Math.max(0, Number(profile?.booking_fee_amount ?? 0))
+    let deposit = 0
+
+    if (type === "percentage") {
+      const pct = Math.max(0, Math.min(100, rawVal || 0))
+      deposit = Math.round((totalPriceNum * pct) / 100)
+    } else {
+      deposit = rawVal
+    }
+
+    if (totalPriceNum > 0 && deposit > totalPriceNum) {
+      deposit = totalPriceNum
+    }
+
+    const balance = Math.max(0, totalPriceNum - deposit)
+    const label = type === "percentage" ? `${rawVal}% Deposit` : "Reservation Deposit"
+
+    return {
+      enabled: true,
+      type,
+      rawVal,
+      depositAmount: deposit,
+      balanceAmount: balance,
+      label,
+      note: profile?.booking_fee_note?.trim() || "",
+    }
+  }, [profile?.booking_fee_enabled, profile?.booking_fee_type, profile?.booking_fee_amount, profile?.booking_fee_note, totalPriceNum])
+
+  const showPaymentReceiptField = (profile?.booking_show_payment_receipt ?? false) || bookingFeeInfo.enabled
   const additionalInfo = profile?.booking_additional_info?.trim() || "Prices vary depending on design complexity. Your final quote will be confirmed after reviewing your request."
   const minimumNoticeHours = Math.max(0, Number(profile?.booking_min_notice_hours ?? 2))
   const maximumBookingDays = Math.max(1, Number(profile?.booking_max_days ?? 60))
@@ -917,14 +966,21 @@ export function CustomerBookingPage() {
       const client = supabase
 
       try {
-        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_additional_info, payment_receipt_url, business_hours, owner_name"
+        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_fee_enabled, booking_fee_type, booking_fee_amount, booking_fee_note, booking_additional_info, payment_receipt_url, business_hours, owner_name"
         const profileQuery = () => client.from("business_profiles").select(profileFields)
         let profileResult: any = activeSlug
           ? await profileQuery().eq("slug", activeSlug).limit(1)
           : await profileQuery().order("created_at", { ascending: true }).limit(1)
 
-        // Keep older deployments usable until the booking_policy migration is
-        // applied in Supabase.
+        // Keep older deployments usable until newer columns are migrated in Supabase.
+        if (profileResult.error?.message?.includes("booking_fee") || profileResult.error?.message?.includes("booking_policy") || profileResult.error?.message?.includes("booking_show_phone")) {
+          const intermediateFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_additional_info, payment_receipt_url, business_hours, owner_name"
+          const intermediateQuery = () => client.from("business_profiles").select(intermediateFields)
+          profileResult = activeSlug
+            ? await intermediateQuery().eq("slug", activeSlug).limit(1)
+            : await intermediateQuery().order("created_at", { ascending: true }).limit(1)
+        }
+
         if (profileResult.error?.message?.includes("booking_policy") || profileResult.error?.message?.includes("booking_show_phone")) {
           const legacyFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, business_hours, owner_name"
           const legacyQuery = () => client.from("business_profiles").select(legacyFields)
@@ -934,7 +990,32 @@ export function CustomerBookingPage() {
         }
 
         const { data: businesses, error: profileError } = profileResult
-        const business = businesses?.[0]
+        let business = businesses?.[0]
+        if (!business) {
+          try {
+            const cached = window.localStorage.getItem("bookora_cached_profile")
+            if (cached) {
+              const parsed = JSON.parse(cached)
+              if (parsed?.id) business = parsed
+            }
+          } catch {}
+        } else {
+          try {
+            const cached = window.localStorage.getItem("bookora_cached_profile")
+            if (cached) {
+              const parsed = JSON.parse(cached)
+              if (parsed && (business.booking_fee_enabled === undefined || business.booking_fee_enabled === null)) {
+                business = {
+                  ...business,
+                  booking_fee_enabled: parsed.booking_fee_enabled,
+                  booking_fee_type: parsed.booking_fee_type,
+                  booking_fee_amount: parsed.booking_fee_amount,
+                  booking_fee_note: parsed.booking_fee_note,
+                }
+              }
+            }
+          } catch {}
+        }
         if (!active || profileError || !business) {
           if (active) setBookingDataError(true)
           return
@@ -1815,7 +1896,11 @@ export function CustomerBookingPage() {
                   try {
                     const pegImagePath = await uploadBookingAttachment(pegImage, pegImageName, "peg")
                     const paymentReceiptPath = await uploadBookingAttachment(paymentReceipt, paymentReceiptName, "receipt")
+                    const depositNoteTag = bookingFeeInfo.enabled
+                      ? `[Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} | Balance: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}]`
+                      : ""
                     const noteContent = [
+                      depositNoteTag,
                       details.note.trim(),
                     ].filter(Boolean).join(" ")
 
@@ -2042,6 +2127,42 @@ export function CustomerBookingPage() {
 
                 {additionalInfo && <small className="details-peg-hint"><em>{additionalInfo}</em></small>}
 
+                {bookingFeeInfo.enabled && (
+                  <div className="booking-fee-breakdown-card">
+                    <div className="booking-fee-breakdown-header">
+                      <div className="booking-fee-badge">
+                        <Receipt size={14} />
+                        <span>Reservation Deposit Required</span>
+                      </div>
+                      <span className="booking-fee-deposit-amount">
+                        ₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")}
+                      </span>
+                    </div>
+
+                    <div className="booking-fee-breakdown-table">
+                      <div className="booking-fee-breakdown-item">
+                        <span>Total service price</span>
+                        <strong>{totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay || "₱0"}</strong>
+                      </div>
+                      <div className="booking-fee-breakdown-item highlight">
+                        <span>Deposit due now {bookingFeeInfo.type === "percentage" ? `(${bookingFeeInfo.rawVal}%)` : "(Fixed fee)"}</span>
+                        <strong>₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")}</strong>
+                      </div>
+                      <div className="booking-fee-breakdown-item">
+                        <span>Remaining balance at appointment</span>
+                        <strong>₱{bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}</strong>
+                      </div>
+                    </div>
+
+                    {bookingFeeInfo.note && (
+                      <div className="booking-fee-note-box">
+                        <AlertCircle size={14} />
+                        <p>{bookingFeeInfo.note}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {showPaymentReceiptField && (
                   <div className="peg-attachment-field">
                     <div className="peg-field-header"><span>Payment receipt</span></div>
@@ -2085,9 +2206,9 @@ export function CustomerBookingPage() {
 
                 <div className={`booking-summary booking-summary-sticky booking-summary-step-three ${summaryDateVisible ? "" : "is-collapsed"}`}>
                   <div className="booking-summary-pay-row">
-                    <span>Total to pay</span>
+                    <span>{bookingFeeInfo.enabled ? `Deposit due today (${bookingFeeInfo.type === "percentage" ? `${bookingFeeInfo.rawVal}%` : "Fixed"})` : "Total to pay"}</span>
                     <span className="booking-summary-pay-actions">
-                      <strong>{selectedPriceDisplay || "₱0"}</strong>
+                      <strong>{bookingFeeInfo.enabled ? `₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")}` : (selectedPriceDisplay || "₱0")}</strong>
                       <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide date and time" : "Show date and time"} aria-expanded={summaryDateVisible}>
                         <ChevronDown size={15} />
                       </button>
@@ -2103,29 +2224,20 @@ export function CustomerBookingPage() {
                     <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</small></span>
                     <Pencil size={14} aria-hidden="true" />
                   </button>}
-                  {false && <div className="booking-summary-details">
-                  <div className="booking-summary-grid">
-                    <div className="booking-summary-item">
-                      <span>Appointment{selectedServices.length > 1 ? "s" : ""}</span>
-                      <strong>{selectedServiceLabel}</strong>
-                    </div>
-                    <div className="booking-summary-item">
-                      <span>When</span>
-                      <strong>
-                        {selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}
-                      </strong>
-                    </div>
-                  </div>
-                  <div className="booking-summary-total">
-                    <span>Estimated Base Total</span>
-                    <strong>{selectedPriceDisplay}*</strong>
-                    <small>*Starting price. Final quotation confirmed based on design peg.</small>
-                  </div>
-                  </div>}
                   <div className="booking-summary-footer">
-                    <span className="secure-note">No payment required today</span>
+                    <span className="secure-note">
+                      {bookingFeeInfo.enabled
+                        ? `Deposit due today · Balance ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")} at appointment`
+                        : "No payment required today"}
+                    </span>
                     <button className="booking-primary" type="submit" disabled={!canContinue || submittingBooking}>
-                      {submittingBooking ? <><Loader2 size={16} className="animate-spin" /><span>Confirming...</span></> : <>Confirm booking <ArrowRight size={17} /></>}
+                      {submittingBooking ? (
+                        <><Loader2 size={16} className="animate-spin" /><span>Confirming...</span></>
+                      ) : bookingFeeInfo.enabled ? (
+                        <>Pay deposit & confirm <ArrowRight size={17} /></>
+                      ) : (
+                        <>Confirm booking <ArrowRight size={17} /></>
+                      )}
                     </button>
                   </div>
                 </div>

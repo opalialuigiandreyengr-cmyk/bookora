@@ -332,6 +332,14 @@ function BookingPreferences({
   setBufferMinutes,
   formFields,
   setFormFields,
+  bookingFeeEnabled,
+  setBookingFeeEnabled,
+  bookingFeeType,
+  setBookingFeeType,
+  bookingFeeAmount,
+  setBookingFeeAmount,
+  bookingFeeNote,
+  setBookingFeeNote,
   additionalInfo,
   setAdditionalInfo,
   paymentReceiptUrl,
@@ -352,6 +360,14 @@ function BookingPreferences({
   setBufferMinutes: (value: string) => void
   formFields: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean }
   setFormFields: (value: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean }) => void
+  bookingFeeEnabled: boolean
+  setBookingFeeEnabled: (value: boolean) => void
+  bookingFeeType: "fixed" | "percentage"
+  setBookingFeeType: (value: "fixed" | "percentage") => void
+  bookingFeeAmount: string
+  setBookingFeeAmount: (value: string) => void
+  bookingFeeNote: string
+  setBookingFeeNote: (value: string) => void
   additionalInfo: string
   setAdditionalInfo: (value: string) => void
   paymentReceiptUrl: string
@@ -504,6 +520,96 @@ function BookingPreferences({
             placeholder="Add your booking, cancellation, and refund policy"
           />
         </label>
+      </section>
+      <section className="settings-card preference-card">
+        <div className="settings-card-heading">
+          <div>
+            <h2>Booking fee &amp; Deposit</h2>
+            <p>Require clients to pay a reservation fee or deposit to secure their appointment.</p>
+          </div>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Require booking fee / reservation deposit</strong>
+            <p>When enabled, clients are shown the required deposit amount and instructions to confirm their booking.</p>
+          </div>
+          <label className="settings-switch">
+            <input
+              type="checkbox"
+              checked={bookingFeeEnabled}
+              onChange={(event) => {
+                const next = event.target.checked
+                setBookingFeeEnabled(next)
+                if (next && !formFields.paymentReceipt) {
+                  setFormFields({ ...formFields, paymentReceipt: true })
+                }
+              }}
+            />
+            <i />
+          </label>
+        </div>
+
+        {bookingFeeEnabled && (
+          <div className="booking-fee-settings-panel">
+            <div className="booking-fee-type-selector">
+              <span className="booking-fee-label">Deposit calculation</span>
+              <div className="booking-fee-type-pills">
+                <button
+                  type="button"
+                  className={`booking-fee-type-btn ${bookingFeeType === "fixed" ? "active" : ""}`}
+                  onClick={() => setBookingFeeType("fixed")}
+                >
+                  Fixed amount (₱)
+                </button>
+                <button
+                  type="button"
+                  className={`booking-fee-type-btn ${bookingFeeType === "percentage" ? "active" : ""}`}
+                  onClick={() => setBookingFeeType("percentage")}
+                >
+                  Percentage of total (%)
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-form-grid preference-form-grid">
+              <label>
+                <span>
+                  {bookingFeeType === "fixed" ? "Deposit amount (₱)" : "Deposit percentage (%)"}
+                </span>
+                <div className="settings-input-adornment">
+                  {bookingFeeType === "fixed" && <span className="adornment-prefix">₱</span>}
+                  <input
+                    type="number"
+                    min="0"
+                    max={bookingFeeType === "percentage" ? "100" : undefined}
+                    placeholder={bookingFeeType === "fixed" ? "200" : "50"}
+                    value={bookingFeeAmount}
+                    onChange={(event) => setBookingFeeAmount(event.target.value)}
+                  />
+                  {bookingFeeType === "percentage" && <span className="adornment-suffix">%</span>}
+                </div>
+              </label>
+
+              <div className="booking-fee-preview-hint">
+                <small>
+                  {bookingFeeType === "fixed"
+                    ? `Clients will be charged ₱${Number(bookingFeeAmount || 0).toLocaleString("en-PH")} upfront. The remaining service balance is paid at the appointment.`
+                    : `Clients will be charged ${bookingFeeAmount || 0}% of their total service price upfront.`}
+                </small>
+              </div>
+            </div>
+
+            <label className="preference-policy-field">
+              <span>Deposit instructions &amp; policy shown to clients</span>
+              <textarea
+                value={bookingFeeNote}
+                onChange={(event) => setBookingFeeNote(event.target.value)}
+                placeholder="Example: A reservation deposit is required to confirm your booking. This amount will be deducted from your final bill at the appointment."
+                rows={2}
+              />
+            </label>
+          </div>
+        )}
       </section>
       <section className="settings-card preference-card">
         <div className="settings-card-heading">
@@ -1416,6 +1522,10 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
   })
   const [additionalInfo, setAdditionalInfo] = useState(String(initialCache.booking_additional_info ?? user.user_metadata?.booking_additional_info ?? "Prices vary depending on design complexity. Your final quote will be confirmed after reviewing your request."))
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState(String(initialCache.payment_receipt_url ?? user.user_metadata?.payment_receipt_url ?? ""))
+  const [bookingFeeEnabled, setBookingFeeEnabled] = useState<boolean>(Boolean(initialCache.booking_fee_enabled ?? user.user_metadata?.booking_fee_enabled ?? false))
+  const [bookingFeeType, setBookingFeeType] = useState<"fixed" | "percentage">((initialCache.booking_fee_type ?? user.user_metadata?.booking_fee_type ?? "fixed") === "percentage" ? "percentage" : "fixed")
+  const [bookingFeeAmount, setBookingFeeAmount] = useState<string>(String(initialCache.booking_fee_amount ?? user.user_metadata?.booking_fee_amount ?? "200"))
+  const [bookingFeeNote, setBookingFeeNote] = useState<string>(String(initialCache.booking_fee_note ?? user.user_metadata?.booking_fee_note ?? "A reservation deposit is required to confirm your booking. This amount will be deducted from your final bill at the appointment."))
 
   // Save operation state
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -1466,6 +1576,10 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           }))
           if (data.booking_additional_info !== undefined) setAdditionalInfo(data.booking_additional_info || "")
           if (data.payment_receipt_url !== undefined) setPaymentReceiptUrl(data.payment_receipt_url || "")
+          if (data.booking_fee_enabled !== undefined) setBookingFeeEnabled(Boolean(data.booking_fee_enabled))
+          if (data.booking_fee_type !== undefined) setBookingFeeType(data.booking_fee_type === "percentage" ? "percentage" : "fixed")
+          if (data.booking_fee_amount !== undefined) setBookingFeeAmount(String(data.booking_fee_amount ?? "200"))
+          if (data.booking_fee_note !== undefined) setBookingFeeNote(data.booking_fee_note || "")
           if (data.banner_url) setBannerUrl(data.banner_url)
           if (data.logo_url) setLogoUrl(data.logo_url)
 
@@ -1514,6 +1628,10 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
       booking_show_notes: formFields.notes,
       booking_show_design_peg: formFields.designPeg,
       booking_show_payment_receipt: formFields.paymentReceipt,
+      booking_fee_enabled: bookingFeeEnabled,
+      booking_fee_type: bookingFeeType,
+      booking_fee_amount: Math.max(0, Number(bookingFeeAmount) || 0),
+      booking_fee_note: bookingFeeNote.trim(),
       booking_additional_info: additionalInfo.trim(),
       payment_receipt_url: paymentReceiptUrl,
       banner_url: bannerUrl,
@@ -1549,6 +1667,10 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             booking_show_notes: profileData.booking_show_notes,
             booking_show_design_peg: profileData.booking_show_design_peg,
             booking_show_payment_receipt: profileData.booking_show_payment_receipt,
+            booking_fee_enabled: profileData.booking_fee_enabled,
+            booking_fee_type: profileData.booking_fee_type,
+            booking_fee_amount: profileData.booking_fee_amount,
+            booking_fee_note: profileData.booking_fee_note,
             booking_additional_info: profileData.booking_additional_info,
             payment_receipt_url: profileData.payment_receipt_url,
             business_profile: profileData,
@@ -1713,6 +1835,14 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
               setBufferMinutes={setBufferMinutes}
               formFields={formFields}
               setFormFields={setFormFields}
+              bookingFeeEnabled={bookingFeeEnabled}
+              setBookingFeeEnabled={setBookingFeeEnabled}
+              bookingFeeType={bookingFeeType}
+              setBookingFeeType={setBookingFeeType}
+              bookingFeeAmount={bookingFeeAmount}
+              setBookingFeeAmount={setBookingFeeAmount}
+              bookingFeeNote={bookingFeeNote}
+              setBookingFeeNote={setBookingFeeNote}
               additionalInfo={additionalInfo}
               setAdditionalInfo={setAdditionalInfo}
               paymentReceiptUrl={paymentReceiptUrl}

@@ -115,6 +115,10 @@ create table if not exists public.business_profiles (
     booking_show_notes boolean default true,
     booking_show_design_peg boolean default true,
     booking_show_payment_receipt boolean default false,
+    booking_fee_enabled boolean default false,
+    booking_fee_type text default 'fixed',
+    booking_fee_amount numeric default 0,
+    booking_fee_note text default '',
     booking_additional_info text default '',
     payment_receipt_url text default '',
     banner_url text default '',
@@ -146,6 +150,14 @@ alter table public.business_profiles
     add column if not exists booking_show_design_peg boolean default true;
 alter table public.business_profiles
     add column if not exists booking_show_payment_receipt boolean default false;
+alter table public.business_profiles
+    add column if not exists booking_fee_enabled boolean default false;
+alter table public.business_profiles
+    add column if not exists booking_fee_type text default 'fixed';
+alter table public.business_profiles
+    add column if not exists booking_fee_amount numeric default 0;
+alter table public.business_profiles
+    add column if not exists booking_fee_note text default '';
 alter table public.business_profiles
     add column if not exists booking_additional_info text default '';
 alter table public.business_profiles

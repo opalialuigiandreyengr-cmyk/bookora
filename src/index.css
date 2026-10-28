@@ -10486,3 +10486,203 @@ svg { stroke-width: 1.8; }
 
 
 
+
+
+/* ==========================================================================
+   BOOKING FEE & RESERVATION DEPOSIT SETTINGS & CUSTOMER FLOW
+   ========================================================================== */
+.booking-fee-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border, #f1f1f1);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.booking-fee-type-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-fee-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading, #1f2937);
+}
+
+.booking-fee-type-pills {
+  display: inline-flex;
+  gap: 8px;
+  background: var(--bg-surface-secondary, #f8fafc);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  width: fit-content;
+}
+
+.booking-fee-type-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.booking-fee-type-btn:hover {
+  color: var(--text-heading, #0f172a);
+}
+
+.booking-fee-type-btn.active {
+  background: var(--bg-surface, #ffffff);
+  color: var(--primary, #e11d48);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.settings-input-adornment {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.settings-input-adornment input {
+  width: 100%;
+}
+
+.adornment-prefix {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  pointer-events: none;
+}
+
+.adornment-suffix {
+  position: absolute;
+  right: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  pointer-events: none;
+}
+
+.settings-input-adornment:has(.adornment-suffix) input {
+  padding-right: 32px;
+}
+
+.settings-input-adornment:has(.adornment-prefix) input {
+  padding-left: 30px;
+}
+
+.booking-fee-preview-hint {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 14px;
+  background: rgba(225, 29, 72, 0.04);
+  border: 1px dashed rgba(225, 29, 72, 0.25);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-body, #4b5563);
+}
+
+/* Customer Booking Page: Deposit Breakdown Card */
+.booking-fee-breakdown-card {
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.7) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(225, 29, 72, 0.16);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin: 16px 0;
+  box-shadow: 0 2px 10px rgba(225, 29, 72, 0.04);
+}
+
+.dark .booking-fee-breakdown-card {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border-color: rgba(225, 29, 72, 0.25);
+}
+
+.booking-fee-breakdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(225, 29, 72, 0.18);
+}
+
+.booking-fee-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e11d48;
+}
+
+.booking-fee-deposit-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e11d48;
+  letter-spacing: -0.01em;
+}
+
+.booking-fee-breakdown-table {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.booking-fee-breakdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+}
+
+.booking-fee-breakdown-item strong {
+  color: var(--text-heading, #1f2937);
+  font-weight: 600;
+}
+
+.booking-fee-breakdown-item.highlight {
+  padding: 5px 8px;
+  background: rgba(225, 29, 72, 0.07);
+  border-radius: 8px;
+  color: #b91c1c;
+}
+
+.booking-fee-breakdown-item.highlight strong {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.booking-fee-note-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(225, 29, 72, 0.12);
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.booking-fee-note-box svg {
+  flex-shrink: 0;
+  color: #e11d48;
+  margin-top: 1px;
+}
+
+.booking-fee-note-box p {
+  margin: 0;
+}
