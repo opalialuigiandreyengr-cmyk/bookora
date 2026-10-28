@@ -10915,3 +10915,31 @@ svg { stroke-width: 1.8; }
 .booking-error-alert-close:hover {
   opacity: 1;
 }
+
+/* Paid in full upfront highlights */
+.deposit-subrow.is-paid-in-full strong.balance-zero {
+  color: #16a34a !important;
+  font-weight: 600;
+}
+
+.text-success {
+  color: #16a34a !important;
+  font-weight: 600;
+}
+
+.booking-fee-full-note {
+  margin: 10px 0 0 0;
+  padding: 8px 12px;
+  background: rgba(22, 163, 74, 0.08);
+  border-left: 3px solid #16a34a;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #15803d;
+}
+
+.dark .booking-fee-full-note {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  border-left-color: #22c55e;
+}

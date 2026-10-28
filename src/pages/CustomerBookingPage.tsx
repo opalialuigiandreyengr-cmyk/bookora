@@ -761,7 +761,9 @@ export function CustomerBookingPage() {
         rawVal: 0,
         depositAmount: 0,
         balanceAmount: totalPriceNum,
+        isFullPayment: false,
         label: "",
+        feeHeading: "Total to pay",
         note: profile?.booking_fee_note?.trim() || "",
       }
     }
@@ -777,12 +779,24 @@ export function CustomerBookingPage() {
       deposit = rawVal
     }
 
+    // When the service price is less than or equal to the fixed fee/deposit, cap deposit at the service price
+    const isFullPayment = totalPriceNum > 0 && deposit >= totalPriceNum
     if (totalPriceNum > 0 && deposit > totalPriceNum) {
       deposit = totalPriceNum
     }
 
     const balance = Math.max(0, totalPriceNum - deposit)
-    const label = type === "percentage" ? `${rawVal}% Deposit` : "Reservation Deposit"
+    const label = isFullPayment
+      ? "Full Payment"
+      : type === "percentage"
+        ? `${rawVal}% Deposit`
+        : "Reservation Deposit"
+
+    const feeHeading = isFullPayment
+      ? "Total to pay today (Full payment)"
+      : type === "percentage"
+        ? `Deposit due today (${rawVal}%)`
+        : "Deposit due today (Fixed)"
 
     return {
       enabled: true,
@@ -790,7 +804,9 @@ export function CustomerBookingPage() {
       rawVal,
       depositAmount: deposit,
       balanceAmount: balance,
+      isFullPayment,
       label,
+      feeHeading,
       note: profile?.booking_fee_note?.trim() || "",
     }
   }, [profile?.booking_fee_enabled, profile?.booking_fee_type, profile?.booking_fee_amount, profile?.booking_fee_note, totalPriceNum])
@@ -1762,7 +1778,7 @@ export function CustomerBookingPage() {
                       {totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel}
                       {bookingFeeInfo.enabled && (
                         <span className="booking-actions-deposit-tag">
-                          {" "}· <strong>₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")} deposit</strong>
+                          {" "}· <strong>{bookingFeeInfo.isFullPayment ? "Full payment upfront" : `₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} deposit`}</strong>
                         </span>
                       )}
                       {formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
@@ -1885,7 +1901,7 @@ export function CustomerBookingPage() {
 
               <div className="booking-summary booking-summary-sticky booking-summary-step-two">
                 <div className="booking-summary-pay-row">
-                  <span>{bookingFeeInfo.enabled ? `Deposit due today (${bookingFeeInfo.type === "percentage" ? `${bookingFeeInfo.rawVal}%` : "Fixed"})` : "Total to pay"}</span>
+                  <span>{bookingFeeInfo.enabled ? bookingFeeInfo.feeHeading : "Total to pay"}</span>
                   <span className="booking-summary-pay-actions">
                     <strong>{bookingFeeInfo.enabled ? `₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")}` : (selectedPriceDisplay || "₱0")}</strong>
                     <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide service details" : "Show service details"} aria-expanded={summaryDateVisible}>
@@ -1900,9 +1916,11 @@ export function CustomerBookingPage() {
                       <span>{selectedPriceDisplay || "₱0"}</span>
                     </div>
                     {bookingFeeInfo.enabled && (
-                      <div className="booking-summary-service-row deposit-subrow">
-                        <small>Remaining balance at venue</small>
-                        <strong>₱{bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}</strong>
+                      <div className={`booking-summary-service-row deposit-subrow ${bookingFeeInfo.isFullPayment ? "is-paid-in-full" : ""}`}>
+                        <small>{bookingFeeInfo.isFullPayment ? "Balance at appointment" : "Remaining balance at venue"}</small>
+                        <strong className={bookingFeeInfo.isFullPayment ? "balance-zero" : ""}>
+                          {bookingFeeInfo.isFullPayment ? "₱0 (Paid in full)" : `₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`}
+                        </strong>
                       </div>
                     )}
                     <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>
@@ -1917,7 +1935,9 @@ export function CustomerBookingPage() {
               <div className="booking-actions">
                 <span className="secure-note">
                   {bookingFeeInfo.enabled ? (
-                    `Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} · Balance at venue: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`
+                    bookingFeeInfo.isFullPayment
+                      ? "Paid in full today · ₱0 balance at your appointment"
+                      : `Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} · Balance at venue: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`
                   ) : (
                     <><CalendarDays size={14} /> Free cancellation up to 24 hours before</>
                   )}
@@ -1970,7 +1990,9 @@ export function CustomerBookingPage() {
                     const pegImagePath = await uploadBookingAttachment(pegImage, pegImageName, "peg")
                     const paymentReceiptPath = await uploadBookingAttachment(paymentReceipt, paymentReceiptName, "receipt")
                     const depositNoteTag = bookingFeeInfo.enabled
-                      ? `[Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} | Balance: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}]`
+                      ? bookingFeeInfo.isFullPayment
+                        ? `[Paid in Full: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} | Balance: ₱0]`
+                        : `[Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} | Balance: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}]`
                       : ""
                     const noteContent = [
                       depositNoteTag,
@@ -2240,7 +2262,7 @@ export function CustomerBookingPage() {
                     <div className="booking-fee-breakdown-header">
                       <div className="booking-fee-badge">
                         <Receipt size={14} />
-                        <span>Reservation Deposit Required</span>
+                        <span>{bookingFeeInfo.isFullPayment ? "Full Payment Required" : "Reservation Deposit Required"}</span>
                       </div>
                       <span className="booking-fee-deposit-amount">
                         ₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")}
@@ -2253,20 +2275,32 @@ export function CustomerBookingPage() {
                         <strong>{totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay || "₱0"}</strong>
                       </div>
                       <div className="booking-fee-breakdown-item highlight">
-                        <span>Deposit due now {bookingFeeInfo.type === "percentage" ? `(${bookingFeeInfo.rawVal}%)` : "(Fixed fee)"}</span>
+                        <span>
+                          {bookingFeeInfo.isFullPayment
+                            ? "Payment due now (Full amount)"
+                            : `Deposit due now ${bookingFeeInfo.type === "percentage" ? `(${bookingFeeInfo.rawVal}%)` : "(Fixed fee)"}`}
+                        </span>
                         <strong>₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")}</strong>
                       </div>
                       <div className="booking-fee-breakdown-item">
                         <span>Remaining balance at appointment</span>
-                        <strong>₱{bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}</strong>
+                        <strong className={bookingFeeInfo.isFullPayment ? "text-success" : ""}>
+                          {bookingFeeInfo.isFullPayment ? "₱0 (Fully paid upfront)" : `₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`}
+                        </strong>
                       </div>
                     </div>
 
-                    {bookingFeeInfo.note && (
-                      <div className="booking-fee-note-box">
-                        <AlertCircle size={14} />
-                        <p>{bookingFeeInfo.note}</p>
-                      </div>
+                    {bookingFeeInfo.isFullPayment ? (
+                      <p className="booking-fee-full-note">
+                        💡 Since your service total ({totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay}) is equal to or less than the standard deposit (₱{Number(bookingFeeInfo.rawVal).toLocaleString("en-PH")}), the full amount is settled today — nothing left to pay at your appointment!
+                      </p>
+                    ) : (
+                      bookingFeeInfo.note && (
+                        <div className="booking-fee-note-box">
+                          <AlertCircle size={14} />
+                          <p>{bookingFeeInfo.note}</p>
+                        </div>
+                      )
                     )}
                   </div>
                 )}
@@ -2314,7 +2348,7 @@ export function CustomerBookingPage() {
 
                 <div className={`booking-summary booking-summary-sticky booking-summary-step-three ${summaryDateVisible ? "" : "is-collapsed"}`}>
                   <div className="booking-summary-pay-row">
-                    <span>{bookingFeeInfo.enabled ? `Deposit due today (${bookingFeeInfo.type === "percentage" ? `${bookingFeeInfo.rawVal}%` : "Fixed"})` : "Total to pay"}</span>
+                    <span>{bookingFeeInfo.enabled ? bookingFeeInfo.feeHeading : "Total to pay"}</span>
                     <span className="booking-summary-pay-actions">
                       <strong>{bookingFeeInfo.enabled ? `₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")}` : (selectedPriceDisplay || "₱0")}</strong>
                       <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide date and time" : "Show date and time"} aria-expanded={summaryDateVisible}>
@@ -2354,12 +2388,16 @@ export function CustomerBookingPage() {
                   <div className="booking-summary-footer">
                     <span className="secure-note">
                       {bookingFeeInfo.enabled
-                        ? `Deposit due today · Balance ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")} at appointment`
+                        ? bookingFeeInfo.isFullPayment
+                          ? "Full payment today · ₱0 balance at appointment"
+                          : `Deposit due today · Balance ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")} at appointment`
                         : "No payment required today"}
                     </span>
                     <button className="booking-primary" type="submit" disabled={!canContinue || submittingBooking}>
                       {submittingBooking ? (
                         <><Loader2 size={16} className="animate-spin" /><span>Confirming...</span></>
+                      ) : bookingFeeInfo.enabled && bookingFeeInfo.isFullPayment ? (
+                        <>Pay in full & confirm <ArrowRight size={17} /></>
                       ) : bookingFeeInfo.enabled ? (
                         <>Pay deposit & confirm <ArrowRight size={17} /></>
                       ) : (
