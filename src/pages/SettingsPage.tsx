@@ -1643,6 +1643,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
     // 1. Immediately cache in localStorage (guarantees persistence even without database table!)
     try {
       localStorage.setItem(`bookora_profile_${user.id}`, JSON.stringify(profileData))
+      localStorage.setItem("bookora_cached_profile", JSON.stringify(profileData))
     } catch {}
 
     let tableSaved = false
@@ -1690,6 +1691,14 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           })
           if (!dbError) {
             tableSaved = true
+          } else if (dbError.message?.includes("booking_fee")) {
+            // Table doesn't have the new booking_fee columns yet; upsert without them so other settings stay updated
+            const { booking_fee_enabled, booking_fee_type, booking_fee_amount, booking_fee_note, ...legacyData } = profileData
+            const { error: fallbackErr } = await supabase.from("business_profiles").upsert({
+              id: user.id,
+              ...legacyData,
+            })
+            if (!fallbackErr) tableSaved = true
           }
         } catch {
           // Table doesn't exist yet

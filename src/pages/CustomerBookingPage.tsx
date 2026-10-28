@@ -273,7 +273,20 @@ export function CustomerBookingPage() {
     return savedStep === 2 || savedStep === 3 || savedStep === 4 ? savedStep : initialBookingStep
   })
   const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem("bookora-booking-theme") === "dark")
-  const [profile, setProfile] = useState<BusinessProfile | null>(null)
+  const [profile, setProfile] = useState<BusinessProfile | null>(() => {
+    try {
+      const generic = window.localStorage.getItem("bookora_cached_profile")
+      if (generic) return JSON.parse(generic)
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i)
+        if (key?.startsWith("bookora_profile_")) {
+          const item = window.localStorage.getItem(key)
+          if (item) return JSON.parse(item)
+        }
+      }
+    } catch {}
+    return null
+  })
   const [liveServices, setLiveServices] = useState<Service[]>([])
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   const [bookingDataLoading, setBookingDataLoading] = useState(true)
@@ -991,30 +1004,39 @@ export function CustomerBookingPage() {
 
         const { data: businesses, error: profileError } = profileResult
         let business = businesses?.[0]
-        if (!business) {
+
+        const getCachedData = (id?: string) => {
           try {
-            const cached = window.localStorage.getItem("bookora_cached_profile")
-            if (cached) {
-              const parsed = JSON.parse(cached)
-              if (parsed?.id) business = parsed
+            if (id) {
+              const byId = window.localStorage.getItem(`bookora_profile_${id}`)
+              if (byId) return JSON.parse(byId)
             }
-          } catch {}
-        } else {
-          try {
-            const cached = window.localStorage.getItem("bookora_cached_profile")
-            if (cached) {
-              const parsed = JSON.parse(cached)
-              if (parsed && (business.booking_fee_enabled === undefined || business.booking_fee_enabled === null)) {
-                business = {
-                  ...business,
-                  booking_fee_enabled: parsed.booking_fee_enabled,
-                  booking_fee_type: parsed.booking_fee_type,
-                  booking_fee_amount: parsed.booking_fee_amount,
-                  booking_fee_note: parsed.booking_fee_note,
-                }
+            const generic = window.localStorage.getItem("bookora_cached_profile")
+            if (generic) return JSON.parse(generic)
+            for (let i = 0; i < window.localStorage.length; i++) {
+              const k = window.localStorage.key(i)
+              if (k?.startsWith("bookora_profile_")) {
+                const item = window.localStorage.getItem(k)
+                if (item) return JSON.parse(item)
               }
             }
           } catch {}
+          return null
+        }
+
+        const cachedFallback = getCachedData(business?.id)
+        if (!business && cachedFallback?.id) {
+          business = cachedFallback
+        } else if (business && cachedFallback) {
+          if (business.booking_fee_enabled === undefined || business.booking_fee_enabled === null) {
+            business = {
+              ...business,
+              booking_fee_enabled: cachedFallback.booking_fee_enabled,
+              booking_fee_type: cachedFallback.booking_fee_type,
+              booking_fee_amount: cachedFallback.booking_fee_amount,
+              booking_fee_note: cachedFallback.booking_fee_note,
+            }
+          }
         }
         if (!active || profileError || !business) {
           if (active) setBookingDataError(true)
@@ -1661,6 +1683,28 @@ export function CustomerBookingPage() {
                   <p>Select one or more services to book together.</p>
                 </div>
               </div>
+
+              {bookingFeeInfo.enabled && (
+                <div className="booking-fee-banner">
+                  <div className="booking-fee-banner-icon">
+                    <Receipt size={17} />
+                  </div>
+                  <div className="booking-fee-banner-content">
+                    <div className="booking-fee-banner-title">
+                      <strong>Reservation Deposit Required</strong>
+                      <span className="booking-fee-banner-pill">
+                        {bookingFeeInfo.type === "percentage"
+                          ? `${bookingFeeInfo.rawVal}% of total`
+                          : `₱${Number(bookingFeeInfo.rawVal || 0).toLocaleString("en-PH")}`}
+                      </span>
+                    </div>
+                    <p>
+                      {bookingFeeInfo.note || "A reservation deposit is required to confirm your booking. The remaining balance will be settled during your appointment."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="service-list" role="radiogroup" aria-label="Available services">
                 {serviceGroups.length ? (
                   serviceGroups.map((group) => (
@@ -1705,8 +1749,15 @@ export function CustomerBookingPage() {
                     <>
                       <strong>{selectedServices.length} selected</strong> ·{" "}
                       {totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel}
+                      {bookingFeeInfo.enabled && (
+                        <span className="booking-actions-deposit-tag">
+                          {" "}· <strong>₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")} deposit</strong>
+                        </span>
+                      )}
                       {formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
                     </>
+                  ) : bookingFeeInfo.enabled ? (
+                    `Reservation deposit required: ${bookingFeeInfo.type === "percentage" ? `${bookingFeeInfo.rawVal}%` : `₱${Number(bookingFeeInfo.rawVal || 0).toLocaleString("en-PH")}`}`
                   ) : (
                     "No payment required today"
                   )}
@@ -1823,9 +1874,9 @@ export function CustomerBookingPage() {
 
               <div className="booking-summary booking-summary-sticky booking-summary-step-two">
                 <div className="booking-summary-pay-row">
-                  <span>Total to pay</span>
+                  <span>{bookingFeeInfo.enabled ? `Deposit due today (${bookingFeeInfo.type === "percentage" ? `${bookingFeeInfo.rawVal}%` : "Fixed"})` : "Total to pay"}</span>
                   <span className="booking-summary-pay-actions">
-                    <strong>{selectedPriceDisplay || "₱0"}</strong>
+                    <strong>{bookingFeeInfo.enabled ? `₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")}` : (selectedPriceDisplay || "₱0")}</strong>
                     <button type="button" className="booking-summary-collapse" onClick={() => setSummaryDateVisible((visible) => !visible)} aria-label={summaryDateVisible ? "Hide service details" : "Show service details"} aria-expanded={summaryDateVisible}>
                       <ChevronDown size={15} />
                     </button>
@@ -1837,6 +1888,12 @@ export function CustomerBookingPage() {
                       <strong>{selectedServiceLabel}</strong>
                       <span>{selectedPriceDisplay || "₱0"}</span>
                     </div>
+                    {bookingFeeInfo.enabled && (
+                      <div className="booking-summary-service-row deposit-subrow">
+                        <small>Remaining balance at venue</small>
+                        <strong>₱{bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}</strong>
+                      </div>
+                    )}
                     <small className="booking-summary-service-meta">{formattedTotalDuration || `${bookingSlotSize} min`} with {ownerFullName}</small>
                   </>
                 ) : (
@@ -1848,7 +1905,11 @@ export function CustomerBookingPage() {
 
               <div className="booking-actions">
                 <span className="secure-note">
-                  <CalendarDays size={14} /> Free cancellation up to 24 hours before
+                  {bookingFeeInfo.enabled ? (
+                    `Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} · Balance at venue: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`
+                  ) : (
+                    <><CalendarDays size={14} /> Free cancellation up to 24 hours before</>
+                  )}
                 </span>
               </div>
             </div>
