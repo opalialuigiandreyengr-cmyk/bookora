@@ -46,12 +46,66 @@ type MyBookingsPageProps = {
   businessLogo?: string | null
   customerEmail?: string | null
   bookings: CustomerBooking[]
+  loading?: boolean
   darkMode?: boolean
   onBack: () => void
   onBookNew: () => void
   onSignIn: () => void
   onReschedule?: (booking: CustomerBooking) => void
   onCancelBooking?: (bookingId: string) => Promise<void> | void
+}
+
+export function MyBookingsSkeleton({ darkMode = false }: { darkMode?: boolean }) {
+  return (
+    <main
+      className={`customer-booking-page my-bookings-page is-list-view my-bookings-skeleton ${darkMode ? "booking-dark" : ""}`}
+      aria-busy="true"
+      aria-label="Loading your bookings"
+    >
+      <div className="my-bookings-shell">
+        <header className="my-bookings-topbar">
+          <div className="my-bookings-brand-btn" aria-hidden="true">
+            <span className="booking-skeleton-block my-bookings-skel-logo" />
+            <span className="booking-skeleton-block my-bookings-skel-brand" />
+          </div>
+          <span className="booking-skeleton-circle my-bookings-skel-avatar" aria-hidden="true" />
+        </header>
+
+        <section className="my-bookings-list-section" aria-hidden="true">
+          <div className="my-bookings-heading-stack">
+            <span className="booking-skeleton-block my-bookings-skel-kicker" />
+            <span className="booking-skeleton-block my-bookings-skel-title" />
+            <span className="booking-skeleton-block my-bookings-skel-subtitle" />
+          </div>
+
+          <div className="my-bookings-tabs my-bookings-skel-tabs">
+            <span className="booking-skeleton-block my-bookings-skel-tab" />
+            <span className="booking-skeleton-block my-bookings-skel-tab" />
+            <span className="booking-skeleton-block my-bookings-skel-tab" />
+          </div>
+
+          <div className="my-bookings-cards">
+            {[1, 2, 3].map((item) => (
+              <div className="my-booking-list-card my-booking-skel-card" key={item}>
+                <span className="booking-skeleton-block my-booking-skel-date" />
+                <div className="my-booking-list-card-main">
+                  <div className="my-booking-list-card-head">
+                    <span className="booking-skeleton-block my-booking-skel-service" />
+                    <span className="booking-skeleton-block my-booking-skel-pill" />
+                  </div>
+                  <div className="my-booking-list-meta">
+                    <span className="booking-skeleton-block my-booking-skel-line" />
+                    <span className="booking-skeleton-block my-booking-skel-line is-short" />
+                    <span className="booking-skeleton-block my-booking-skel-line is-medium" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
+  )
 }
 
 type BookingTab = "upcoming" | "past" | "cancelled"
@@ -147,6 +201,7 @@ export function MyBookingsPage({
   businessLogo,
   customerEmail,
   bookings,
+  loading = false,
   darkMode = false,
   onBack,
   onBookNew,
@@ -159,6 +214,12 @@ export function MyBookingsPage({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [entryLoading, setEntryLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEntryLoading(false), 420)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   const todayKey = useMemo(() => getTodayKeyManila(), [])
   const brandLabel = businessSlug || businessName
@@ -264,6 +325,10 @@ export function MyBookingsPage({
     [businessAddress, businessLocation, businessCountry || "Philippines"].filter(Boolean).join(", ") || businessName,
   )
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`
+
+  if (loading || entryLoading) {
+    return <MyBookingsSkeleton darkMode={darkMode} />
+  }
 
   // ============================================================================
   // VIEW 2: BOOKING DETAILS VIEW (Image 2)

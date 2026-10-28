@@ -39,7 +39,7 @@ import { BookingServicesPage } from "@/pages/booking/BookingServicesPage"
 import { BookingDateTimePage } from "@/pages/booking/BookingDateTimePage"
 import { BookingDetailsPage } from "@/pages/booking/BookingDetailsPage"
 import { BookingSuccessPage } from "@/pages/booking/BookingSuccessPage"
-import { MyBookingsPage } from "@/pages/booking/MyBookingsPage"
+import { MyBookingsPage, MyBookingsSkeleton } from "@/pages/booking/MyBookingsPage"
 
 type Service = {
   id: string
@@ -360,6 +360,7 @@ export function CustomerBookingPage() {
   const [showAllReviewsModal, setShowAllReviewsModal] = useState(false)
   const [showBookingsPage, setShowBookingsPage] = useState(manageBookingsRequested || bookingsPathRequested)
   const [customerBookings, setCustomerBookings] = useState<AppointmentRecord[]>([])
+  const [customerBookingsLoading, setCustomerBookingsLoading] = useState(false)
   const welcomeToastUserId = useRef<string | null>(null)
   const [footerVisible, setFooterVisible] = useState(false)
   const [reviewsVisible, setReviewsVisible] = useState(false)
@@ -1039,6 +1040,7 @@ export function CustomerBookingPage() {
 
   // Load user appointments
   const fetchUserBookings = async (email: string) => {
+    setCustomerBookingsLoading(true)
     const normalizedEmail = email.trim().toLowerCase()
     let list: AppointmentRecord[] = []
     if (supabase) {
@@ -1093,6 +1095,7 @@ export function CustomerBookingPage() {
       return item
     })
     setCustomerBookings(normalizedList)
+    setCustomerBookingsLoading(false)
   }
 
   useEffect(() => {
@@ -1170,7 +1173,7 @@ export function CustomerBookingPage() {
   }
 
   if (bookingDataLoading) {
-    return <BookingPageSkeleton darkMode={darkMode} />
+    return showBookingsPage ? <MyBookingsSkeleton darkMode={darkMode} /> : <BookingPageSkeleton darkMode={darkMode} />
   }
 
   if (bookingDataError || !profile) {
@@ -1199,6 +1202,7 @@ export function CustomerBookingPage() {
         businessLogo={profile.logo_url}
         customerEmail={currentUser?.email || details.email}
         bookings={customerBookings}
+        loading={customerBookingsLoading}
         darkMode={darkMode}
         onBack={closeBookingsPage}
         onBookNew={() => {
@@ -3149,7 +3153,7 @@ function WriteReviewModal({
                     aria-label={`${star} star rating`}
                   >
                     <Star
-                      size={24}
+                      size={20}
                       fill={star <= effectiveRating ? "#f59e0b" : "none"}
                       color={star <= effectiveRating ? "#f59e0b" : "#d1d5db"}
                     />
