@@ -82,9 +82,12 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405)
 
   const apiKey = Deno.env.get("RESEND_API_KEY")
-  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL")
+  let fromEmail = Deno.env.get("RESEND_FROM_EMAIL")?.trim() || "appointments@bookoraph.com"
+  if (fromEmail.includes("resend.dev")) {
+    fromEmail = "appointments@bookoraph.com"
+  }
   const defaultFromName = Deno.env.get("RESEND_FROM_NAME") || "Bookora"
-  if (!apiKey || !fromEmail) return json({ error: "Resend is not configured" }, 500)
+  if (!apiKey) return json({ error: "Resend API key is not configured" }, 500)
 
   const payload = await request.json() as BookingEmailPayload
   if (!payload.customerEmail || !payload.customerEmail.includes("@")) return json({ error: "A valid customer email is required" }, 400)
