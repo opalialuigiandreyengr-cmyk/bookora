@@ -17,8 +17,10 @@ export default function App() {
   const isCustomerBooking =
     pathname === "/booking" ||
     pathname === "/book" ||
+    pathname === "/bookings" ||
     pathname.startsWith("/book/") ||
     pathname.startsWith("/booking/") ||
+    pathname.startsWith("/bookings/") ||
     isPublicBookingHost
   if (isCustomerBooking) return <><ToastViewport /><CustomerBookingPage /></>
 

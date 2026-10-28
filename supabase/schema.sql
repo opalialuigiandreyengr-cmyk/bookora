@@ -458,6 +458,23 @@ $$;
 revoke all on function public.get_customer_appointments(text) from public;
 grant execute on function public.get_customer_appointments(text) to authenticated;
 
+-- Allow signed-in customers to cancel their own appointments.
+create or replace function public.cancel_customer_appointment(p_appointment_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.appointments
+  set status = 'cancelled'
+  where id = p_appointment_id
+    and auth.role() = 'authenticated'
+    and lower(trim(appointments.customer_email)) = lower(trim(coalesce(auth.jwt() ->> 'email', '')));
+$$;
+
+revoke all on function public.cancel_customer_appointment(uuid) from public;
+grant execute on function public.cancel_customer_appointment(uuid) to authenticated;
+
 grant execute on function public.get_public_booked_times(uuid, text) to anon, authenticated;
 
 -- ============================================================================

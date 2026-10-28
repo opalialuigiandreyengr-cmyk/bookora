@@ -394,8 +394,13 @@ export function CustomerBookingPage() {
   }, [])
 
   useEffect(() => {
-    navigateToBookingStep(initialBookingStep, true)
+    if (!showBookingsPage) navigateToBookingStep(initialBookingStep, true)
     const handlePopState = () => {
+      const currentParts = window.location.pathname.split("/").filter(Boolean)
+      const isBookingsRoute =
+        currentParts[0] === "bookings" ||
+        new URLSearchParams(window.location.search).get("manage") === "bookings"
+      setShowBookingsPage(isBookingsRoute)
       setStep(getBookingStepFromUrl())
       setStepTransitionLoading(false)
       scrollBookingPageToTop()
@@ -1072,8 +1077,37 @@ export function CustomerBookingPage() {
 
   useEffect(() => {
     if (!showBookingsPage) return
-    if (currentUser?.email) fetchUserBookings(currentUser.email)
-  }, [showBookingsPage, currentUser?.email])
+    const activeEmail = currentUser?.email || details.email
+    if (activeEmail) fetchUserBookings(activeEmail)
+  }, [showBookingsPage, currentUser?.email, details.email])
+
+  const handleCancelCustomerBooking = async (bookingId: string) => {
+    const activeEmail = (currentUser?.email || details.email || "").trim().toLowerCase()
+    setCustomerBookings((prev) =>
+      prev.map((item) => (item.id === bookingId ? { ...item, status: "cancelled" } : item)),
+    )
+    if (activeEmail) {
+      try {
+        const localKey = `bookora_local_bookings_${activeEmail}`
+        const localList = JSON.parse(localStorage.getItem(localKey) || "[]") as AppointmentRecord[]
+        const updatedLocal = localList.map((item) =>
+          item.id === bookingId ? { ...item, status: "cancelled" } : item,
+        )
+        localStorage.setItem(localKey, JSON.stringify(updatedLocal))
+      } catch {}
+    }
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc("cancel_customer_appointment", {
+          p_appointment_id: bookingId,
+        })
+        if (error) {
+          await supabase.from("appointments").update({ status: "cancelled" }).eq("id", bookingId)
+        }
+      } catch {}
+    }
+    showToast("Booking has been cancelled.")
+  }
 
   const canContinue = step === 1
     ? selectedServices.length > 0
@@ -1136,16 +1170,42 @@ export function CustomerBookingPage() {
     return (
       <MyBookingsPage
         businessName={businessName}
-        businessLocation={businessLocation}
+        businessSlug={bookingBrandName}
+        businessIndustry={profile.industry}
+        businessLocation={displayBusinessLocation}
+        businessCountry={profile.country}
+        businessAddress={businessAddress}
         ownerName={ownerFullName}
         businessLogo={profile.logo_url}
-        customerEmail={currentUser?.email}
+        customerEmail={currentUser?.email || details.email}
         bookings={customerBookings}
+        darkMode={darkMode}
         onBack={closeBookingsPage}
         onBookNew={() => {
           closeBookingsPage()
           navigateToBookingStep(1, true)
         }}
+        onReschedule={(booking) => {
+          const requestedNames = booking.service_names
+            .split(",")
+            .map((name) => name.trim().toLowerCase())
+            .filter(Boolean)
+          const matchedIds = visibleServices
+            .filter((svc) => requestedNames.includes(svc.name.trim().toLowerCase()))
+            .map((svc) => svc.id)
+          if (matchedIds.length > 0) {
+            setServiceIds(matchedIds)
+          } else if (visibleServices.length > 0 && serviceIds.length === 0) {
+            setServiceIds([visibleServices[0].id])
+          }
+          if (booking.appointment_date && booking.appointment_date >= todayKey) {
+            setSelectedDateKey(booking.appointment_date)
+          }
+          closeBookingsPage()
+          navigateToBookingStep(2, true)
+          showToast("Select a new date & time to reschedule.")
+        }}
+        onCancelBooking={handleCancelCustomerBooking}
         onSignIn={() => {
           closeBookingsPage()
           setShowAuthModal(true)
