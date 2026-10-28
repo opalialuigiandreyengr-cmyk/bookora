@@ -25,6 +25,7 @@ import {
   Phone,
   Receipt,
   AlertCircle,
+  AlertTriangle,
   Scissors,
   Sparkles,
   Star,
@@ -318,6 +319,7 @@ export function CustomerBookingPage() {
   const [summaryDateVisible, setSummaryDateVisible] = useState(true)
   const [stepTransitionLoading, setStepTransitionLoading] = useState(false)
   const [submittingBooking, setSubmittingBooking] = useState(false)
+  const [bookingSubmitError, setBookingSubmitError] = useState<string | null>(null)
   const stepTransitionTimer = useRef<number | null>(null)
 
   const bookingSlug = profile?.slug || urlSlug
@@ -1348,6 +1350,15 @@ export function CustomerBookingPage() {
           <Loader2 size={38} className="animate-spin" />
         </div>
       )}
+      {submittingBooking && (
+        <div className="booking-submitting-overlay" role="status" aria-live="polite">
+          <div className="booking-submitting-card">
+            <Loader2 size={42} className="animate-spin booking-submitting-spinner" />
+            <h3>Saving your appointment...</h3>
+            <p>Securing your reservation in the schedule. Please don&apos;t close or refresh this page.</p>
+          </div>
+        </div>
+      )}
       {/* Top Header */}
       <header className="booking-header">
         <a className="booking-brand" href="/" aria-label={`${bookingBrandName} booking page`}>
@@ -1952,6 +1963,7 @@ export function CustomerBookingPage() {
                 onSubmit={async (event) => {
                   event.preventDefault()
                   if (!canContinue || submittingBooking) return
+                  setBookingSubmitError(null)
                   setSubmittingBooking(true)
                   let bookingSaved = false
                   try {
@@ -1987,50 +1999,56 @@ export function CustomerBookingPage() {
                       status: "approved",
                     }
 
-                    if (supabase && profile?.id) {
-                      const { data: latestBookedTimes, error: availabilityError } = await supabase.rpc("get_public_booked_times", {
-                        p_business_id: profile.id,
-                        p_appointment_date: selectedDateKey,
-                      })
-                      if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes, booked))) {
-                        throw new Error("That time was just booked. Please choose another available time.")
-                      }
+                    if (!supabase) {
+                      throw new Error("Unable to connect to the database. Please check your network connection.")
+                    }
+                    if (!profile?.id) {
+                      throw new Error("Business profile information is missing. Please refresh the page and try again.")
+                    }
 
-                      // Step 1: Save appointment to database FIRST
-                      let { data: _savedRecord, error } = await supabase
+                    const { data: latestBookedTimes, error: availabilityError } = await supabase.rpc("get_public_booked_times", {
+                      p_business_id: profile.id,
+                      p_appointment_date: selectedDateKey,
+                    })
+                    if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes, booked))) {
+                      throw new Error("That time was just booked. Please choose another available time.")
+                    }
+
+                    // Step 1: Save appointment to database FIRST
+                    let { data: savedRecord, error } = await supabase
+                      .from("appointments")
+                      .insert(appointmentPayload)
+                      .select("id")
+                      .single()
+
+                    const errorText = error ? `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase() : ""
+                    const isMissingAppointmentColumn = Boolean(error && (
+                      error.code === "PGRST204" ||
+                      error.code === "42703" ||
+                      errorText.includes("schema cache") ||
+                      errorText.includes("customer_address") ||
+                      errorText.includes("duration_minutes") ||
+                      errorText.includes("buffer_minutes") ||
+                      errorText.includes("peg_image_path") ||
+                      errorText.includes("payment_receipt_path") ||
+                      errorText.includes("does not exist")
+                    ))
+
+                    // Keep compatibility with older database schemas
+                    if (isMissingAppointmentColumn) {
+                      const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
+                      const legacyResult = await supabase
                         .from("appointments")
-                        .insert(appointmentPayload)
+                        .insert(legacyPayload)
                         .select("id")
                         .single()
+                      error = legacyResult.error
+                      savedRecord = legacyResult.data
+                    }
 
-                      const errorText = error ? `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase() : ""
-                      const isMissingAppointmentColumn = Boolean(error && (
-                        error.code === "PGRST204" ||
-                        error.code === "42703" ||
-                        errorText.includes("schema cache") ||
-                        errorText.includes("customer_address") ||
-                        errorText.includes("duration_minutes") ||
-                        errorText.includes("buffer_minutes") ||
-                        errorText.includes("peg_image_path") ||
-                        errorText.includes("payment_receipt_path") ||
-                        errorText.includes("does not exist")
-                      ))
-
-                      // Keep compatibility with older database schemas
-                      if (isMissingAppointmentColumn) {
-                        const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
-                        const legacyResult = await supabase
-                          .from("appointments")
-                          .insert(legacyPayload)
-                          .select("id")
-                          .single()
-                        error = legacyResult.error
-                      }
-
-                      // If database save fails, STOP immediately — NEVER send email
-                      if (error) {
-                        throw new Error(error.message || "We could not save your booking. Please try again.")
-                      }
+                    // If database save fails, STOP immediately — NEVER send email, NEVER proceed to success page
+                    if (error || !savedRecord?.id) {
+                      throw new Error(error?.message || "We could not save your booking to the schedule. Please try again.")
                     }
 
                     // Database save confirmed!
@@ -2094,10 +2112,14 @@ export function CustomerBookingPage() {
                       : typeof err === "object" && err !== null && "message" in err
                         ? String((err as { message?: unknown }).message || "We could not save your booking. Please try again.")
                         : "We could not save your booking. Please try again."
+                    setBookingSubmitError(errorMessage)
                     showToast(errorMessage)
                   } finally {
                     setSubmittingBooking(false)
-                    if (bookingSaved) transitionToBookingStep(4)
+                    if (bookingSaved) {
+                      setBookingSubmitError(null)
+                      transitionToBookingStep(4)
+                    }
                   }
                 }}
               >
@@ -2315,6 +2337,25 @@ export function CustomerBookingPage() {
                     <span><strong>{selectedServiceLabel}</strong><small>{selectedDate.day}, {selectedDate.month} {selectedDate.date} · {time}</small></span>
                     <Pencil size={14} aria-hidden="true" />
                   </button>}
+                  {bookingSubmitError && (
+                    <div className="booking-error-alert-banner" role="alert">
+                      <div className="booking-error-alert-icon">
+                        <AlertTriangle size={18} />
+                      </div>
+                      <div className="booking-error-alert-body">
+                        <strong>Booking was not saved to schedule</strong>
+                        <p>{bookingSubmitError}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="booking-error-alert-close"
+                        onClick={() => setBookingSubmitError(null)}
+                        aria-label="Dismiss error"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  )}
                   <div className="booking-summary-footer">
                     <span className="secure-note">
                       {bookingFeeInfo.enabled
