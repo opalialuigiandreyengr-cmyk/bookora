@@ -1995,70 +1995,98 @@ export function CustomerBookingPage() {
                       if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes, booked))) {
                         throw new Error("That time was just booked. Please choose another available time.")
                       }
-                      let { error } = await supabase.from("appointments").insert(appointmentPayload)
+
+                      // Step 1: Save appointment to database FIRST
+                      let { data: _savedRecord, error } = await supabase
+                        .from("appointments")
+                        .insert(appointmentPayload)
+                        .select("id")
+                        .single()
+
                       const errorText = error ? `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase() : ""
                       const isMissingAppointmentColumn = Boolean(error && (
                         error.code === "PGRST204" ||
+                        error.code === "42703" ||
                         errorText.includes("schema cache") ||
                         errorText.includes("customer_address") ||
                         errorText.includes("duration_minutes") ||
-                        errorText.includes("buffer_minutes")
+                        errorText.includes("buffer_minutes") ||
+                        errorText.includes("peg_image_path") ||
+                        errorText.includes("payment_receipt_path") ||
+                        errorText.includes("does not exist")
                       ))
 
-                      // Keep compatibility with Supabase projects that have not
-                      // applied the newer appointment columns yet.
+                      // Keep compatibility with older database schemas
                       if (isMissingAppointmentColumn) {
                         const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
-                        const legacyResult = await supabase.from("appointments").insert(legacyPayload)
+                        const legacyResult = await supabase
+                          .from("appointments")
+                          .insert(legacyPayload)
+                          .select("id")
+                          .single()
                         error = legacyResult.error
                       }
-                      if (error) throw error
+
+                      // If database save fails, STOP immediately — NEVER send email
+                      if (error) {
+                        throw new Error(error.message || "We could not save your booking. Please try again.")
+                      }
                     }
+
+                    // Database save confirmed!
+                    bookingSaved = true
 
                     // Store locally so customer can see it in "My Bookings"
                     if (details.email) {
-                      const localKey = `bookora_local_bookings_${details.email.trim().toLowerCase()}`
-                      const prevBookings = JSON.parse(localStorage.getItem(localKey) || "[]")
-                      prevBookings.unshift({
-                        ...appointmentPayload,
-                        created_at: new Date().toISOString(),
-                      })
-                      localStorage.setItem(localKey, JSON.stringify(prevBookings))
+                      try {
+                        const localKey = `bookora_local_bookings_${details.email.trim().toLowerCase()}`
+                        const prevBookings = JSON.parse(localStorage.getItem(localKey) || "[]")
+                        prevBookings.unshift({
+                          ...appointmentPayload,
+                          created_at: new Date().toISOString(),
+                        })
+                        localStorage.setItem(localKey, JSON.stringify(prevBookings))
+                      } catch {}
                     }
 
+                    // Step 2: Only send confirmation email AFTER database save is 100% verified
                     if (supabase && details.email.trim()) {
-                      const { data: emailData, error: emailError } = await supabase.functions.invoke("send-booking-email", {
-                        body: {
-                          customerEmail: details.email.trim(),
-                          customerName: details.name.trim(),
-                          businessName,
-                          // The profile logo may be stored as a Supabase URL or as a
-                          // data-image. Preserve either form for the email function;
-                          // resolving a data-image through URL() can make the value
-                          // unusable for inline email attachments.
-                          businessLogoUrl: profile?.logo_url?.trim() || "",
-                          businessLocation,
-                          ownerName: ownerFullName,
-                          serviceNames: selectedServiceLabel,
-                          customerNote: details.note.trim(),
-                          pegImageDataUrl: pegImage,
-                          paymentReceiptDataUrl: paymentReceipt,
-                          appointmentDate: calendarEmailLabel(selectedDateKey),
-                          appointmentDateKey: selectedDateKey,
-                          appointmentTime: appointmentTimeRange,
-                          durationMinutes: Math.max(bookingSlotSize, totalDurationMinutes),
-                          totalPrice: appointmentPayload.total_price,
-                          bookingId,
-                          manageBookingsUrl,
-                        },
-                      })
-                      if (emailError) {
-                        console.warn("Unable to send booking confirmation email", emailError)
-                      } else if (emailData?.isSandboxRestriction) {
-                        console.warn("Resend Sandbox Notice: Delivery to guest email blocked by Resend testing sandbox. Add a custom domain in Resend to send to all guest emails.")
+                      try {
+                        const { data: emailData, error: emailError } = await supabase.functions.invoke("send-booking-email", {
+                          body: {
+                            customerEmail: details.email.trim(),
+                            customerName: details.name.trim(),
+                            businessName,
+                            // The profile logo may be stored as a Supabase URL or as a
+                            // data-image. Preserve either form for the email function;
+                            // resolving a data-image through URL() can make the value
+                            // unusable for inline email attachments.
+                            businessLogoUrl: profile?.logo_url?.trim() || "",
+                            businessLocation,
+                            ownerName: ownerFullName,
+                            serviceNames: selectedServiceLabel,
+                            customerNote: details.note.trim(),
+                            pegImageDataUrl: pegImage,
+                            paymentReceiptDataUrl: paymentReceipt,
+                            appointmentDate: calendarEmailLabel(selectedDateKey),
+                            appointmentDateKey: selectedDateKey,
+                            appointmentTime: appointmentTimeRange,
+                            durationMinutes: Math.max(bookingSlotSize, totalDurationMinutes),
+                            totalPrice: appointmentPayload.total_price,
+                            bookingId,
+                            manageBookingsUrl,
+                          },
+                        })
+                        if (emailError) {
+                          console.warn("Unable to send booking confirmation email", emailError)
+                        } else if (emailData?.isSandboxRestriction) {
+                          console.warn("Resend Sandbox Notice: Delivery to guest email blocked by Resend testing sandbox. Add a custom domain in Resend to send to all guest emails.")
+                        }
+                      } catch (emailErr) {
+                        // Email issue should not cancel an already saved appointment
+                        console.warn("Non-fatal email dispatch error:", emailErr)
                       }
                     }
-                    bookingSaved = true
                   } catch (err) {
                     console.warn("Unable to save appointment", err)
                     const errorMessage = err instanceof Error
