@@ -16,9 +16,18 @@ export interface CalendarAppointment {
   appointment_time: string // e.g. "10:30 AM"
   duration_minutes: number
   buffer_minutes?: number
-  status: "approved" | "completed" | "cancelled" | "pending"
+  staff_member_id?: string | null
+  location_name?: string
+  meeting_url?: string
+  recurrence_rule?: "none" | "weekly" | "biweekly"
+  recurrence_group_id?: string | null
+  status: "approved" | "completed" | "cancelled" | "pending" | "no_show"
+  no_show_reason?: string
   peg_image_path?: string | null
   payment_receipt_path?: string | null
+  payment_status?: "unpaid" | "partial" | "paid"
+  payment_paid?: number
+  payment_balance?: number
   color: AppointmentColor
 }
 
@@ -28,6 +37,7 @@ export interface CalendarServiceOption {
   duration_minutes: number
   price: string
 }
+export interface CalendarStaffOption { id: string; full_name: string }
 
 const COLOR_PALETTE: AppointmentColor[] = ["coral", "lilac", "peach", "mint", "blue"]
 
@@ -201,4 +211,3 @@ export function buildDemoAppointments(anchorDate: Date, businessId: string): Cal
     },
   ]
 }
-

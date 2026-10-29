@@ -1,11 +1,13 @@
-import { CalendarDays, CheckCircle2, Clock3, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
+import { useEffect, useRef } from "react"
+import { CalendarDays, CheckCircle2, Clock3, CreditCard, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, formatTimeRange, getInitials, parseDateKey } from "./types"
 
 interface AppointmentDrawerProps {
   appointment: CalendarAppointment | null
   onClose: () => void
-  onUpdateStatus: (id: string, status: CalendarAppointment["status"]) => Promise<void>
+  onUpdateStatus: (id: string, status: CalendarAppointment["status"], noShowReason?: string) => Promise<void>
+  onReschedule: (appointment: CalendarAppointment) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
 
@@ -13,8 +15,39 @@ export function AppointmentDrawer({
   appointment,
   onClose,
   onUpdateStatus,
+  onReschedule,
   onDelete,
 }: AppointmentDrawerProps) {
+  const drawerRef = useRef<HTMLElement | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  useEffect(() => {
+    if (!appointment) return
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const drawer = drawerRef.current
+    const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])") || []).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true")
+    const firstFocusable = focusable()[0]
+    firstFocusable?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return }
+      if (event.key !== "Tab") return
+      const elements = focusable()
+      if (!elements.length) return
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown)
+      returnFocusRef.current?.focus()
+      returnFocusRef.current = null
+    }
+  }, [appointment])
+
   if (!appointment) return null
 
   const dateObj = parseDateKey(appointment.appointment_date)
@@ -30,6 +63,8 @@ export function AppointmentDrawer({
       ? "Completed"
       : appointment.status === "cancelled"
       ? "Cancelled"
+      : appointment.status === "no_show"
+      ? "No-show"
       : "Approved"
 
   return (
@@ -40,11 +75,11 @@ export function AppointmentDrawer({
         if (event.currentTarget === event.target) onClose()
       }}
     >
-      <aside className="cal-drawer" role="dialog" aria-modal="true" aria-label="Appointment details">
+      <aside ref={drawerRef} className="cal-drawer" role="dialog" aria-modal="true" aria-labelledby="appointment-drawer-title">
         <header className="cal-drawer-header">
           <div>
             <span className={`cal-status-pill is-${appointment.status}`}>{statusLabel}</span>
-            <h2>Appointment Details</h2>
+            <h2 id="appointment-drawer-title">Appointment Details</h2>
           </div>
           <button type="button" className="cal-drawer-close" onClick={onClose} aria-label="Close details">
             <X size={18} />
@@ -75,6 +110,7 @@ export function AppointmentDrawer({
                   <strong>{appointment.service_names}</strong>
                 </div>
               </div>
+              {appointment.status === "no_show" && appointment.no_show_reason && <div className="cal-drawer-info-row"><span className="cal-drawer-info-icon"><FileText size={16} /></span><div><small>Internal no-show reason</small><strong>{appointment.no_show_reason}</strong></div></div>}
 
               <div className="cal-drawer-info-row">
                 <span className="cal-drawer-info-icon">
@@ -108,6 +144,11 @@ export function AppointmentDrawer({
                   <strong className="cal-drawer-price">{appointment.total_price}</strong>
                 </div>
               </div>
+              <div className="cal-drawer-info-row">
+                <span className="cal-drawer-info-icon"><CreditCard size={16} /></span>
+                <div><small>Payment</small><strong>{appointment.payment_status === "paid" ? "Paid" : appointment.payment_status === "partial" ? `Partial · ${appointment.payment_balance?.toLocaleString("en-PH", { style: "currency", currency: "PHP" })} due` : "Unpaid"}</strong></div>
+              </div>
+              {appointment.meeting_url && <div className="cal-drawer-info-row"><span className="cal-drawer-info-icon"><ExternalLink size={16} /></span><div><small>Meeting link</small><a href={appointment.meeting_url} target="_blank" rel="noreferrer">Open video appointment</a></div></div>}
             </div>
           </div>
 
@@ -163,6 +204,7 @@ export function AppointmentDrawer({
 
         <footer className="cal-drawer-footer">
           <div className="cal-drawer-status-actions">
+            {appointment.status !== "completed" && appointment.status !== "no_show" && <Button type="button" variant="outline" onClick={() => void onReschedule(appointment)}><CalendarDays size={16} /> Reschedule</Button>}
             {appointment.status !== "completed" && (
               <Button
                 type="button"
@@ -173,6 +215,7 @@ export function AppointmentDrawer({
                 Mark Completed
               </Button>
             )}
+            {appointment.status !== "completed" && appointment.status !== "cancelled" && appointment.status !== "no_show" && <Button type="button" variant="outline" onClick={() => { const reason = window.prompt("Internal no-show reason (optional)") || ""; void onUpdateStatus(appointment.id, "no_show", reason) }}><XCircle size={16} /> Mark No-show</Button>}
             {appointment.status === "cancelled" && (
               <Button
                 type="button"
@@ -208,4 +251,3 @@ export function AppointmentDrawer({
     </div>
   )
 }
-

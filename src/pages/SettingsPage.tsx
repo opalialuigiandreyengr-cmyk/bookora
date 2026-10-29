@@ -344,6 +344,8 @@ function BookingPreferences({
   setAdditionalInfo,
   paymentReceiptUrl,
   setPaymentReceiptUrl,
+  allowCustomerLogin,
+  setAllowCustomerLogin,
   userId,
 }: {
   policy: string
@@ -358,8 +360,8 @@ function BookingPreferences({
   setCancellationNoticeHours: (value: string) => void
   bufferMinutes: string
   setBufferMinutes: (value: string) => void
-  formFields: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean }
-  setFormFields: (value: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean }) => void
+  formFields: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean; price: boolean; duration: boolean; hours: boolean; staff: boolean; reviews: boolean }
+  setFormFields: (value: { phone: boolean; notes: boolean; address: boolean; designPeg: boolean; paymentReceipt: boolean; price: boolean; duration: boolean; hours: boolean; staff: boolean; reviews: boolean }) => void
   bookingFeeEnabled: boolean
   setBookingFeeEnabled: (value: boolean) => void
   bookingFeeType: "fixed" | "percentage"
@@ -372,6 +374,8 @@ function BookingPreferences({
   setAdditionalInfo: (value: string) => void
   paymentReceiptUrl: string
   setPaymentReceiptUrl: (value: string) => void
+  allowCustomerLogin: boolean
+  setAllowCustomerLogin: (value: boolean) => void
   userId: string
 }) {
   const [visible, setVisible] = useState(true)
@@ -394,6 +398,16 @@ function BookingPreferences({
           </div>
           <label className="settings-switch">
             <input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} />
+            <i />
+          </label>
+        </div>
+        <div className="preference-toggle">
+          <div>
+            <strong>Allow customer accounts</strong>
+            <p>Let customers sign in to save details and view their booking history.</p>
+          </div>
+          <label className="settings-switch">
+            <input type="checkbox" checked={allowCustomerLogin} onChange={(event) => setAllowCustomerLogin(event.target.checked)} />
             <i />
           </label>
         </div>
@@ -625,6 +639,11 @@ function BookingPreferences({
             ["notes", "Additional information", "Let customers add a note to their booking"],
             ["designPeg", "Design peg", "Let customers attach an inspiration photo"],
             ["paymentReceipt", "Payment receipt", "Let customers attach proof of payment"],
+            ["price", "Service prices", "Show prices beside services on the public booking page"],
+            ["duration", "Service duration", "Show estimated duration beside services"],
+            ["hours", "Business hours", "Show your weekly hours and today’s availability"],
+            ["staff", "Available staff", "Show staff selection and assignment details when available"],
+            ["reviews", "Guest reviews", "Show customer reviews on the public page"],
           ].map(([key, label, description]) => (
             <div className="preference-toggle" key={key}>
               <div>
@@ -1382,6 +1401,12 @@ function AccountSettings({ user }: { user: User }) {
 
 function SecuritySettings({ user }: { user: User }) {
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [mfaFactors, setMfaFactors] = useState<Array<{ id: string; friendly_name?: string | null; status?: string }>>([])
+  const [mfaLoading, setMfaLoading] = useState(true)
+  const [mfaBusy, setMfaBusy] = useState(false)
+  const [mfaEnrollment, setMfaEnrollment] = useState<{ id: string; qrCode: string; secret: string } | null>(null)
+  const [mfaCode, setMfaCode] = useState("")
+  const [mfaChallengeId, setMfaChallengeId] = useState("")
   const lastUpdated = user.user_metadata?.password_updated_at
     ? new Date(user.user_metadata.password_updated_at).toLocaleDateString(undefined, {
         month: "short",
@@ -1389,6 +1414,45 @@ function SecuritySettings({ user }: { user: User }) {
         year: "numeric",
       })
     : null
+
+  const loadMfaFactors = async () => {
+    if (!supabase || user.id === "preview-user-123") { setMfaLoading(false); return }
+    const result = await supabase.auth.mfa.listFactors()
+    setMfaFactors((result.data?.totp || []).map((factor) => ({ id: factor.id, friendly_name: factor.friendly_name, status: factor.status })))
+    setMfaLoading(false)
+  }
+
+  useEffect(() => { void loadMfaFactors() }, [user.id])
+
+  const beginMfaEnrollment = async () => {
+    if (!supabase) return
+    setMfaBusy(true)
+    const result = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Bookora authenticator" })
+    if (result.error || !result.data?.id || !result.data.totp) showToast(result.error?.message || "Could not start two-factor setup.", "error")
+    else setMfaEnrollment({ id: result.data.id, qrCode: result.data.totp.qr_code, secret: result.data.totp.secret })
+    setMfaBusy(false)
+  }
+
+  const verifyMfaEnrollment = async () => {
+    if (!supabase || !mfaEnrollment || !/^\d{6}$/.test(mfaCode)) { showToast("Enter the 6-digit code from your authenticator.", "error"); return }
+    setMfaBusy(true)
+    const challenge = await supabase.auth.mfa.challenge({ factorId: mfaEnrollment.id })
+    if (challenge.error || !challenge.data?.id) { showToast(challenge.error?.message || "Could not challenge this factor.", "error"); setMfaBusy(false); return }
+    setMfaChallengeId(challenge.data.id)
+    const result = await supabase.auth.mfa.verify({ factorId: mfaEnrollment.id, challengeId: challenge.data.id, code: mfaCode })
+    if (result.error) showToast(result.error.message, "error")
+    else { showToast("Two-factor authentication enabled"); setMfaEnrollment(null); setMfaCode(""); setMfaChallengeId(""); await loadMfaFactors() }
+    setMfaBusy(false)
+  }
+
+  const removeMfaFactor = async (factorId: string) => {
+    if (!supabase || !window.confirm("Remove this authenticator? Two-factor protection will be disabled for this factor.")) return
+    setMfaBusy(true)
+    const result = await supabase.auth.mfa.unenroll({ factorId })
+    if (result.error) showToast(result.error.message, "error")
+    else { showToast("Authenticator removed"); await loadMfaFactors() }
+    setMfaBusy(false)
+  }
 
   return (
     <div className="security-settings-stack">
@@ -1424,6 +1488,13 @@ function SecuritySettings({ user }: { user: User }) {
           </div>
           <button className="settings-outline-action">Update email</button>
         </div>
+      </section>
+      <section className="settings-card security-card">
+        <div className="settings-card-heading">
+          <div><h2>Two-factor authentication</h2><p>Require a time-based code from an authenticator app when signing in.</p></div>
+          <span className="security-heading-icon"><ShieldCheck /></span>
+        </div>
+        {mfaLoading ? <p className="security-muted-text">Checking your authentication factors…</p> : mfaFactors.length > 0 ? <div className="security-mfa-factor"><div><strong>Authenticator app</strong><p>Two-factor authentication is enabled.</p></div>{mfaFactors.map((factor) => <button key={factor.id} type="button" className="settings-outline-action" disabled={mfaBusy} onClick={() => void removeMfaFactor(factor.id)}>Remove</button>)}</div> : !mfaEnrollment ? <div className="security-item"><span className="security-item-icon"><Smartphone /></span><div><strong>Protect your account</strong><p>Use Google Authenticator, 1Password, or another TOTP app.</p></div><button type="button" className="settings-primary-action" disabled={mfaBusy} onClick={() => void beginMfaEnrollment()}>{mfaBusy ? "Starting…" : "Set up 2FA"}</button></div> : <div className="security-mfa-enrollment"><strong>Scan this QR code with your authenticator app</strong><img src={mfaEnrollment.qrCode} alt="QR code for two-factor authentication setup" /><small>Or enter this key manually: <code>{mfaEnrollment.secret}</code></small><label><span>Verification code</span><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ""))} placeholder="123456" /></label><div><button type="button" className="settings-outline-action" onClick={() => { setMfaEnrollment(null); setMfaCode(""); setMfaChallengeId("") }}>Cancel</button><button type="button" className="settings-primary-action" disabled={mfaBusy || Boolean(mfaChallengeId && mfaCode.length !== 6)} onClick={() => void verifyMfaEnrollment()}>{mfaBusy ? "Verifying…" : "Verify and enable"}</button></div></div>}
       </section>
       <section className="settings-card security-card">
         <div className="settings-card-heading">
@@ -1519,7 +1590,13 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
     notes: initialCache.booking_show_notes ?? user.user_metadata?.booking_show_notes ?? true,
     designPeg: initialCache.booking_show_design_peg ?? user.user_metadata?.booking_show_design_peg ?? true,
     paymentReceipt: initialCache.booking_show_payment_receipt ?? user.user_metadata?.booking_show_payment_receipt ?? false,
+    price: initialCache.booking_show_price ?? user.user_metadata?.booking_show_price ?? true,
+    duration: initialCache.booking_show_duration ?? user.user_metadata?.booking_show_duration ?? true,
+    hours: initialCache.booking_show_hours ?? user.user_metadata?.booking_show_hours ?? true,
+    staff: initialCache.booking_show_staff ?? user.user_metadata?.booking_show_staff ?? true,
+    reviews: initialCache.booking_show_reviews ?? user.user_metadata?.booking_show_reviews ?? true,
   })
+  const [allowCustomerLogin, setAllowCustomerLogin] = useState(Boolean(initialCache.booking_allow_customer_login ?? user.user_metadata?.booking_allow_customer_login ?? true))
   const [additionalInfo, setAdditionalInfo] = useState(String(initialCache.booking_additional_info ?? user.user_metadata?.booking_additional_info ?? "Prices vary depending on design complexity. Your final quote will be confirmed after reviewing your request."))
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState(String(initialCache.payment_receipt_url ?? user.user_metadata?.payment_receipt_url ?? ""))
   const [bookingFeeEnabled, setBookingFeeEnabled] = useState<boolean>(Boolean(initialCache.booking_fee_enabled ?? user.user_metadata?.booking_fee_enabled ?? false))
@@ -1573,6 +1650,11 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             notes: data.booking_show_notes ?? current.notes,
             designPeg: data.booking_show_design_peg ?? current.designPeg,
             paymentReceipt: data.booking_show_payment_receipt ?? current.paymentReceipt,
+            price: data.booking_show_price ?? current.price,
+            duration: data.booking_show_duration ?? current.duration,
+            hours: data.booking_show_hours ?? current.hours,
+            staff: data.booking_show_staff ?? current.staff,
+            reviews: data.booking_show_reviews ?? current.reviews,
           }))
           if (data.booking_additional_info !== undefined) setAdditionalInfo(data.booking_additional_info || "")
           if (data.payment_receipt_url !== undefined) setPaymentReceiptUrl(data.payment_receipt_url || "")
@@ -1580,6 +1662,7 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
           if (data.booking_fee_type !== undefined) setBookingFeeType(data.booking_fee_type === "percentage" ? "percentage" : "fixed")
           if (data.booking_fee_amount !== undefined) setBookingFeeAmount(String(data.booking_fee_amount ?? "200"))
           if (data.booking_fee_note !== undefined) setBookingFeeNote(data.booking_fee_note || "")
+          if (data.booking_allow_customer_login !== undefined) setAllowCustomerLogin(Boolean(data.booking_allow_customer_login))
           if (data.banner_url) setBannerUrl(data.banner_url)
           if (data.logo_url) setLogoUrl(data.logo_url)
 
@@ -1628,6 +1711,12 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
       booking_show_notes: formFields.notes,
       booking_show_design_peg: formFields.designPeg,
       booking_show_payment_receipt: formFields.paymentReceipt,
+      booking_show_price: formFields.price,
+      booking_show_duration: formFields.duration,
+      booking_show_hours: formFields.hours,
+      booking_show_staff: formFields.staff,
+      booking_show_reviews: formFields.reviews,
+      booking_allow_customer_login: allowCustomerLogin,
       booking_fee_enabled: bookingFeeEnabled,
       booking_fee_type: bookingFeeType,
       booking_fee_amount: Math.max(0, Number(bookingFeeAmount) || 0),
@@ -1668,6 +1757,12 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             booking_show_notes: profileData.booking_show_notes,
             booking_show_design_peg: profileData.booking_show_design_peg,
             booking_show_payment_receipt: profileData.booking_show_payment_receipt,
+            booking_show_price: profileData.booking_show_price,
+            booking_show_duration: profileData.booking_show_duration,
+            booking_show_hours: profileData.booking_show_hours,
+            booking_show_staff: profileData.booking_show_staff,
+            booking_show_reviews: profileData.booking_show_reviews,
+            booking_allow_customer_login: profileData.booking_allow_customer_login,
             booking_fee_enabled: profileData.booking_fee_enabled,
             booking_fee_type: profileData.booking_fee_type,
             booking_fee_amount: profileData.booking_fee_amount,
@@ -1856,6 +1951,8 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
               setAdditionalInfo={setAdditionalInfo}
               paymentReceiptUrl={paymentReceiptUrl}
               setPaymentReceiptUrl={setPaymentReceiptUrl}
+              allowCustomerLogin={allowCustomerLogin}
+              setAllowCustomerLogin={setAllowCustomerLogin}
               userId={user.id}
             />
           ) : active === "Notifications" ? (

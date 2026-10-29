@@ -5,6 +5,7 @@ const corsHeaders = {
 }
 
 type BookingEmailPayload = {
+  businessId: string
   bookingId: string
   customerEmail: string
   customerName: string
@@ -22,6 +23,21 @@ type BookingEmailPayload = {
   durationMinutes: number
   totalPrice: string
   manageBookingsUrl: string
+}
+
+const recordDelivery = async (payload: BookingEmailPayload, status: "sent" | "failed", providerMessage = "") => {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  if (!supabaseUrl || !serviceRoleKey || !payload.businessId) return
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/notification_events`, {
+      method: "POST",
+      headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ business_id: payload.businessId, appointment_id: payload.bookingId, event_type: "booking_confirmation", channel: "email", recipient: payload.customerEmail, status, provider_message: providerMessage.slice(0, 2000) }),
+    })
+  } catch (error) {
+    console.error("Unable to record notification delivery:", error)
+  }
 }
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
@@ -210,6 +226,7 @@ Deno.serve(async (request) => {
   const resText = await response.text()
   if (!response.ok) {
     console.error("Resend delivery failed:", response.status, resText)
+    await recordDelivery(payload, "failed", resText)
     return json({
       error: resText,
       status: response.status,
@@ -221,5 +238,6 @@ Deno.serve(async (request) => {
   try {
     resData = JSON.parse(resText)
   } catch {}
+  await recordDelivery(payload, "sent", resData?.id ? `Resend message ${resData.id}` : "Delivered to provider")
   return json({ ok: true, data: resData })
 })

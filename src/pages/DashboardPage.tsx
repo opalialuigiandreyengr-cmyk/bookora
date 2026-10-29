@@ -1,32 +1,28 @@
 import { useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, ChevronDown, Clock3, CreditCard, Home, Link2, ListChecks, Menu, MoreVertical, Plus, Search, Scissors, Settings2, Store, Upload, Users } from "lucide-react"
+import { ArrowRight, BarChart3, Bell, CalendarDays, CalendarRange, ChevronDown, Clock3, CreditCard, Link2, ListChecks, MoreVertical, Plus, Search, Scissors, Upload, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Logo } from "@/components/brand/Logo"
-import { dashboardNav, upcomingAppointments } from "@/data/mock"
+import { upcomingAppointments } from "@/data/mock"
 import { SettingsPage } from "@/pages/SettingsPage"
-
-const icons = [Home, CalendarDays, CalendarRange, Users, Scissors, Users, CreditCard, BarChart3, Settings2]
+import { ServicesPage as ServicesManagerPage } from "@/pages/ServicesPage"
+import { OwnerSidebar, OwnerMobileMenuButton } from "@/components/owner/OwnerSidebar"
+import { getOwnerRoute, getOwnerRouteByKey, type OwnerRouteKey } from "@/lib/ownerNavigation"
 
 export function DashboardPage({ user, onSignOut }: { user: User; onSignOut: () => void }) {
-  const [active, setActive] = useState(() => (window.location.pathname.includes("/settings") ? "Settings" : "Overview"))
+  const [active, setActive] = useState<OwnerRouteKey>(() => getOwnerRoute(window.location.pathname).key)
   const [open, setOpen] = useState(false)
   const name = String(user.user_metadata?.business_name ?? "Your business")
   const firstName = String(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "there").split(" ")[0]
-  const select = (item: string) => {
-    if (item === "Services") {
-      window.location.assign("/services")
+  const select = (path: string) => {
+    if (path !== "/dashboard") {
+      window.location.assign(path)
       return
     }
-    if (item === "Calendar") {
-      window.location.assign("/calendar")
-      return
-    }
-    setActive(item)
+    setActive(getOwnerRoute(path).key)
     setOpen(false)
-    window.history.replaceState({}, "", item === "Settings" ? "/settings" : "/dashboard")
+    window.history.replaceState({}, "", "/dashboard")
   }
-  return <div className="dashboard-shell">{open && <button className="dashboard-scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}<aside className={`dashboard-sidebar ${open ? "open" : ""}`}><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = icons[index]; return <button key={item} className={active === item ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div></div></aside><div className="dashboard-content"><header className="dashboard-header"><button className="dashboard-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu /></button><div className="dashboard-search"><Search /><input aria-label="Search" placeholder="Search anything..." /></div><div className="dashboard-header-actions"><button className="dashboard-icon-button" aria-label="Notifications"><Bell /><i /></button><span className="dashboard-divider" /><span className="user-avatar">{firstName.slice(0, 2).toUpperCase()}</span></div></header><main className="dashboard-main">{active === "Settings" ? <SettingsPage user={user} onSignOut={onSignOut} /> : active === "Services" ? <ServicesPage /> : <Overview name={name} firstName={firstName} onNavigate={select} />}</main></div></div>
+  return <div className="dashboard-shell"> <OwnerSidebar user={user} active={active} open={open} onClose={() => setOpen(false)} onNavigate={select} /><div className="dashboard-content"><header className="dashboard-header"><OwnerMobileMenuButton onOpen={() => setOpen(true)} /><div className="dashboard-search"><Search /><input aria-label="Search" placeholder="Search anything..." /></div><div className="dashboard-header-actions"><button className="dashboard-icon-button" aria-label="Notifications"><Bell /><i /></button><span className="dashboard-divider" /><span className="user-avatar">{firstName.slice(0, 2).toUpperCase()}</span></div></header><main className="dashboard-main">{active === "Settings" ? <SettingsPage user={user} onSignOut={onSignOut} /> : active === "Services" ? <ServicesManagerPage user={user} onSignOut={onSignOut} /> : <Overview name={name} firstName={firstName} onNavigate={(item) => select(getOwnerRouteByKey(item).path)} />}</main></div></div>
 }
 
 type Service = { name: string; category: string; duration: string; price: string; color: string }

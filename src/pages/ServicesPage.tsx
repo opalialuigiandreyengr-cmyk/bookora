@@ -2,14 +2,13 @@ import { useEffect, useRef, useState, type PointerEvent } from "react"
 import type { User } from "@supabase/supabase-js"
 import { ArrowRight, BarChart3, CalendarDays, CalendarRange, ChevronDown, Copy, CreditCard, Edit2, Home, Image as ImageIcon, Link2, Minus, MoreVertical, Plus, Scissors, Search, Settings2, Store, Trash2, Upload, Users, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Logo } from "@/components/brand/Logo"
-import { dashboardNav } from "@/data/mock"
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
+import { OwnerSidebar, OwnerMobileMenuButton } from "@/components/owner/OwnerSidebar"
 
 type Category = { id?: string; name: string }
-type Service = { id?: string; name: string; description?: string; duration: string; bufferTime?: string; price: string; category?: string; categoryId?: string; image?: string; imageFile?: File; showOnBookingPage?: boolean; color: string }
-const sidebarIcons = [Home, CalendarDays, CalendarRange, Users, Scissors, Users, CreditCard, BarChart3, Settings2]
+type ServiceHours = Record<string, { open: boolean; start: string; end: string }>
+type Service = { id?: string; name: string; description?: string; duration: string; bufferTime?: string; price: string; category?: string; categoryId?: string; image?: string; imageFile?: File; showOnBookingPage?: boolean; depositType?: "none" | "fixed" | "percentage"; depositAmount?: number; serviceHours?: ServiceHours | null; color: string }
 const starterServices: Service[] = [
   { name: "Gel Manicure", duration: "60 mins", price: "PHP 650", color: "coral", showOnBookingPage: true },
   { name: "Hair Treatment", duration: "90 mins", price: "PHP 1,200", color: "lavender", showOnBookingPage: true },
@@ -28,9 +27,8 @@ const restoreServiceOrder = (services: Service[], businessId: string) => {
 }
 
 export function ServicesPage({ user, onSignOut }: { user: User; onSignOut: () => void }) {
-  const name = String(user.user_metadata?.business_name ?? "Your business")
-  const select = (item: string) => window.location.assign(item === "Settings" ? "/settings" : item === "Calendar" ? "/calendar" : item === "Services" ? "/services" : "/dashboard")
-  return <div className="dashboard-shell services-standalone-shell"><aside className="dashboard-sidebar"><div className="dashboard-brand"><Logo /></div><div className="workspace-switcher"><span className="workspace-avatar"><Store /></span><span><strong>{name}</strong><small>Business account</small></span></div><nav className="dashboard-nav"><p className="dashboard-nav-label">Workspace</p>{dashboardNav.map((item, index) => { const Icon = sidebarIcons[index]; return <button key={item} className={item === "Services" ? "active" : ""} onClick={() => select(item)}><Icon /><span>{item}</span></button> })}</nav><div className="dashboard-sidebar-bottom"><div className="help-card"><strong>Need a hand?</strong><span>Our team is here to help you get set up.</span><button>Visit Help Center <ArrowRight /></button></div></div></aside><div className="dashboard-content services-standalone-content"><ServicesContent user={user} onSignOut={onSignOut} /></div></div>
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  return <div className="dashboard-shell services-standalone-shell"><OwnerSidebar user={user} active="Services" open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNavigate={(path) => window.location.assign(path)} /><div className="dashboard-content services-standalone-content"><header className="dashboard-header services-mobile-header"><OwnerMobileMenuButton onOpen={() => setSidebarOpen(true)} /><div className="dashboard-header-context"><span>Services</span><small>Owner workspace</small></div></header><ServicesContent user={user} onSignOut={onSignOut} /></div></div>
 }
 
 function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOut: () => void }) {
@@ -192,7 +190,7 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
       
       const [{ data: categoryRows, error: categoryError }, serviceResWithDesc, { data: profileRow }] = await Promise.all([
         supabase.from("service_categories").select("id, name").eq("business_id", user.id).order("created_at"),
-        supabase.from("services").select("id, name, description, duration_minutes, buffer_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", user.id).order("created_at"),
+        supabase.from("services").select("id, name, description, duration_minutes, buffer_minutes, price, category_id, image_url, show_on_booking_page, deposit_type, deposit_amount, service_hours").eq("business_id", user.id).order("created_at"),
         supabase.from("business_profiles").select("slug, service_defaults_seeded").eq("id", user.id).maybeSingle()
       ])
       if (!active) return
@@ -203,7 +201,7 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
 
       // If querying with 'description' returns 400 (column missing in Supabase), fallback to query without it
       if (serviceError) {
-        const fallbackRes = await supabase.from("services").select("id, name, duration_minutes, buffer_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", user.id).order("created_at")
+        const fallbackRes = await supabase.from("services").select("id, name, duration_minutes, buffer_minutes, price, category_id, image_url, show_on_booking_page, deposit_type, deposit_amount, service_hours").eq("business_id", user.id).order("created_at")
         if (!fallbackRes.error) {
           serviceRows = fallbackRes.data
           serviceError = null
@@ -212,10 +210,10 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
 
       if (categoryError || serviceError) { setError(categoryError?.message ?? serviceError?.message ?? "Could not load services."); setServices(restoreServiceOrder(starterServices, user.id)); setLoading(false); return }
       const nextCategories = (categoryRows ?? []) as Category[]
-      let nextServices = (serviceRows ?? []).map((row: any, index) => ({ id: row.id, name: row.name, description: row.description || "", duration: row.duration_minutes ? `${row.duration_minutes} mins` : "", bufferTime: row.buffer_minutes ? `${row.buffer_minutes} mins` : "", price: row.price || "Free", categoryId: row.category_id ?? undefined, category: nextCategories.find((item) => item.id === row.category_id)?.name, image: row.image_url || "", showOnBookingPage: row.show_on_booking_page ?? true, color: ["coral", "lavender", "mint", "peach"][index % 4] })) as Service[]
+      let nextServices = (serviceRows ?? []).map((row: any, index) => ({ id: row.id, name: row.name, description: row.description || "", duration: row.duration_minutes ? `${row.duration_minutes} mins` : "", bufferTime: row.buffer_minutes ? `${row.buffer_minutes} mins` : "", price: row.price || "Free", categoryId: row.category_id ?? undefined, category: nextCategories.find((item) => item.id === row.category_id)?.name, image: row.image_url || "", showOnBookingPage: row.show_on_booking_page ?? true, depositType: row.deposit_type === "fixed" || row.deposit_type === "percentage" ? row.deposit_type : "none", depositAmount: Number(row.deposit_amount) || 0, serviceHours: row.service_hours && typeof row.service_hours === "object" ? row.service_hours : null, color: ["coral", "lavender", "mint", "peach"][index % 4] })) as Service[]
       if (!nextServices.length && !profileRow?.service_defaults_seeded) {
-        const { data: seeded } = await supabase.from("services").insert(starterServices.map((service) => ({ business_id: user.id, name: service.name, duration_minutes: parseInt(service.duration, 10), buffer_minutes: 0, price: service.price, show_on_booking_page: true }))).select("id, name, duration_minutes, buffer_minutes, price, show_on_booking_page")
-        nextServices = (seeded ?? []).map((row: any, index) => ({ id: row.id, name: row.name, description: "", duration: `${row.duration_minutes} mins`, bufferTime: "", price: row.price, showOnBookingPage: row.show_on_booking_page, color: ["coral", "lavender", "mint"][index] }))
+        const { data: seeded } = await supabase.from("services").insert(starterServices.map((service) => ({ business_id: user.id, name: service.name, duration_minutes: parseInt(service.duration, 10), buffer_minutes: 0, price: service.price, show_on_booking_page: true, deposit_type: "none", deposit_amount: 0 }))).select("id, name, duration_minutes, buffer_minutes, price, show_on_booking_page, deposit_type, deposit_amount")
+        nextServices = (seeded ?? []).map((row: any, index) => ({ id: row.id, name: row.name, description: "", duration: `${row.duration_minutes} mins`, bufferTime: "", price: row.price, showOnBookingPage: row.show_on_booking_page, depositType: "none" as const, depositAmount: 0, color: ["coral", "lavender", "mint"][index] }))
         await supabase.from("business_profiles").update({ service_defaults_seeded: true }).eq("id", user.id)
       }
       setCategories(nextCategories); setServices(restoreServiceOrder(nextServices, user.id)); setLoading(false)
@@ -231,8 +229,10 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
     let imageUrl = service.image || ""
     if (supabase && service.imageFile && !user.id.startsWith("preview-")) { const extension = service.imageFile.name.split(".").pop() || "jpg"; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("service-assets").upload(path, service.imageFile, { upsert: true }); if (upload.error) { setError(upload.error.message); return }; imageUrl = supabase.storage.from("service-assets").getPublicUrl(path).data.publicUrl }
     const categoryId = categories.find((item) => item.name === service.category)?.id ?? null
-    const payloadWithDesc = { name: service.name, description: service.description || "", duration_minutes: parseInt(service.duration, 10) || null, buffer_minutes: parseInt(service.bufferTime ?? "", 10) || 0, price: service.price, category_id: categoryId, image_url: imageUrl, show_on_booking_page: service.showOnBookingPage ?? true }
-    const payloadWithoutDesc = { name: service.name, duration_minutes: parseInt(service.duration, 10) || null, buffer_minutes: parseInt(service.bufferTime ?? "", 10) || 0, price: service.price, category_id: categoryId, image_url: imageUrl, show_on_booking_page: service.showOnBookingPage ?? true }
+    const depositType = service.depositType === "fixed" || service.depositType === "percentage" ? service.depositType : "none"
+    const depositAmount = Math.max(0, Number(service.depositAmount || 0))
+    const payloadWithDesc = { name: service.name, description: service.description || "", duration_minutes: parseInt(service.duration, 10) || null, buffer_minutes: parseInt(service.bufferTime ?? "", 10) || 0, price: service.price, category_id: categoryId, image_url: imageUrl, show_on_booking_page: service.showOnBookingPage ?? true, deposit_type: depositType, deposit_amount: depositAmount, service_hours: service.serviceHours || null }
+    const payloadWithoutDesc = { name: service.name, duration_minutes: parseInt(service.duration, 10) || null, buffer_minutes: parseInt(service.bufferTime ?? "", 10) || 0, price: service.price, category_id: categoryId, image_url: imageUrl, show_on_booking_page: service.showOnBookingPage ?? true, deposit_type: depositType, deposit_amount: depositAmount, service_hours: service.serviceHours || null }
     
     if (supabase && !user.id.startsWith("preview-")) {
       let result = editingService
@@ -261,6 +261,20 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
   const activeSlug = businessSlug || (typeof user.user_metadata?.slug === "string" ? user.user_metadata.slug : "") || user.user_metadata?.business_name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "nailsou"
   const publicBookingUrl = `${window.location.origin}/book?slug=${activeSlug}`
 
+  useEffect(() => {
+    const handleDirectLinkCopy = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target.closest(".service-copy-link") : null
+      if (!target) return
+      const row = target.closest(".service-row")
+      const name = row?.querySelector("h3")?.textContent?.trim()
+      const service = services.find((item) => item.name === name)
+      if (!service?.id) return
+      window.setTimeout(() => { const directUrl = `${publicBookingUrl}&service=${encodeURIComponent(service.id || "")}`; void navigator.clipboard?.writeText(directUrl); showToast("Direct service booking link copied!") }, 0)
+    }
+    document.addEventListener("click", handleDirectLinkCopy)
+    return () => document.removeEventListener("click", handleDirectLinkCopy)
+  }, [publicBookingUrl, services])
+
   return <>
     <main className="services-standalone"><aside className="services-library-nav"><h1>Services</h1><button className="services-library-section active"><span>Services ({services.length})</span><ChevronDown /></button><button className="services-category-add" onClick={() => setShowCategoryModal(true)}><Plus /> New service category</button>{categories.map((category) => <button className="services-library-section" key={category.id ?? category.name}><span>{category.name}</span><ChevronDown /></button>)}</aside><section className="services-main"><header className="services-main-heading"><h2>Services</h2><div><button className="services-icon-action" aria-label="Export services"><Upload /></button><Button onClick={() => { setEditingService(null); setShowServiceModal(true) }} aria-label="Add service"><Plus /></Button></div></header><div className="services-toolbar"><button className="services-team-filter"><Plus /> Team <ChevronDown /></button><label className="services-search"><Search /><input placeholder="Services" aria-label="Search services" /></label><button className="services-booking-link" type="button" onClick={() => window.open(publicBookingUrl, "_blank")} title="Open customer booking page"><span>*</span><u>{activeSlug}.bookora.com</u><Link2 /></button></div>{error && <p className="services-error" role="alert">{error}</p>}{loading ? <div className="services-empty-state">Loading services...</div> : <div className="services-list">{services.map((service, index) => <article className={`service-row ${service.color}`} key={service.id ?? `${service.name}-${index}`}><div className={`service-row-icon ${service.color}`}>{service.image ? <img src={service.image} alt="" /> : <Scissors />}</div><div className="service-row-info"><h3>{service.name}</h3>{service.description && <p className="service-row-subtitle">{service.description}</p>}<p>{service.duration} · {service.price}</p></div><button className="service-copy-link" type="button" onClick={() => { navigator.clipboard?.writeText(publicBookingUrl); showToast("Booking link copied!") }}><Link2 /> Copy link</button><div className="service-row-actions"><button className="service-row-menu" aria-label={`More options for ${service.name}`} aria-expanded={openMenu === index} onClick={() => setOpenMenu(openMenu === index ? null : index)}><MoreVertical /></button>{openMenu === index && <div className="service-action-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setEditingService({ index, service }); setShowServiceModal(true); setOpenMenu(null) }}><Edit2 /> Edit</button><button type="button" role="menuitem" onClick={() => { duplicateService(service); setOpenMenu(null) }}><Copy /> Duplicate</button><button type="button" role="menuitem" className="danger" onClick={() => deleteService(service, index)}><Trash2 /> Delete</button></div>}</div></article>)}</div>}</section></main>
     {showCategoryModal && <div className="services-modal-backdrop" role="presentation" onMouseDown={() => setShowCategoryModal(false)}><section className="services-modal" role="dialog" aria-modal="true" aria-labelledby="new-category-title" onMouseDown={(event) => event.stopPropagation()}><div className="services-modal-heading"><h2 id="new-category-title">New category</h2><button type="button" onClick={() => setShowCategoryModal(false)} aria-label="Close modal">×</button></div><label>Category title<input autoFocus value={categoryTitle} onChange={(event) => setCategoryTitle(event.target.value)} placeholder="e.g. Hair services" /></label><div className="services-modal-actions"><button type="button" onClick={() => setShowCategoryModal(false)}>Cancel</button><Button type="button" onClick={saveCategory}>Add category</Button></div></section></div>}
@@ -269,6 +283,47 @@ function ServicesContent({ user, onSignOut: _onSignOut }: { user: User; onSignOu
 }
 
 function ServiceFormModal({ initialService, categories, onClose, onSave }: { initialService?: Service; categories: Category[]; onClose: () => void; onSave: (service: Omit<Service, "color">) => Promise<void> }) {
+  const [name, setName] = useState(initialService?.name ?? "")
+  const [description, setDescription] = useState(initialService?.description ?? "")
+  const [duration, setDuration] = useState(initialService?.duration ?? "")
+  const [bufferTime, setBufferTime] = useState(initialService?.bufferTime ?? "")
+  const [price, setPrice] = useState(initialService?.price === "Free" ? "" : initialService?.price?.replace(/^(PHP|₱|â‚±)\s*/i, "") ?? "")
+  const [category, setCategory] = useState(initialService?.category ?? "Default services")
+  const [showOnBookingPage, setShowOnBookingPage] = useState(initialService?.showOnBookingPage ?? true)
+  const [depositType, setDepositType] = useState<"none" | "fixed" | "percentage">(initialService?.depositType ?? "none")
+  const [depositAmount, setDepositAmount] = useState(String(initialService?.depositAmount ?? ""))
+  const [serviceHoursText, setServiceHoursText] = useState(initialService?.serviceHours ? JSON.stringify(initialService.serviceHours, null, 2) : "")
+  const [image, setImage] = useState(initialService?.image ?? "")
+  const [imageFile, setImageFile] = useState<File>()
+  const [imageError, setImageError] = useState("")
+  const [saving, setSaving] = useState(false)
+  const submit = async () => {
+    if (!name.trim()) { showToast("Add a service name first.", "error"); return }
+    const amount = Math.max(0, Number(depositAmount) || 0)
+    if (depositType === "percentage" && amount > 100) { showToast("Percentage deposit cannot exceed 100%.", "error"); return }
+    let serviceHours: ServiceHours | null = null
+    if (serviceHoursText.trim()) { try { const parsed = JSON.parse(serviceHoursText); if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(); serviceHours = parsed as ServiceHours } catch { showToast("Service hours must be valid JSON or left blank.", "error"); return } }
+    setSaving(true)
+    await onSave({ name: name.trim(), description: description.trim(), duration, bufferTime, price: price.trim() ? `PHP ${price.trim()}` : "Free", category, image, imageFile, showOnBookingPage, depositType, depositAmount: depositType === "none" ? 0 : amount, serviceHours })
+    setSaving(false)
+  }
+  const selectImage = (file?: File) => { if (!file) return; if (!["image/jpeg", "image/png"].includes(file.type) || file.size > 5 * 1024 * 1024) { setImageError("Choose a JPG or PNG image up to 5MB."); return }; setImageError(""); setImageFile(file); setImage(URL.createObjectURL(file)) }
+  useEffect(() => {
+    const modal = document.querySelector(".services-service-modal")
+    const deposit = modal?.querySelector(".service-deposit-settings")
+    if (!modal || !deposit || modal.querySelector(".service-hours-field")) return
+    const field = document.createElement("label")
+    field.className = "service-hours-field"
+    const title = document.createElement("span"); title.textContent = "Service-specific hours (optional JSON)"
+    const input = document.createElement("textarea"); input.rows = 4; input.value = serviceHoursText; input.placeholder = '{"Monday":{"open":true,"start":"09:00","end":"17:00"}}'; input.addEventListener("input", () => setServiceHoursText(input.value))
+    const note = document.createElement("small"); note.textContent = "Leave blank to use business hours. Only listed days are overridden."
+    field.append(title, input, note); deposit.before(field)
+    return () => field.remove()
+  }, [initialService?.id])
+  return <div className="services-modal-backdrop" role="presentation" onMouseDown={onClose}><section className="services-modal services-service-modal" role="dialog" aria-modal="true" aria-labelledby="service-editor-title" onMouseDown={(event) => event.stopPropagation()}><div className="services-modal-heading"><h2 id="service-editor-title">{initialService ? "Edit service" : "New service"}</h2><button type="button" onClick={onClose} aria-label="Close service editor">×</button></div><div className="services-image-field"><div className="services-image-placeholder">{image ? <img src={image} alt="Service preview" /> : <ImageIcon />}</div><div><label htmlFor="service-image-upload-active" className="services-image-label">Service image</label><p>JPG or PNG · Up to 5MB.</p><label htmlFor="service-image-upload-active" className="services-upload-button"><ImageIcon /> Upload</label><input id="service-image-upload-active" type="file" accept="image/jpeg,image/png" onChange={(event) => selectImage(event.target.files?.[0])} />{imageError && <small className="services-image-error" role="alert">{imageError}</small>}</div></div><label>Title <span className="services-required">*</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Softgel Extension" /></label><label>Subtitle / Note<input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional service description" /></label><div className="services-modal-grid services-details-grid"><label>Duration<div className="services-input-suffix"><input inputMode="numeric" value={duration.replace(" mins", "")} onChange={(event) => setDuration(event.target.value ? `${event.target.value} mins` : "")} /><span>mins</span></div></label><label>Buffer time<div className="services-input-suffix"><input inputMode="numeric" value={bufferTime.replace(" mins", "")} onChange={(event) => setBufferTime(event.target.value ? `${event.target.value} mins` : "")} /><span>mins</span></div></label><label>Cost<div className="services-input-prefix"><span>PHP</span><input inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0" /></div></label></div><div className="services-modal-grid"><label>Category<select value={category} onChange={(event) => setCategory(event.target.value)}><option>Default services</option>{categories.map((item) => <option key={item.id ?? item.name}>{item.name}</option>)}</select></label><label className="services-toggle-row"><span><strong>Show on booking page</strong><small>Let customers book this service online</small></span><input type="checkbox" checked={showOnBookingPage} onChange={(event) => setShowOnBookingPage(event.target.checked)} /></label></div><fieldset className="service-deposit-settings"><legend>Deposit rule</legend><p>Override the business default for this service.</p><div className="services-modal-grid"><label>Deposit type<select value={depositType} onChange={(event) => setDepositType(event.target.value as "none" | "fixed" | "percentage")}><option value="none">No deposit</option><option value="fixed">Fixed amount</option><option value="percentage">Percentage</option></select></label>{depositType !== "none" && <label>{depositType === "percentage" ? "Percentage" : "Amount"}<div className="services-input-prefix"><span>{depositType === "percentage" ? "%" : "PHP"}</span><input type="number" min="0" max={depositType === "percentage" ? 100 : undefined} step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /></div></label>}</div></fieldset><div className="services-modal-actions"><button type="button" onClick={onClose}>Cancel</button><Button type="button" onClick={() => void submit()} disabled={saving}>{saving ? "Saving…" : initialService ? "Save changes" : "Add service"}</Button></div></section></div>
+}
+
+function LegacyServiceFormModal({ initialService, categories, onClose, onSave }: { initialService?: Service; categories: Category[]; onClose: () => void; onSave: (service: Omit<Service, "color">) => Promise<void> }) {
   const [name, setName] = useState(initialService?.name ?? "")
   const [description, setDescription] = useState(initialService?.description ?? "")
   const [duration, setDuration] = useState(initialService?.duration ?? "")
@@ -283,12 +338,14 @@ function ServiceFormModal({ initialService, categories, onClose, onSave }: { ini
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 })
   const [imageError, setImageError] = useState("")
   const [showOnBookingPage, setShowOnBookingPage] = useState(initialService?.showOnBookingPage ?? true)
+  const [depositType, setDepositType] = useState<"none" | "fixed" | "percentage">(initialService?.depositType ?? "none")
+  const [depositAmount, setDepositAmount] = useState(String(initialService?.depositAmount ?? ""))
   const [saving, setSaving] = useState(false)
   useEffect(() => { setPrice(initialService?.price === "Free" ? "" : initialService?.price?.replace(/^\s*(?:PHP|₱|â‚±)\s*/i, "") ?? "") }, [initialService])
   useEffect(() => { const fallback = document.querySelector<HTMLSelectElement>(".services-service-modal select"); const option = fallback?.options[0]; if (option?.text === "Uncategorized") { option.text = "Default services"; option.value = "Default services" } }, [categories])
   const selectImage = (file?: File) => { if (!file) return; if (!["image/jpeg", "image/png"].includes(file.type)) { setImageError("Please choose a JPG, JPEG, or PNG file."); return }; if (file.size > 5 * 1024 * 1024) { setImageError("The image must be 5MB or smaller."); return }; setImageError(""); setCropFile(file); setCropSource(URL.createObjectURL(file)); setCropZoom(1); setCropPosition({ x: 0, y: 0 }) }
   const applyCrop = (position = cropPosition) => { if (!cropFile || !cropSource) return; const source = new Image(); source.onload = () => { const side = Math.min(source.naturalWidth, source.naturalHeight) / cropZoom; const offsetX = position.x * side; const offsetY = position.y * side; const canvas = document.createElement("canvas"); canvas.width = 200; canvas.height = 200; canvas.getContext("2d")?.drawImage(source, (source.naturalWidth - side) / 2 + offsetX, (source.naturalHeight - side) / 2 + offsetY, side, side, 0, 0, 200, 200); canvas.toBlob((blob) => { if (!blob) return; const cropped = new File([blob], cropFile.name, { type: "image/jpeg" }); setImageFile(cropped); setImage(URL.createObjectURL(cropped)); setCropSource(""); setCropFile(undefined) }, "image/jpeg", .9) }; source.src = cropSource }
-  const submit = async () => { if (!name.trim()) return; setSaving(true); await onSave({ name: name.trim(), description: description.trim(), duration, bufferTime, price: price.trim() ? `PHP ${price.trim()}` : "Free", category, image, imageFile, showOnBookingPage }); setSaving(false) }
+  const submit = async () => { if (!name.trim()) return; const amount = Math.max(0, Number(depositAmount) || 0); if (depositType === "percentage" && amount > 100) { showToast("Percentage deposit cannot exceed 100%.", "error"); return }; setSaving(true); await onSave({ name: name.trim(), description: description.trim(), duration, bufferTime, price: price.trim() ? `PHP ${price.trim()}` : "Free", category, image, imageFile, showOnBookingPage, depositType, depositAmount: depositType === "none" ? 0 : amount }); setSaving(false) }
   return <><div className="services-modal-backdrop" role="presentation" onMouseDown={onClose}><section className="services-modal services-service-modal" role="dialog" aria-modal="true" aria-labelledby="new-service-title" onMouseDown={(event) => event.stopPropagation()}><div className="services-modal-heading"><h2 id="new-service-title">New Service</h2><button type="button" onClick={onClose} aria-label="Close modal">×</button></div><div className="services-image-field"><div className="services-image-placeholder">{image ? <img src={image} alt="Service preview" /> : <ImageIcon />}</div><div><label htmlFor="service-image-upload" className="services-image-label">Service image</label><p>200 × 200px recommended · JPG, JPEG and PNG files only · Up to 5MB in size.</p><label htmlFor="service-image-upload" className="services-upload-button"><ImageIcon /> Upload</label><input id="service-image-upload" type="file" accept="image/jpeg,image/png" onChange={(event) => selectImage(event.target.files?.[0])} />{imageError && <small className="services-image-error" role="alert">{imageError}</small>}</div></div><label>Title <span className="services-required">*</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Softgel Extension" /></label><label>Subtitle / Note <span className="services-info">i</span><input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. (prices may vary depending on your design) or Min. of 2pax" /></label><div className="services-modal-grid services-details-grid"><label>Duration <span className="services-required">*</span><div className="services-input-suffix"><input inputMode="numeric" value={duration.replace(" mins", "")} onChange={(event) => setDuration(event.target.value ? `${event.target.value} mins` : "")} /><span>mins</span></div></label><label>Buffer time <span className="services-info">i</span><div className="services-input-suffix"><input inputMode="numeric" value={bufferTime.replace(" mins", "")} onChange={(event) => setBufferTime(event.target.value ? `${event.target.value} mins` : "")} /><span>mins</span></div></label><label>Cost<div className="services-input-prefix"><span>PHP</span><input inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="0" /></div></label></div><div className="services-modal-grid"><label>Category<select value={category} onChange={(event) => setCategory(event.target.value)}><option>Uncategorized</option>{categories.map((item) => <option key={item.id ?? item.name}>{item.name}</option>)}</select></label><label className="services-toggle-row"><span><strong>Show on booking page</strong><small>Let customers book this service online</small></span><input type="checkbox" checked={showOnBookingPage} onChange={(event) => setShowOnBookingPage(event.target.checked)} /></label></div><div className="services-modal-actions"><button type="button" onClick={onClose}>Cancel</button><Button type="button" onClick={submit} disabled={saving}>{saving ? "Saving..." : initialService ? "Save changes" : "Add service"}</Button></div></section></div>{cropSource && <ServiceImageCropModal source={cropSource} zoom={cropZoom} onZoom={setCropZoom} onCancel={() => { setCropSource(""); setCropFile(undefined) }} onApply={applyCrop} />}</>
 }
 

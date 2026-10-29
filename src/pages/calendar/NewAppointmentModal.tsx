@@ -1,13 +1,14 @@
 import { FormEvent, useEffect, useState } from "react"
 import { CalendarPlus, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { CalendarServiceOption, toDateKey } from "./types"
+import { CalendarServiceOption, CalendarStaffOption, toDateKey } from "./types"
 
 interface NewAppointmentModalProps {
   open: boolean
   defaultDate?: string
   defaultTime?: string
   services: CalendarServiceOption[]
+  staff: CalendarStaffOption[]
   onClose: () => void
   onCreate: (payload: {
     customer_name: string
@@ -19,6 +20,11 @@ interface NewAppointmentModalProps {
     appointment_date: string
     appointment_time: string
     duration_minutes: number
+    staff_member_id: string | null
+    location_name: string
+    meeting_url: string
+    recurrence_rule: "none" | "weekly" | "biweekly"
+    recurrence_count: number
   }) => Promise<void>
 }
 
@@ -53,6 +59,7 @@ export function NewAppointmentModal({
   defaultDate,
   defaultTime,
   services,
+  staff,
   onClose,
   onCreate,
 }: NewAppointmentModalProps) {
@@ -61,11 +68,17 @@ export function NewAppointmentModal({
   const [customerPhone, setCustomerPhone] = useState("")
   const [customerNote, setCustomerNote] = useState("")
   const [selectedService, setSelectedService] = useState(services[0]?.name ?? "Gel Manicure")
+  const [additionalServiceNames, setAdditionalServiceNames] = useState<string[]>([])
   const [price, setPrice] = useState(services[0]?.price ?? "₱650")
   const [duration, setDuration] = useState(String(services[0]?.duration_minutes ?? 60))
   const [date, setDate] = useState(defaultDate || toDateKey(new Date()))
   const [time, setTime] = useState(defaultTime || "10:00 AM")
   const [saving, setSaving] = useState(false)
+  const [staffMemberId, setStaffMemberId] = useState("")
+  const [locationName, setLocationName] = useState("")
+  const [meetingUrl, setMeetingUrl] = useState("")
+  const [recurrenceRule, setRecurrenceRule] = useState<"none" | "weekly" | "biweekly">("none")
+  const [recurrenceCount, setRecurrenceCount] = useState("4")
 
   useEffect(() => {
     if (defaultDate) setDate(defaultDate)
@@ -91,6 +104,10 @@ export function NewAppointmentModal({
     }
   }
 
+  const selectedServiceOptions = services.filter((service) => service.name === selectedService || additionalServiceNames.includes(service.name))
+  const combinedDuration = selectedServiceOptions.reduce((sum, service) => sum + (service.duration_minutes || 0), 0) || Number(duration) || 60
+  const combinedPrice = selectedServiceOptions.reduce((sum, service) => sum + (Number(service.price.replace(/[^0-9.-]/g, "")) || 0), 0)
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!customerName.trim()) return
@@ -101,11 +118,16 @@ export function NewAppointmentModal({
         customer_email: customerEmail.trim() || "walkin@client.local",
         customer_phone: customerPhone.trim() || "Walk-in",
         customer_note: customerNote.trim(),
-        service_names: selectedService.trim() || "Salon Service",
-        total_price: price.trim() || "₱0",
+        service_names: selectedServiceOptions.map((service) => service.name).join(" + ") || selectedService.trim() || "Salon Service",
+        total_price: selectedServiceOptions.length > 1 && combinedPrice > 0 ? `₱${combinedPrice.toLocaleString("en-PH")}` : price.trim() || "₱0",
         appointment_date: date,
         appointment_time: time,
-        duration_minutes: Number(duration) || 60,
+        duration_minutes: combinedDuration,
+        staff_member_id: staffMemberId || null,
+        location_name: locationName.trim(),
+        meeting_url: meetingUrl.trim(),
+        recurrence_rule: recurrenceRule,
+        recurrence_count: recurrenceRule === "none" ? 1 : Number(recurrenceCount) || 2,
       })
       setCustomerName("")
       setCustomerEmail("")
@@ -197,6 +219,8 @@ export function NewAppointmentModal({
               )}
             </label>
 
+            {services.length > 1 && <fieldset className="cal-form-field cal-field-full cal-additional-services"><legend>Additional services</legend><div>{services.filter((service) => service.name !== selectedService).map((service) => <label key={service.name}><input type="checkbox" checked={additionalServiceNames.includes(service.name)} onChange={(event) => setAdditionalServiceNames((current) => event.target.checked ? [...current, service.name] : current.filter((name) => name !== service.name))} />{service.name} <small>{service.duration_minutes} mins · {service.price}</small></label>)}</div></fieldset>}
+
             <label className="cal-form-field">
               <span>Date *</span>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
@@ -234,6 +258,25 @@ export function NewAppointmentModal({
               />
             </label>
 
+            <label className="cal-form-field">
+              <span>Assigned staff</span>
+              <select value={staffMemberId} onChange={(e) => setStaffMemberId(e.target.value)}>
+                <option value="">Unassigned</option>
+                {staff.map((member) => <option key={member.id} value={member.id}>{member.full_name}</option>)}
+              </select>
+            </label>
+
+            <label className="cal-form-field">
+              <span>Location</span>
+              <input value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="Default location" maxLength={120} />
+            </label>
+
+            <label className="cal-form-field cal-field-full">
+              <span>Meeting link (optional)</span>
+              <input type="url" value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://meet.google.com/..." maxLength={2048} pattern="https://.*" />
+              <small>Use an HTTPS Zoom, Google Meet, or other provider link.</small>
+            </label>
+
             <label className="cal-form-field cal-field-full">
               <span>Notes (optional)</span>
               <textarea
@@ -243,6 +286,11 @@ export function NewAppointmentModal({
                 onChange={(e) => setCustomerNote(e.target.value)}
               />
             </label>
+            <label className="cal-form-field">
+              <span>Repeat</span>
+              <select value={recurrenceRule} onChange={(e) => setRecurrenceRule(e.target.value as typeof recurrenceRule)}><option value="none">Does not repeat</option><option value="weekly">Every week</option><option value="biweekly">Every 2 weeks</option></select>
+            </label>
+            {recurrenceRule !== "none" && <label className="cal-form-field"><span>Occurrences</span><select value={recurrenceCount} onChange={(e) => setRecurrenceCount(e.target.value)}>{[2, 3, 4, 5, 6, 7, 8].map((count) => <option key={count} value={count}>{count} appointments</option>)}</select></label>}
           </div>
 
           <footer className="cal-modal-actions">
@@ -265,4 +313,3 @@ export function NewAppointmentModal({
     </div>
   )
 }
-

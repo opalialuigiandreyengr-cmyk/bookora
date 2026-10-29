@@ -54,6 +54,9 @@ type Service = {
   color?: string
   categoryId?: string
   category?: string
+  depositType?: "none" | "fixed" | "percentage"
+  depositAmount?: number
+  serviceHours?: Record<string, { open: boolean; start: string; end: string }> | null
 }
 
 type ServiceCategory = { id: string; name: string }
@@ -87,6 +90,12 @@ type BusinessProfile = {
   booking_show_notes?: boolean | null
   booking_show_design_peg?: boolean | null
   booking_show_payment_receipt?: boolean | null
+  booking_show_price?: boolean | null
+  booking_show_duration?: boolean | null
+  booking_show_hours?: boolean | null
+  booking_show_staff?: boolean | null
+  booking_show_reviews?: boolean | null
+  booking_allow_customer_login?: boolean | null
   booking_fee_enabled?: boolean | null
   booking_fee_type?: string | null
   booking_fee_amount?: number | string | null
@@ -638,6 +647,11 @@ export function CustomerBookingPage() {
   // Never render placeholder tenant data while the public booking data is loading.
   const visibleServices = liveServices
   const activeCategories = serviceCategories
+  const directServiceId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("service")?.trim() || "" : ""
+  useEffect(() => {
+    if (!directServiceId || !visibleServices.length) return
+    if (visibleServices.some((service) => service.id === directServiceId)) setServiceIds([directServiceId])
+  }, [directServiceId, visibleServices])
   const selectedServices = useMemo(() => visibleServices.filter((service) => serviceIds.includes(service.id)), [serviceIds, visibleServices])
   const selectedServiceLabel = selectedServices.map((service) => service.name).join(", ")
   const selectedPriceLabel = selectedServices.map((service) => service.price).join(" + ")
@@ -752,8 +766,15 @@ export function CustomerBookingPage() {
   const showAddressField = profile?.booking_show_address ?? false
   const showNotesField = profile?.booking_show_notes ?? true
   const showDesignPegField = profile?.booking_show_design_peg ?? true
+  const showPrice = profile?.booking_show_price ?? true
+  const showDuration = profile?.booking_show_duration ?? true
+  const showHours = profile?.booking_show_hours ?? true
+  const showStaff = profile?.booking_show_staff ?? true
+  const showReviews = profile?.booking_show_reviews ?? true
+  const allowCustomerLogin = profile?.booking_allow_customer_login ?? true
   const bookingFeeInfo = useMemo(() => {
-    const isFeeEnabled = Boolean(profile?.booking_fee_enabled)
+    const hasServiceRule = selectedServices.some((service) => service.depositType && service.depositType !== "none" && Number(service.depositAmount || 0) > 0)
+    const isFeeEnabled = hasServiceRule || Boolean(profile?.booking_fee_enabled)
     if (!isFeeEnabled) {
       return {
         enabled: false,
@@ -768,16 +789,14 @@ export function CustomerBookingPage() {
       }
     }
 
-    const type = profile?.booking_fee_type === "percentage" ? "percentage" : ("fixed" as const)
-    const rawVal = Math.max(0, Number(profile?.booking_fee_amount ?? 0))
-    let deposit = 0
-
-    if (type === "percentage") {
-      const pct = Math.max(0, Math.min(100, rawVal || 0))
-      deposit = Math.round((totalPriceNum * pct) / 100)
-    } else {
-      deposit = rawVal
-    }
+    const type = hasServiceRule ? "fixed" as const : profile?.booking_fee_type === "percentage" ? "percentage" : ("fixed" as const)
+    const rawVal = hasServiceRule ? 0 : Math.max(0, Number(profile?.booking_fee_amount ?? 0))
+    let deposit = hasServiceRule
+      ? selectedServices.reduce((sum, service) => {
+          const value = Math.max(0, Number(service.depositAmount || 0))
+          return sum + (service.depositType === "percentage" ? Math.round((totalPriceNum * Math.min(100, value)) / 100) : service.depositType === "fixed" ? value : 0)
+        }, 0)
+      : type === "percentage" ? Math.round((totalPriceNum * Math.min(100, rawVal || 0)) / 100) : rawVal
 
     // When the service price is less than or equal to the fixed fee/deposit, cap deposit at the service price
     const isFullPayment = totalPriceNum > 0 && deposit >= totalPriceNum
@@ -790,13 +809,13 @@ export function CustomerBookingPage() {
       ? "Full Payment"
       : type === "percentage"
         ? `${rawVal}% Deposit`
-        : "Reservation Deposit"
+        : hasServiceRule ? "Service deposit" : "Reservation Deposit"
 
     const feeHeading = isFullPayment
       ? "Total to pay today (Full payment)"
       : type === "percentage"
         ? `Deposit due today (${rawVal}%)`
-        : "Deposit due today (Fixed)"
+        : hasServiceRule ? "Deposit due today (Service rule)" : "Deposit due today (Fixed)"
 
     return {
       enabled: true,
@@ -809,7 +828,7 @@ export function CustomerBookingPage() {
       feeHeading,
       note: profile?.booking_fee_note?.trim() || "",
     }
-  }, [profile?.booking_fee_enabled, profile?.booking_fee_type, profile?.booking_fee_amount, profile?.booking_fee_note, totalPriceNum])
+  }, [profile?.booking_fee_enabled, profile?.booking_fee_type, profile?.booking_fee_amount, profile?.booking_fee_note, selectedServices, totalPriceNum])
 
   const showPaymentReceiptField = (profile?.booking_show_payment_receipt ?? false) || bookingFeeInfo.enabled
   const additionalInfo = profile?.booking_additional_info?.trim() || "Prices vary depending on design complexity. Your final quote will be confirmed after reviewing your request."
@@ -871,8 +890,11 @@ export function CustomerBookingPage() {
     const daySchedule = schedule.find((item) => item.day.toLowerCase() === weekday.toLowerCase())
     if (!daySchedule?.open || !daySchedule.start || !daySchedule.end) return []
 
-    const openingMinutes = timeToMinutes(daySchedule.start)
-    const closingMinutes = timeToMinutes(daySchedule.end)
+    const serviceSchedules = selectedServices.map((service) => service.serviceHours?.[weekday]).filter(Boolean) as Array<{ open: boolean; start: string; end: string }>
+    if (serviceSchedules.some((item) => !item.open || !item.start || !item.end)) return []
+    const openingMinutes = Math.max(timeToMinutes(daySchedule.start), ...serviceSchedules.map((item) => timeToMinutes(item.start)))
+    const closingMinutes = Math.min(timeToMinutes(daySchedule.end), ...serviceSchedules.map((item) => timeToMinutes(item.end)))
+    if (closingMinutes <= openingMinutes) return []
     const requiredMinutes = Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes
     const earliestTime = dateKey === todayKey ? currentMinutes + minimumNoticeHours * 60 : openingMinutes
     const slots: string[] = []
@@ -883,7 +905,23 @@ export function CustomerBookingPage() {
     }
     return slots
   }
-  const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, todayKey, totalDurationMinutes])
+  const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, selectedServices, todayKey, totalDurationMinutes])
+
+  const chooseFirstAvailable = () => {
+    for (let offset = 0; offset <= maximumBookingDays; offset += 1) {
+      const candidateKey = addDaysToKey(todayKey, offset)
+      const slots = availableSlotsForDate(candidateKey)
+      if (!slots.length) continue
+      const [year, month] = candidateKey.split("-").map(Number)
+      setSelectedDateKey(candidateKey)
+      setCalendarMonth(new Date(Date.UTC(year, month - 1, 1)))
+      setTime(slots[0])
+      setSummaryDateVisible(false)
+      transitionToBookingStep(3)
+      return
+    }
+    showToast("No appointments are available in the current booking window.", "error")
+  }
 
   useEffect(() => {
     if (step !== 2 || bookingDataLoading || bookingTimesLoading || availableTimeSlots.length > 0) return
@@ -997,7 +1035,7 @@ export function CustomerBookingPage() {
       const client = supabase
 
       try {
-        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_fee_enabled, booking_fee_type, booking_fee_amount, booking_fee_note, booking_additional_info, payment_receipt_url, business_hours, owner_name"
+        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_show_price, booking_show_duration, booking_show_hours, booking_show_staff, booking_show_reviews, booking_allow_customer_login, booking_fee_enabled, booking_fee_type, booking_fee_amount, booking_fee_note, booking_additional_info, payment_receipt_url, business_hours, owner_name"
         const profileQuery = () => client.from("business_profiles").select(profileFields)
         let profileResult: any = activeSlug
           ? await profileQuery().eq("slug", activeSlug).limit(1)
@@ -1005,7 +1043,7 @@ export function CustomerBookingPage() {
 
         // Keep older deployments usable until newer columns are migrated in Supabase.
         if (profileResult.error?.message?.includes("booking_fee") || profileResult.error?.message?.includes("booking_policy") || profileResult.error?.message?.includes("booking_show_phone")) {
-          const intermediateFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_additional_info, payment_receipt_url, business_hours, owner_name"
+          const intermediateFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_show_price, booking_show_duration, booking_show_hours, booking_show_staff, booking_show_reviews, booking_allow_customer_login, booking_additional_info, payment_receipt_url, business_hours, owner_name"
           const intermediateQuery = () => client.from("business_profiles").select(intermediateFields)
           profileResult = activeSlug
             ? await intermediateQuery().eq("slug", activeSlug).limit(1)
@@ -1066,15 +1104,12 @@ export function CustomerBookingPage() {
 
         const [categoryRes, serviceRes] = await Promise.all([
           supabase.from("service_categories").select("id, name").eq("business_id", business.id).order("created_at"),
-          supabase.from("services").select("id, name, description, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at"),
+          client.rpc("get_public_booking_services", { p_slug: String(business.slug || activeSlug || ""), p_direct_service_id: /^[0-9a-f-]{36}$/i.test(directServiceId) ? directServiceId : null }),
         ])
         if (!active) return
 
         let serviceRows: any[] | null = serviceRes.data
-        if (serviceRes.error) {
-          const fallbackRes = await supabase.from("services").select("id, name, duration_minutes, price, category_id, image_url, show_on_booking_page").eq("business_id", business.id).eq("show_on_booking_page", true).order("created_at")
-          serviceRows = fallbackRes.data ?? []
-        }
+        if (serviceRes.error) serviceRows = []
 
         const categories = (categoryRes.data ?? []) as ServiceCategory[]
         const publicServices = (serviceRows ?? []).map((row: any, index: number) => ({
@@ -1086,6 +1121,9 @@ export function CustomerBookingPage() {
           categoryId: row.category_id || undefined,
           category: categories.find((category) => category.id === row.category_id)?.name,
           image: row.image_url || "",
+          depositType: row.deposit_type === "fixed" || row.deposit_type === "percentage" ? row.deposit_type : "none",
+          depositAmount: Number(row.deposit_amount) || 0,
+          serviceHours: row.service_hours && typeof row.service_hours === "object" ? row.service_hours : null,
           color: ["coral", "lavender", "mint", "peach"][index % 4],
         })) as Service[]
 
@@ -1227,27 +1265,26 @@ export function CustomerBookingPage() {
 
   const handleCancelCustomerBooking = async (bookingId: string) => {
     const activeEmail = (currentUser?.email || details.email || "").trim().toLowerCase()
-    setCustomerBookings((prev) =>
-      prev.map((item) => (item.id === bookingId ? { ...item, status: "cancelled" } : item)),
-    )
-    if (activeEmail) {
-      try {
-        const localKey = `bookora_local_bookings_${activeEmail}`
-        const localList = JSON.parse(localStorage.getItem(localKey) || "[]") as AppointmentRecord[]
-        const updatedLocal = localList.map((item) =>
-          item.id === bookingId ? { ...item, status: "cancelled" } : item,
-        )
-        localStorage.setItem(localKey, JSON.stringify(updatedLocal))
-      } catch {}
-    }
     if (supabase) {
       try {
         const { error } = await supabase.rpc("cancel_customer_appointment", {
           p_appointment_id: bookingId,
         })
         if (error) {
-          await supabase.from("appointments").update({ status: "cancelled" }).eq("id", bookingId)
+          showToast(error.message || "This booking cannot be cancelled.", "error")
+          return
         }
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "This booking cannot be cancelled.", "error")
+        return
+      }
+    }
+    setCustomerBookings((prev) => prev.map((item) => (item.id === bookingId ? { ...item, status: "cancelled" } : item)))
+    if (activeEmail) {
+      try {
+        const localKey = `bookora_local_bookings_${activeEmail}`
+        const localList = JSON.parse(localStorage.getItem(localKey) || "[]") as AppointmentRecord[]
+        localStorage.setItem(localKey, JSON.stringify(localList.map((item) => item.id === bookingId ? { ...item, status: "cancelled" } : item)))
       } catch {}
     }
     showToast("Booking has been cancelled.")
@@ -1412,12 +1449,13 @@ export function CustomerBookingPage() {
               type="button"
               onClick={() => setShowAuthModal(true)}
               aria-label="Sign in or register"
+              style={{ display: allowCustomerLogin ? undefined : "none" }}
             >
               <UserRound size={15} />
               <span>Sign in</span>
             </button>
           ) : (
-            <div className="booking-menu-wrap">
+            <div className="booking-menu-wrap" style={{ display: allowCustomerLogin ? undefined : "none" }}>
               <button
                 className={`booking-user-badge ${accountOpen ? "is-open" : ""}`}
                 type="button"
@@ -1524,7 +1562,7 @@ export function CustomerBookingPage() {
                 setMenuOpen(false)
                 setShowAuthModal(true)
               }}
-              style={{ color: "#d85b53", fontWeight: 800 }}
+              style={{ color: "#d85b53", fontWeight: 800, display: allowCustomerLogin ? undefined : "none" }}
             >
               Sign in to Bookora <ArrowRight size={16} />
             </button>
@@ -1621,7 +1659,7 @@ export function CustomerBookingPage() {
             </p>
           )}
 
-          <div className="business-meta">
+          <div className="business-meta" style={{ display: showHours ? undefined : "none" }}>
             <Clock3 size={16} /> <span>{dynamicScheduleSummary}</span>
           </div>
 
@@ -1636,7 +1674,7 @@ export function CustomerBookingPage() {
             </div>
           )}
 
-          <div className="schedule-control">
+          <div className="schedule-control" style={{ display: showHours ? undefined : "none" }}>
             <button
               type="button"
               className="schedule-trigger"
@@ -1758,8 +1796,8 @@ export function CustomerBookingPage() {
                             {service.description && <span title={service.description}>{service.description}</span>}
                           </span>
                           <span className="service-price">
-                            <strong className="service-price-value">{service.price}</strong>
-                            <small className="service-duration"><Clock3 size={13} /> {service.duration}</small>
+                            {showPrice && <strong className="service-price-value">{service.price}</strong>}
+                            {showDuration && <small className="service-duration"><Clock3 size={13} /> {service.duration}</small>}
                             <span className="radio-indicator">{serviceIds.includes(service.id) && <Check size={14} />}</span>
                           </span>
                         </button>
@@ -1775,13 +1813,13 @@ export function CustomerBookingPage() {
                   {selectedServices.length > 0 ? (
                     <>
                       <strong>{selectedServices.length} selected</strong> ·{" "}
-                      {totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel}
+                      {showPrice && (totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel)}
                       {bookingFeeInfo.enabled && (
                         <span className="booking-actions-deposit-tag">
                           {" "}· <strong>{bookingFeeInfo.isFullPayment ? "Full payment upfront" : `₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} deposit`}</strong>
                         </span>
                       )}
-                      {formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
+                      {showDuration && formattedTotalDuration ? ` · ~${formattedTotalDuration}` : ""}
                     </>
                   ) : bookingFeeInfo.enabled ? (
                     `Reservation deposit required: ${bookingFeeInfo.type === "percentage" ? `${bookingFeeInfo.rawVal}%` : `₱${Number(bookingFeeInfo.rawVal || 0).toLocaleString("en-PH")}`}`
@@ -1881,6 +1919,7 @@ export function CustomerBookingPage() {
               <div className="time-section">
                 <div className="subsection-heading">
                   <span>Available times</span>
+                  <button type="button" className="booking-first-available" onClick={chooseFirstAvailable}>First available</button>
                   <small>
                     {selectedDate.day}, {selectedDate.month} {selectedDate.date}
                   </small>
@@ -1939,7 +1978,7 @@ export function CustomerBookingPage() {
                       ? "Paid in full today · ₱0 balance at your appointment"
                       : `Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} · Balance at venue: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`
                   ) : (
-                    <><CalendarDays size={14} /> Free cancellation up to 24 hours before</>
+                    <><CalendarDays size={14} /> Free cancellation up to {Math.max(0, Number(profile?.booking_cancellation_notice_hours ?? 24))} hours before</>
                   )}
                 </span>
               </div>
@@ -1965,7 +2004,7 @@ export function CustomerBookingPage() {
               </div>
 
               {/* Guest prompt OR Signed-in confirmation badge */}
-              {!currentUser ? (
+              {allowCustomerLogin && !currentUser ? (
                 <div className="guest-auth-prompt" style={{ marginBottom: 18 }}>
                   <div className="guest-auth-prompt-content">
                     <UserRound size={16} />
@@ -2089,6 +2128,7 @@ export function CustomerBookingPage() {
                       try {
                         const { data: emailData, error: emailError } = await supabase.functions.invoke("send-booking-email", {
                           body: {
+                            businessId: profile.id,
                             customerEmail: details.email.trim(),
                             customerName: details.name.trim(),
                             businessName,
@@ -2245,13 +2285,16 @@ export function CustomerBookingPage() {
                     </div>
                   )}
 
-                  <textarea
-                    value={details.note}
-                    onChange={(event) => updateDetail("note", event.target.value)}
-                    placeholder="Additional information (optional)"
-                    rows={2}
-                    className="peg-textarea"
-                  />
+                  <label className="booking-customer-comment-field">
+                    <span>Message for the team (optional)</span>
+                    <textarea
+                      value={details.note}
+                      onChange={(event) => updateDetail("note", event.target.value)}
+                      placeholder="Share preferences, access needs, or other booking details"
+                      rows={2}
+                      className="peg-textarea"
+                    />
+                  </label>
 
                 </div>}
 
@@ -2290,18 +2333,17 @@ export function CustomerBookingPage() {
                       </div>
                     </div>
 
+                    {bookingFeeInfo.note && (
+                      <div className="booking-fee-note-box">
+                        <AlertCircle size={14} />
+                        <p>{bookingFeeInfo.note}</p>
+                      </div>
+                    )}
                     {bookingFeeInfo.isFullPayment ? (
                       <p className="booking-fee-full-note">
                         💡 Since your service total ({totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay}) is equal to or less than the standard deposit (₱{Number(bookingFeeInfo.rawVal).toLocaleString("en-PH")}), the full amount is settled today — nothing left to pay at your appointment!
                       </p>
-                    ) : (
-                      bookingFeeInfo.note && (
-                        <div className="booking-fee-note-box">
-                          <AlertCircle size={14} />
-                          <p>{bookingFeeInfo.note}</p>
-                        </div>
-                      )
-                    )}
+                    ) : null}
                   </div>
                 )}
 
@@ -2632,7 +2674,7 @@ export function CustomerBookingPage() {
       </section>
 
       {/* Team Section (Simplified Owner Showcase without card background for maximum space) */}
-      <section className="team-section" id="team" aria-labelledby="team-title">
+      <section className="team-section" id="team" aria-labelledby="team-title" style={{ display: showStaff ? undefined : "none" }}>
         <div className="section-intro">
           <div>
             <h2 id="team-title" className="booking-section-label">TEAM</h2>
@@ -2658,7 +2700,7 @@ export function CustomerBookingPage() {
       </section>
 
       {/* Real Reviews Section */}
-      <section ref={reviewsRef} className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title">
+      <section ref={reviewsRef} className="reviews-section reviews-section-redesign" id="reviews" aria-labelledby="reviews-title" style={{ display: showReviews ? undefined : "none" }}>
         <div className="section-intro">
           <div>
             <h2 id="reviews-title" className="booking-section-label">REVIEWS</h2>
@@ -2838,7 +2880,7 @@ export function CustomerBookingPage() {
       </footer>
 
       {/* MODAL 1: Customer Auth Modal (Sign in with Google / Email - Bottom sheet on mobile) */}
-      {showAuthModal && (
+      {allowCustomerLogin && showAuthModal && (
         <CustomerAuthModal
           onClose={() => setShowAuthModal(false)}
           businessName={businessName}

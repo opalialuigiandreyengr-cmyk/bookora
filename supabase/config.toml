@@ -2,3 +2,24 @@ project_id = "sqpffxlwadqezfxnuzgy"
 
 [functions.send-booking-email]
 verify_jwt = false
+
+[functions.process-notification-events]
+verify_jwt = false
+
+[functions.process-scheduled-reports]
+verify_jwt = false
+
+[functions.send-staff-invite]
+verify_jwt = false
+
+[functions.calendar-feed]
+verify_jwt = false
+
+[functions.webhook-intake]
+verify_jwt = false
+
+[functions.public-api]
+verify_jwt = false
+
+[functions.process-outbound-webhooks]
+verify_jwt = false

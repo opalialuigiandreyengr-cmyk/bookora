@@ -22,15 +22,16 @@ import {
   Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Logo } from "@/components/brand/Logo"
-import { dashboardNav } from "@/data/mock"
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
+import { OwnerSidebar } from "@/components/owner/OwnerSidebar"
+import { getOwnerRouteByKey } from "@/lib/ownerNavigation"
 import {
   addDays,
   buildDemoAppointments,
   CalendarAppointment,
   CalendarServiceOption,
+  CalendarStaffOption,
   CalendarViewMode,
   formatMinutesToTime,
   formatTimeRange,
@@ -44,23 +45,11 @@ import {
 import { AppointmentDrawer } from "./calendar/AppointmentDrawer"
 import { NewAppointmentModal } from "./calendar/NewAppointmentModal"
 
-const sidebarIcons = [
-  Home,
-  CalendarDays,
-  CalendarRange,
-  Users,
-  Scissors,
-  Users,
-  CreditCard,
-  BarChart3,
-  Settings2,
-]
-
 const GRID_START_HOUR = 8 // default 8:00 AM (expands to fit earlier bookings)
 const GRID_END_HOUR = 19 // default 7:00 PM (expands to fit later bookings)
 const HOUR_HEIGHT_PX = 64
 
-export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSignOut: () => void }) {
+export function CalendarPage({ user, staffMode = false }: { user: User; onSignOut: () => void; staffMode?: boolean }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidePanelOpen, setSidePanelOpen] = useState(() => {
     const stored = window.localStorage.getItem("bookora-calendar-panel")
@@ -79,7 +68,8 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
   const [miniMonthDate, setMiniMonthDate] = useState<Date>(() => new Date())
   const searchQuery = ""
-  const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "completed" | "cancelled">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "completed" | "cancelled" | "no_show">("all")
+  const [staffFilter, setStaffFilter] = useState("all")
 
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [services, setServices] = useState<CalendarServiceOption[]>(() =>
@@ -92,6 +82,7 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
         ]
       : []
   )
+  const [staff, setStaff] = useState<CalendarStaffOption[]>([])
   const [loading, setLoading] = useState(true)
 
   const [activeAppointment, setActiveAppointment] = useState<CalendarAppointment | null>(null)
@@ -103,16 +94,8 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
 
   const handleSidebarNavigate = (item: string) => {
     setSidebarOpen(false)
-    if (item === "Calendar") return
-    if (item === "Services") {
-      window.location.assign("/services")
-      return
-    }
-    if (item === "Settings") {
-      window.location.assign("/settings")
-      return
-    }
-    window.location.assign("/dashboard")
+    const route = getOwnerRouteByKey(item)
+    if (route.key !== "Calendar") window.location.assign(route.path)
   }
 
   // Load appointments and services.
@@ -126,6 +109,8 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
     const normalizedStatus: CalendarAppointment["status"] =
       rawStatus === "completed"
         ? "completed"
+        : rawStatus === "no_show"
+        ? "no_show"
         : ["cancelled", "canceled", "declined", "rejected"].includes(rawStatus)
         ? "cancelled"
         : "approved"
@@ -147,6 +132,11 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
       status: normalizedStatus,
       peg_image_path: (row.peg_image_path as string | null) ?? null,
       payment_receipt_path: (row.payment_receipt_path as string | null) ?? null,
+      payment_status: (row.payment_status as CalendarAppointment["payment_status"]) || "unpaid",
+      payment_paid: Number(row.payment_paid || 0),
+      payment_balance: Number(row.payment_balance || 0),
+      no_show_reason: String(row.no_show_reason || ""),
+      meeting_url: String(row.meeting_url || ""),
       color: pickAppointmentColor(String(row.customer_name || row.id)),
     }
   }
@@ -154,18 +144,27 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
   const fetchLiveAppointments = async (silent = false) => {
     if (!supabase || !isLive) return
     if (!silent) setLoading(true)
-    const { data, error } = await supabase
-      .from("appointments")
-      .select("*")
-      .eq("business_id", user.id)
-      .order("appointment_date", { ascending: true })
+    const [appointmentResult, paymentResult] = await Promise.all([
+      supabase.from("appointments").select("*").eq("business_id", user.id).order("appointment_date", { ascending: true }),
+      supabase.from("payment_transactions").select("appointment_id, amount, status, transaction_type").eq("business_id", user.id),
+    ])
+    const { data, error } = appointmentResult
 
     if (error) {
       setLoadError(error.message || "Could not load your appointments.")
       if (!silent) showToast("Could not load your appointments. Please refresh.", "error")
     } else {
       setLoadError("")
-      const mapped = (data ?? []).map((row) => mapAppointmentRow(row as Record<string, unknown>))
+      const paymentTotals = new Map<string, { paid: number; hasPending: boolean }>()
+      for (const row of paymentResult.data || []) {
+        const appointmentId = String(row.appointment_id || "")
+        if (!appointmentId) continue
+        const current = paymentTotals.get(appointmentId) || { paid: 0, hasPending: false }
+        if (String(row.status) === "paid") current.paid += String(row.transaction_type) === "refund" ? -Number(row.amount || 0) : Number(row.amount || 0)
+        if (String(row.status) === "pending") current.hasPending = true
+        paymentTotals.set(appointmentId, current)
+      }
+      const mapped = (data ?? []).map((row) => { const raw = row as Record<string, unknown>; const total = Number(String(raw.total_price || "").replace(/[^0-9.-]+/g, "")) || 0; const payment = paymentTotals.get(String(raw.id)); const paid = payment?.paid || 0; return mapAppointmentRow({ ...raw, payment_paid: paid, payment_balance: Math.max(0, total - paid), payment_status: total > 0 && paid >= total ? "paid" : paid > 0 ? "partial" : payment?.hasPending ? "partial" : "unpaid" }) })
       setAppointments(mapped)
       // Keep an open drawer in sync with the latest server copy
       setActiveAppointment((prev) => (prev ? mapped.find((item) => item.id === prev.id) ?? null : prev))
@@ -196,6 +195,8 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
             }))
           )
         }
+        const staffRes = await supabase.from("staff_members").select("id, full_name").eq("business_id", user.id).eq("status", "active").order("full_name", { ascending: true })
+        if (active && !staffRes.error) setStaff((staffRes.data || []) as CalendarStaffOption[])
 
         if (active) await fetchLiveAppointments()
         return
@@ -277,51 +278,76 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
     appointment_date: string
     appointment_time: string
     duration_minutes: number
+    buffer_minutes?: number
+    staff_member_id: string | null
+    location_name: string
+    meeting_url: string
+    recurrence_rule: "none" | "weekly" | "biweekly"
+    recurrence_count: number
   }) => {
-    let created: CalendarAppointment = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `appt-${Date.now()}`,
-      business_id: user.id,
-      ...payload,
-      status: "approved",
-      color: pickAppointmentColor(payload.customer_name),
+    if (payload.meeting_url && !/^https:\/\//i.test(payload.meeting_url)) {
+      showToast("Meeting links must start with https://", "error")
+      throw new Error("Meeting link must use HTTPS")
     }
+    const incomingStart = parseTimeToMinutes(payload.appointment_time)
+    const incomingEnd = incomingStart + Math.max(payload.duration_minutes + (payload.buffer_minutes || 0), 1)
+    const conflict = appointments.find((appointment) => {
+      if (appointment.appointment_date !== payload.appointment_date || ["cancelled", "canceled", "declined", "rejected"].includes(appointment.status)) return false
+      const existingStart = parseTimeToMinutes(appointment.appointment_time)
+      const existingEnd = existingStart + Math.max((appointment.duration_minutes || 60) + (appointment.buffer_minutes || 0), 1)
+      return incomingStart < existingEnd && incomingEnd > existingStart
+    })
+    if (conflict) {
+      showToast(`That time overlaps ${conflict.customer_name}'s appointment. Choose another time.`, "error")
+      throw new Error("Appointment overlaps an existing booking")
+    }
+
+    const recurrenceStep = payload.recurrence_rule === "weekly" ? 7 : payload.recurrence_rule === "biweekly" ? 14 : 0
+    const occurrences = Array.from({ length: Math.max(1, Math.min(8, payload.recurrence_count || 1)) }, (_, index) => {
+      const occurrenceDate = addDays(parseDateKey(payload.appointment_date), recurrenceStep * index)
+      return { ...payload, appointment_date: toDateKey(occurrenceDate) }
+    })
+    for (const occurrence of occurrences.slice(1)) {
+      const hasConflict = appointments.some((appointment) => {
+        if (appointment.appointment_date !== occurrence.appointment_date || ["cancelled", "canceled", "declined", "rejected"].includes(appointment.status)) return false
+        const occurrenceStart = parseTimeToMinutes(occurrence.appointment_time)
+        const existingStart = parseTimeToMinutes(appointment.appointment_time)
+        const occurrenceEnd = occurrenceStart + Math.max(occurrence.duration_minutes + (occurrence.buffer_minutes || 0), 1)
+        const existingEnd = existingStart + Math.max((appointment.duration_minutes || 60) + (appointment.buffer_minutes || 0), 1)
+        return occurrenceStart < existingEnd && occurrenceEnd > existingStart
+      })
+      if (hasConflict) { showToast(`A recurring occurrence on ${occurrence.appointment_date} overlaps an existing booking.`, "error"); throw new Error("Recurring appointment overlaps an existing booking") }
+    }
+    const recurrenceGroupId = occurrences.length > 1 ? (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `series-${Date.now()}`) : null
+    let createdAppointments: CalendarAppointment[] = occurrences.map((occurrence) => ({ id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `appt-${Date.now()}-${occurrence.appointment_date}`, business_id: user.id, ...occurrence, status: "approved", color: pickAppointmentColor(occurrence.customer_name), recurrence_group_id: recurrenceGroupId }))
 
     if (isLive && supabase) {
       const { data, error } = await supabase
         .from("appointments")
-        .insert({
+        .insert(occurrences.map((occurrence) => ({
           business_id: user.id,
-          customer_name: payload.customer_name,
-          customer_email: payload.customer_email,
-          customer_phone: payload.customer_phone,
-          customer_note: payload.customer_note,
-          service_names: payload.service_names,
-          total_price: payload.total_price,
-          appointment_date: payload.appointment_date,
-          appointment_time: payload.appointment_time,
-          duration_minutes: payload.duration_minutes,
+          customer_name: occurrence.customer_name, customer_email: occurrence.customer_email, customer_phone: occurrence.customer_phone, customer_note: occurrence.customer_note, service_names: occurrence.service_names, total_price: occurrence.total_price, appointment_date: occurrence.appointment_date, appointment_time: occurrence.appointment_time, duration_minutes: occurrence.duration_minutes, buffer_minutes: occurrence.buffer_minutes || 0, staff_member_id: occurrence.staff_member_id, location_name: occurrence.location_name, meeting_url: occurrence.meeting_url, recurrence_rule: occurrence.recurrence_rule, recurrence_group_id: recurrenceGroupId,
           status: "approved",
-        })
+        })))
         .select("*")
-        .single()
 
       if (error || !data) {
         showToast(error?.message ? `Could not save appointment: ${error.message}` : "Could not save appointment.", "error")
         throw error ?? new Error("Insert failed")
       }
-      created = mapAppointmentRow(data as Record<string, unknown>)
+      createdAppointments = (data || []).map((row) => mapAppointmentRow(row as Record<string, unknown>))
     }
 
-    persistLocal([...appointments.filter((item) => item.id !== created.id), created])
+    persistLocal([...appointments, ...createdAppointments])
     setSelectedDate(parseDateKey(payload.appointment_date))
     showToast(`Appointment scheduled for ${payload.customer_name}`)
   }
 
-  const handleUpdateStatus = async (id: string, status: CalendarAppointment["status"]) => {
+  const handleUpdateStatus = async (id: string, status: CalendarAppointment["status"], noShowReason = "") => {
     if (isLive && supabase) {
       const { data, error } = await supabase
         .from("appointments")
-        .update({ status })
+        .update({ status, no_show_reason: status === "no_show" ? noShowReason : "" })
         .eq("id", id)
         .eq("business_id", user.id)
         .select("id")
@@ -334,6 +360,27 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
     persistLocal(next)
     setActiveAppointment((prev) => (prev && prev.id === id ? { ...prev, status } : prev))
     showToast(`Appointment marked as ${status}`)
+  }
+
+  const handleReschedule = async (appointment: CalendarAppointment) => {
+    const nextDate = window.prompt("New date (YYYY-MM-DD)", appointment.appointment_date)?.trim()
+    if (!nextDate) return
+    const nextTime = window.prompt("New time (for example, 2:30 PM)", appointment.appointment_time)?.trim()
+    if (!nextTime) return
+    const incomingStart = parseTimeToMinutes(nextTime)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || toDateKey(parseDateKey(nextDate)) !== nextDate || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(nextTime)) { showToast("Enter a valid date and time.", "error"); return }
+    const incomingEnd = incomingStart + Math.max(appointment.duration_minutes || 60, 1) + Math.max(appointment.buffer_minutes || 0, 0)
+    const conflict = appointments.find((other) => other.id !== appointment.id && other.appointment_date === nextDate && other.status !== "cancelled" && other.status !== "no_show" && incomingStart < parseTimeToMinutes(other.appointment_time) + Math.max(other.duration_minutes || 60, 1) + Math.max(other.buffer_minutes || 0, 0) && incomingEnd > parseTimeToMinutes(other.appointment_time))
+    if (conflict) { showToast(`That time overlaps ${conflict.customer_name}'s appointment. Choose another time.`, "error"); return }
+    if (isLive && supabase) {
+      const { data, error } = await supabase.from("appointments").update({ appointment_date: nextDate, appointment_time: nextTime }).eq("id", appointment.id).eq("business_id", user.id).select("*")
+      if (error || !data?.length) { showToast(error?.message ? `Could not reschedule: ${error.message}` : "Could not reschedule this appointment.", "error"); return }
+    }
+    const next = appointments.map((item) => item.id === appointment.id ? { ...item, appointment_date: nextDate, appointment_time: nextTime } : item)
+    persistLocal(next)
+    setActiveAppointment((current) => current?.id === appointment.id ? { ...current, appointment_date: nextDate, appointment_time: nextTime } : current)
+    setSelectedDate(parseDateKey(nextDate))
+    showToast("Appointment rescheduled")
   }
 
   const handleDeleteAppointment = async (id: string) => {
@@ -359,6 +406,7 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
   const filteredAppointments = useMemo(() => {
     return appointments.filter((appt) => {
       if (statusFilter !== "all" && appt.status !== statusFilter) return false
+      if (staffFilter !== "all" && (appt.staff_member_id || "unassigned") !== staffFilter) return false
       const q = searchQuery.trim().toLowerCase()
       if (!q) return true
       return (
@@ -368,7 +416,7 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
         appt.customer_phone.toLowerCase().includes(q)
       )
     })
-  }, [appointments, statusFilter, searchQuery])
+  }, [appointments, staffFilter, statusFilter, searchQuery])
 
   // Week days for Week View
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate])
@@ -486,54 +534,7 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
 
   return (
     <div className="dashboard-shell cal-page-shell">
-      {sidebarOpen && (
-        <button
-          className="dashboard-scrim"
-          aria-label="Close navigation"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Workspace Sidebar */}
-      <aside className={`dashboard-sidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="dashboard-brand">
-          <Logo />
-        </div>
-        <div className="workspace-switcher">
-          <span className="workspace-avatar">
-            <Store />
-          </span>
-          <span>
-            <strong>{businessName}</strong>
-            <small>Business account</small>
-          </span>
-        </div>
-        <nav className="dashboard-nav">
-          <p className="dashboard-nav-label">Workspace</p>
-          {dashboardNav.map((item, index) => {
-            const Icon = sidebarIcons[index]
-            return (
-              <button
-                key={item}
-                className={item === "Calendar" ? "active" : ""}
-                onClick={() => handleSidebarNavigate(item)}
-              >
-                <Icon />
-                <span>{item}</span>
-              </button>
-            )
-          })}
-        </nav>
-        <div className="dashboard-sidebar-bottom">
-          <div className="help-card">
-            <strong>Need a hand?</strong>
-            <span>Our team is here to help you get set up.</span>
-            <button type="button">
-              Visit Help Center <ArrowRight />
-            </button>
-          </div>
-        </div>
-      </aside>
+      <OwnerSidebar user={user} active="Calendar" open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNavigate={(path) => window.location.assign(path)} />
 
       {/* Main Content */}
       <div className="dashboard-content cal-dashboard-content">
@@ -605,6 +606,7 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
 
             <Button
               className="cal-new-btn"
+              disabled={staffMode}
               aria-label="New appointment"
               onClick={() => {
                 setDraftSlot({ date: selectedDateKey, time: "10:00 AM" })
@@ -722,6 +724,15 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="cal-filter-card cal-staff-filter-card">
+              <div className="cal-filter-heading"><Users size={14} /><span>View staff calendar</span></div>
+              <select aria-label="Filter calendar by staff" value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
+                <option value="all">All staff calendars</option>
+                <option value="unassigned">Unassigned appointments</option>
+                {staff.map((member) => <option key={member.id} value={member.id}>{member.full_name}</option>)}
+              </select>
             </div>
 
             {/* Selected Day Quick Agenda */}
@@ -958,15 +969,15 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
                   <div className="cal-empty-agenda">
                     <CalendarIcon size={32} />
                     <h3>No appointments found</h3>
-                    <p>Create a new appointment or adjust your filters to see bookings.</p>
-                    <Button
+                    <p>{staffMode ? "Assigned appointments will appear here when your owner schedules them." : "Create a new appointment or adjust your filters to see bookings."}</p>
+                    {!staffMode && <Button
                       onClick={() => {
                         setDraftSlot({ date: selectedDateKey, time: "10:00 AM" })
                         setNewModalOpen(true)
                       }}
                     >
                       <Plus data-icon="inline-start" /> New appointment
-                    </Button>
+                    </Button>}
                   </div>
                 ) : (
                   Array.from(appointmentsByDate.entries())
@@ -1032,6 +1043,7 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
         appointment={activeAppointment}
         onClose={() => setActiveAppointment(null)}
         onUpdateStatus={handleUpdateStatus}
+        onReschedule={handleReschedule}
         onDelete={handleDeleteAppointment}
       />
 
@@ -1041,10 +1053,10 @@ export function CalendarPage({ user, onSignOut: _onSignOut }: { user: User; onSi
         defaultDate={draftSlot.date}
         defaultTime={draftSlot.time}
         services={services}
+        staff={staff}
         onClose={() => setNewModalOpen(false)}
         onCreate={handleCreateAppointment}
       />
     </div>
   )
 }
-
