@@ -6526,21 +6526,12 @@ svg { stroke-width: 1.8; }
 .public-booking-modal-actions button { border-color: #ddd5cf; background: #fff; color: #415069; }
 .public-booking-modal-actions button:not(.is-danger) { border-color: #d85b53; background: #d85b53; color: #fff; }
 @media (max-width: 480px) {
-  .public-booking-page { padding: 18px 12px calc(92px + env(safe-area-inset-bottom)); }
+  .public-booking-page { padding: 18px 12px 28px; }
   .public-booking-header { margin-bottom: 22px; }
   .public-booking-actions {
-    position: sticky;
-    bottom: max(10px, env(safe-area-inset-bottom));
-    z-index: 20;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin: 18px -4px 0;
-    padding: 8px;
-    border: 1px solid rgba(231, 215, 208, .92);
-    border-radius: 14px;
-    background: rgba(250, 248, 246, .94);
-    box-shadow: 0 10px 24px rgba(61, 43, 36, .12);
-    backdrop-filter: blur(12px);
+    margin-top: 18px;
   }
   .public-booking-actions button { min-width: 0; padding: 10px 8px; font-size: 12px; }
   .public-booking-modal-fields { grid-template-columns: 1fr; }
