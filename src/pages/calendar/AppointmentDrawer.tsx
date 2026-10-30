@@ -91,6 +91,7 @@ export function AppointmentDrawer({
       : "Approved"
   const cleanCustomerNote = (appointment.customer_note || "")
     .replace(/\s*\[(?:Peg|Payment )?Storage Path:\s*[^\]]+\]/gi, "")
+    .replace(/\s*\[(?:Paid in Full|Deposit):\s*[^\]]+\]/gi, "")
     .trim()
 
   return (

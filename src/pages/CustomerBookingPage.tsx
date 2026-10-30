@@ -2074,7 +2074,7 @@ export function CustomerBookingPage() {
                       total_price: totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel,
                       appointment_date: selectedDateKey,
                       appointment_time: time,
-                      duration_minutes: Math.max(bookingSlotSize, totalDurationMinutes),
+                      duration_minutes: Math.max(5, totalDurationMinutes || bookingSlotSize),
                       buffer_minutes: bookingBufferMinutes,
                       peg_image_path: pegImagePath || null,
                       payment_receipt_path: paymentReceiptPath || null,
@@ -2092,7 +2092,7 @@ export function CustomerBookingPage() {
                       p_business_id: profile.id,
                       p_appointment_date: selectedDateKey,
                     })
-                    if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes, booked))) {
+                    if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(5, totalDurationMinutes || bookingSlotSize) + bookingBufferMinutes, booked))) {
                       throw new Error("That time was just booked. Please choose another available time.")
                     }
 
@@ -2167,7 +2167,7 @@ export function CustomerBookingPage() {
                             appointmentDate: calendarEmailLabel(selectedDateKey),
                             appointmentDateKey: selectedDateKey,
                             appointmentTime: appointmentTimeRange,
-                            durationMinutes: Math.max(bookingSlotSize, totalDurationMinutes),
+                            durationMinutes: Math.max(5, totalDurationMinutes || bookingSlotSize),
                             totalPrice: appointmentPayload.total_price,
                             bookingId,
                             manageBookingsUrl,
