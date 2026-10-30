@@ -49,6 +49,7 @@ type Service = {
   name: string
   description: string
   duration: string
+  durationMinutes?: number | null
   price: string
   image?: string
   color?: string
@@ -665,7 +666,8 @@ export function CustomerBookingPage() {
     return isNaN(num) ? 0 : num
   }
 
-  const parseDurationMinutes = (durStr?: string): number => {
+  const parseDurationMinutes = (durStr?: string | number | null): number => {
+    if (typeof durStr === "number") return Number.isFinite(durStr) ? Math.max(0, Math.round(durStr)) : 0
     if (!durStr) return 0
     let mins = 0
     const hrMatch = durStr.match(/(\d+)\s*(?:hr|hour)/i)
@@ -684,7 +686,7 @@ export function CustomerBookingPage() {
   }, [selectedServices])
 
   const totalDurationMinutes = useMemo(() => {
-    return selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0)
+    return selectedServices.reduce((sum, s) => sum + (s.durationMinutes && s.durationMinutes > 0 ? s.durationMinutes : parseDurationMinutes(s.duration)), 0)
   }, [selectedServices])
 
   const formattedTotalDuration = useMemo(() => {
@@ -1138,6 +1140,7 @@ export function CustomerBookingPage() {
           name: row.name,
           description: row.description || (business.industry ? `${business.industry} service` : "Made with thoughtful detail"),
           duration: row.duration_minutes ? `${row.duration_minutes} min` : "Duration varies",
+          durationMinutes: Number.isFinite(Number(row.duration_minutes)) ? Number(row.duration_minutes) : null,
           price: row.price || "Price on request",
           categoryId: row.category_id || undefined,
           category: categories.find((category) => category.id === row.category_id)?.name,
@@ -2055,6 +2058,7 @@ export function CustomerBookingPage() {
 
                     const bookingId = crypto.randomUUID()
                     const manageBookingsUrl = `${window.location.origin}/bookings?slug=${encodeURIComponent(bookingBrandName)}`
+                    const appointmentDurationMinutes = Math.max(5, totalDurationMinutes || bookingSlotSize)
 
                     const appointmentPayload = {
                       id: bookingId,
@@ -2068,7 +2072,7 @@ export function CustomerBookingPage() {
                       total_price: totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceLabel,
                       appointment_date: selectedDateKey,
                       appointment_time: time,
-                      duration_minutes: Math.max(5, totalDurationMinutes || bookingSlotSize),
+                      duration_minutes: appointmentDurationMinutes,
                       buffer_minutes: bookingBufferMinutes,
                       peg_image_path: pegImagePath || null,
                       payment_receipt_path: paymentReceiptPath || null,
@@ -2086,7 +2090,7 @@ export function CustomerBookingPage() {
                       p_business_id: profile.id,
                       p_appointment_date: selectedDateKey,
                     })
-                    if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), Math.max(5, totalDurationMinutes || bookingSlotSize) + bookingBufferMinutes, booked))) {
+                    if (!availabilityError && ((latestBookedTimes as BookedTime[] | null) ?? []).some((booked) => slotOverlapsBookedTime(slotLabelToMinutes(time), appointmentDurationMinutes + bookingBufferMinutes, booked))) {
                       throw new Error("That time was just booked. Please choose another available time.")
                     }
 
@@ -2096,12 +2100,15 @@ export function CustomerBookingPage() {
                       .insert(appointmentPayload)
 
                     const errorText = error ? `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase() : ""
+                    const isMissingDurationColumn = Boolean(error && errorText.includes("duration_minutes"))
+                    if (isMissingDurationColumn) {
+                      throw new Error("Appointment duration is not enabled in the database. Please apply the latest Supabase migration and try again.")
+                    }
                     const isMissingAppointmentColumn = Boolean(error && (
                       error.code === "PGRST204" ||
                       error.code === "42703" ||
                       errorText.includes("schema cache") ||
                       errorText.includes("customer_address") ||
-                      errorText.includes("duration_minutes") ||
                       errorText.includes("buffer_minutes") ||
                       errorText.includes("peg_image_path") ||
                       errorText.includes("payment_receipt_path") ||
@@ -2110,7 +2117,7 @@ export function CustomerBookingPage() {
 
                     // Keep compatibility with older database schemas
                     if (isMissingAppointmentColumn) {
-                      const { customer_address: _address, duration_minutes: _duration, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
+                      const { customer_address: _address, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
                       const legacyResult = await supabase
                         .from("appointments")
                         .insert(legacyPayload)
@@ -2161,7 +2168,7 @@ export function CustomerBookingPage() {
                             appointmentDate: calendarEmailLabel(selectedDateKey),
                             appointmentDateKey: selectedDateKey,
                             appointmentTime: time,
-                            durationMinutes: Math.max(5, totalDurationMinutes || bookingSlotSize),
+                            durationMinutes: appointmentDurationMinutes,
                             totalPrice: appointmentPayload.total_price,
                             bookingId,
                             manageBookingsUrl,
