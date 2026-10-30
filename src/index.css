@@ -8639,6 +8639,18 @@ svg { stroke-width: 1.8; }
   border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
 }
 
+.appointment-row-actions .appointment-row-action:first-child {
+  background: color-mix(in oklch, var(--primary) 9%, var(--card));
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+  color: var(--primary);
+}
+
+.appointment-row-actions .appointment-row-action-secondary {
+  background: color-mix(in oklch, #64748b 8%, var(--card));
+  border-color: color-mix(in oklch, #64748b 24%, var(--border));
+  color: var(--foreground);
+}
+
 .reschedule-modal-backdrop {
   position: fixed;
   inset: 0;
