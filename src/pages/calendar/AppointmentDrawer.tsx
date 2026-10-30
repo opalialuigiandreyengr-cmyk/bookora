@@ -88,6 +88,8 @@ export function AppointmentDrawer({
       ? "Cancelled"
       : appointment.status === "no_show"
       ? "No-show"
+      : appointment.status === "pending"
+      ? "Pending"
       : "Confirmed"
   const cleanCustomerNote = (appointment.customer_note || "")
     .replace(/\s*\[(?:Peg|Payment )?Storage Path:\s*[^\]]+\]/gi, "")
@@ -114,18 +116,16 @@ export function AppointmentDrawer({
         </header>
 
         <div className="cal-drawer-body">
-          {/* Client Card */}
-          <div className="cal-drawer-client">
-            <span className={`cal-client-avatar ${appointment.color}`}>
-              {getInitials(appointment.customer_name)}
-            </span>
-            <div>
-              <strong>{appointment.customer_name}</strong>
-              <span>Client</span>
+          <div className="cal-drawer-section cal-drawer-schedule">
+            <div className="cal-drawer-client">
+              <span className={`cal-client-avatar ${appointment.color}`}>
+                {getInitials(appointment.customer_name)}
+              </span>
+              <div>
+                <strong>{appointment.customer_name}</strong>
+                <span>Client</span>
+              </div>
             </div>
-          </div>
-
-          <div className="cal-drawer-section">
             <h3>Service &amp; Schedule</h3>
             <div className="cal-drawer-info-list">
               <div className="cal-drawer-info-row">
@@ -182,10 +182,10 @@ export function AppointmentDrawer({
             </div>
           </div>
 
-          <div className="cal-drawer-section">
+          <div className="cal-drawer-section cal-drawer-contact">
             <h3>Client Contact</h3>
             <div className="cal-drawer-info-list">
-              <div className="cal-drawer-info-row">
+              <div className="cal-drawer-info-row cal-drawer-email">
                 <span className="cal-drawer-info-icon">
                   <Mail size={16} />
                 </span>
@@ -218,7 +218,7 @@ export function AppointmentDrawer({
               )}
 
               {cleanCustomerNote && (
-                <div className="cal-drawer-info-row">
+                <div className="cal-drawer-info-row cal-drawer-note">
                   <span className="cal-drawer-info-icon">
                     <FileText size={16} />
                   </span>
@@ -242,6 +242,7 @@ export function AppointmentDrawer({
 
         <footer className="cal-drawer-footer">
           <div className="cal-drawer-status-actions">
+            {appointment.status === "pending" && <Button type="button" className="cal-action-approve" onClick={() => onUpdateStatus(appointment.id, "approved")}><CheckCircle2 size={16} /> Approve</Button>}
             {appointment.status !== "completed" && appointment.status !== "no_show" && <Button type="button" variant="outline" onClick={() => void onReschedule(appointment)}><CalendarDays size={16} /> Reschedule</Button>}
             {appointment.status !== "completed" && (
               <Button

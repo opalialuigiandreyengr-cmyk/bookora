@@ -9670,11 +9670,37 @@ svg { stroke-width: 1.8; }
 }
 
 /* Appointment details use a compact information grid instead of a long stack of cards. */
+.cal-drawer-header {
+  position: relative;
+  padding: 14px 58px 14px 16px;
+}
+
+.cal-drawer-heading-row {
+  width: 100%;
+  padding-right: 88px;
+}
+
+.cal-drawer-heading-row .cal-status-pill {
+  position: absolute;
+  top: 50%;
+  right: 58px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.cal-drawer-close {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+}
+
 .cal-drawer-body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
-  gap: 22px 18px;
+  gap: 16px 14px;
+  padding: 16px;
   background: #fffdfb;
 }
 
@@ -9693,6 +9719,15 @@ svg { stroke-width: 1.8; }
   gap: 0 18px;
 }
 
+.cal-drawer-schedule .cal-drawer-info-list {
+  grid-template-columns: 1fr;
+}
+
+.cal-drawer-email,
+.cal-drawer-note {
+  grid-column: 1 / -1;
+}
+
 .cal-drawer-info-row {
   min-width: 0;
   padding: 11px 0;
@@ -9708,6 +9743,22 @@ svg { stroke-width: 1.8; }
 
 .cal-drawer-attachments {
   padding-top: 2px;
+}
+
+.cal-drawer-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.96);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.cal-action-approve {
+  background: #d85b53 !important;
+  border-color: #d85b53 !important;
+  color: #ffffff !important;
 }
 
 @media (max-width: 380px) {
