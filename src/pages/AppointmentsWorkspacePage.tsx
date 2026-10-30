@@ -3,9 +3,11 @@ import type { User } from "@supabase/supabase-js";
 import {
   ArrowRight,
   CalendarDays,
+  CalendarClock,
   CheckCircle2,
   Clock3,
   Download,
+  Eye,
   Search,
   X,
 } from "lucide-react";
@@ -734,6 +736,7 @@ export function AppointmentsWorkspacePage({
                             type="button"
                             onClick={() => setSelected(appointment)}
                           >
+                            <Eye size={14} />
                             View details
                           </button>
                           <button
@@ -741,6 +744,7 @@ export function AppointmentsWorkspacePage({
                             type="button"
                             onClick={() => openReschedule(appointment)}
                           >
+                            <CalendarClock size={14} />
                             Reschedule
                           </button>
                         </div>

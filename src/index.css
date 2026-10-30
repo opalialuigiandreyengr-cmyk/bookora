@@ -8608,9 +8608,18 @@ svg { stroke-width: 1.8; }
 
 .appointment-row-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
   gap: 6px;
+  min-width: 112px;
+}
+
+.appointment-row-actions .appointment-row-action {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .appointment-row-action-secondary {
@@ -9683,6 +9692,23 @@ svg { stroke-width: 1.8; }
   font-size: 12.5px;
   color: #64748b;
 }
+
+.cal-drawer-schedule .cal-drawer-client {
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+}
+
+.cal-drawer-schedule .cal-drawer-client .cal-client-avatar {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.cal-drawer-schedule .cal-drawer-client strong { font-size: 14px; }
+.cal-drawer-schedule .cal-drawer-client span:not(.cal-client-avatar) { font-size: 11px; }
 
 .cal-drawer-section h3 {
   margin: 0;
