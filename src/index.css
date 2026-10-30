@@ -8606,6 +8606,77 @@ svg { stroke-width: 1.8; }
   border-bottom: 1px solid #ede9e4;
 }
 
+.appointment-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.appointment-row-action-secondary {
+  color: var(--primary);
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+}
+
+.reschedule-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: oklch(0.15 0.02 255 / .32);
+}
+
+.reschedule-modal {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 24px 70px oklch(0.2 0.03 255 / .22);
+}
+
+.reschedule-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reschedule-modal-header h2 { margin: 3px 0 4px; color: var(--foreground); font-size: 20px; }
+.reschedule-modal-header p { margin: 0; color: var(--muted-foreground); font-size: 13px; }
+
+.reschedule-modal-close {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.reschedule-modal-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.reschedule-modal-fields label { display: grid; gap: 7px; color: var(--muted-foreground); font-size: 12px; font-weight: 700; }
+.reschedule-modal-fields input { width: 100%; min-height: 42px; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--foreground); font: inherit; font-size: 14px; }
+.reschedule-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.reschedule-modal-actions button { min-height: 40px; padding: 8px 14px; border-radius: 9px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 750; }
+.reschedule-modal-cancel { border: 1px solid var(--border); background: transparent; color: var(--foreground); }
+.reschedule-modal-save { border: 1px solid var(--primary); background: var(--primary); color: white; }
+
+@media (max-width: 520px) {
+  .reschedule-modal { padding: 18px; }
+  .reschedule-modal-fields { grid-template-columns: 1fr; }
+  .reschedule-modal-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reschedule-modal-actions button { width: 100%; }
+}
+
 .cal-drawer-heading-row {
   display: flex;
   align-items: center;
