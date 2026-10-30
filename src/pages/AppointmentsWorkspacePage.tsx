@@ -465,16 +465,6 @@ export function AppointmentsWorkspacePage({
           </div>
         </header>
         <main className="dashboard-main appointments-main">
-          <div className="dashboard-page-heading">
-            <div>
-              <p className="dashboard-kicker">Every booking, in one place</p>
-              <h1>Appointments</h1>
-              <p>
-                Review client details, update statuses, and keep your day
-                moving.
-              </p>
-            </div>
-          </div>
           {error && (
             <div className="appointments-error" role="alert">
               {error}
@@ -486,7 +476,7 @@ export function AppointmentsWorkspacePage({
           <section className="appointments-summary">
             <div>
               <strong>{appointments.length}</strong>
-              <span>Total appointments</span>
+              <span>Total</span>
             </div>
             <div>
               <strong>
