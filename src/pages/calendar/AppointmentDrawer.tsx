@@ -265,8 +265,7 @@ export function AppointmentDrawer({
         <footer className="cal-drawer-footer">
           <div className="cal-drawer-status-actions">
             {appointment.status === "pending" && <Button type="button" className="cal-action-approve" disabled={statusUpdating} onClick={() => requestStatusChange("approve")}><CheckCircle2 size={16} /> Approve</Button>}
-            {appointment.status === "approved" && <Button type="button" className="cal-action-approved" disabled><CheckCircle2 size={16} /> Approved</Button>}
-            {appointment.status !== "completed" && appointment.status !== "cancelled" && appointment.status !== "no_show" && (
+            {appointment.status === "pending" && (
               <Button
                 type="button"
                 variant="outline"
