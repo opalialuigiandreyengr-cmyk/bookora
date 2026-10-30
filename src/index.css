@@ -6387,6 +6387,12 @@ svg { stroke-width: 1.8; }
 .success-page-route .reviews-section {
   display: none !important;
 }
+.success-page-route {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
 .success-page-route .booking-header {
   flex: 0 0 auto;
 }
@@ -6398,6 +6404,7 @@ svg { stroke-width: 1.8; }
   display: block;
   margin: 0;
   padding: 0;
+  flex: 1 1 auto;
 }
 .success-page-route .booking-card {
   width: 100%;
@@ -6448,8 +6455,20 @@ svg { stroke-width: 1.8; }
 }
 .success-page-route .booking-footer {
   flex: 0 0 auto;
-  margin-top: 0;
-  padding: 10px 20px 16px;
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  width: 100%;
+  max-width: none;
+  margin-top: auto;
+  padding: 10px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 250, 248, .96);
+  box-shadow: 0 -8px 20px rgba(78, 48, 40, .06);
+  backdrop-filter: blur(10px);
+}
+.booking-dark.success-page-route .booking-footer {
+  background: rgba(31, 32, 35, .96);
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, .18);
 }
 
 /* Dark theme polish: warm layered surfaces, readable muted text, and mobile-safe controls. */
