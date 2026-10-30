@@ -2104,20 +2104,25 @@ export function CustomerBookingPage() {
                     if (isMissingDurationColumn) {
                       throw new Error("Appointment duration is not enabled in the database. Please apply the latest Supabase migration and try again.")
                     }
+                    const isMissingAttachmentColumn = Boolean(error && (
+                      errorText.includes("peg_image_path") ||
+                      errorText.includes("payment_receipt_path")
+                    ))
+                    if (isMissingAttachmentColumn) {
+                      throw new Error("Appointment attachments are not enabled in the database. Please apply the latest Supabase migration and try again.")
+                    }
                     const isMissingAppointmentColumn = Boolean(error && (
                       error.code === "PGRST204" ||
                       error.code === "42703" ||
                       errorText.includes("schema cache") ||
                       errorText.includes("customer_address") ||
                       errorText.includes("buffer_minutes") ||
-                      errorText.includes("peg_image_path") ||
-                      errorText.includes("payment_receipt_path") ||
                       errorText.includes("does not exist")
                     ))
 
                     // Keep compatibility with older database schemas
                     if (isMissingAppointmentColumn) {
-                      const { customer_address: _address, buffer_minutes: _buffer, peg_image_path: _pegPath, payment_receipt_path: _receiptPath, ...legacyPayload } = appointmentPayload
+                      const { customer_address: _address, buffer_minutes: _buffer, ...legacyPayload } = appointmentPayload
                       const legacyResult = await supabase
                         .from("appointments")
                         .insert(legacyPayload)
