@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import {
   ArrowRight,
@@ -84,6 +84,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       : []
   )
   const [staff, setStaff] = useState<CalendarStaffOption[]>([])
+  const serviceDurationsRef = useRef(new Map<string, number>())
   const [loading, setLoading] = useState(true)
 
   const [activeAppointment, setActiveAppointment] = useState<CalendarAppointment | null>(null)
@@ -116,6 +117,14 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         ? "cancelled"
         : "approved"
 
+    const savedDuration = Number(row.duration_minutes) || 60
+    const matchedServiceDurations = String(row.service_names || "")
+      .split(",")
+      .map((name) => serviceDurationsRef.current.get(name.trim().toLowerCase()) || 0)
+    const serviceDuration = matchedServiceDurations.length && matchedServiceDurations.every((duration) => duration > 0)
+      ? matchedServiceDurations.reduce((sum, duration) => sum + duration, 0)
+      : savedDuration
+
     return {
       id: String(row.id),
       business_id: String(row.business_id),
@@ -128,7 +137,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       total_price: String(row.total_price || "₱0"),
       appointment_date: String(row.appointment_date || "").slice(0, 10),
       appointment_time: String(row.appointment_time || "10:00 AM"),
-      duration_minutes: Number(row.duration_minutes) || 60,
+      duration_minutes: serviceDuration,
       buffer_minutes: Number(row.buffer_minutes) || 0,
       status: normalizedStatus,
       peg_image_path: (row.peg_image_path as string | null) ?? null,
@@ -187,14 +196,14 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
           .order("created_at", { ascending: true })
 
         if (active && !servicesRes.error) {
-          setServices(
-            (servicesRes.data ?? []).map((row) => ({
+          const serviceOptions = (servicesRes.data ?? []).map((row) => ({
               id: String(row.id),
               name: String(row.name),
               duration_minutes: Number(row.duration_minutes) || 60,
               price: String(row.price || "Free"),
             }))
-          )
+          serviceDurationsRef.current = new Map(serviceOptions.map((service) => [service.name.trim().toLowerCase(), service.duration_minutes]))
+          setServices(serviceOptions)
         }
         const staffRes = await supabase.from("staff_members").select("id, full_name").eq("business_id", user.id).eq("status", "active").order("full_name", { ascending: true })
         if (active && !staffRes.error) setStaff((staffRes.data || []) as CalendarStaffOption[])
