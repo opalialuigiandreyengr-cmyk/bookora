@@ -67,6 +67,9 @@ const defaultHours: DaySchedule[] = days.map((day, i) => ({
   end: "17:00",
 }))
 
+type BreakWindow = { start: string; end: string }
+type TimeOffRule = { id: string; title: string; startDate: string; endDate: string; startTime: string; endTime: string; allDay: boolean; repeat: "none" | "weekly" | "monthly" }
+
 // Compress images before uploading so they stay small enough for fast profile previews.
 function compressImage(file: File, maxWidth: number, maxHeight: number, quality = 0.82): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -694,7 +697,8 @@ function NotificationsSettings() {
   const [email, setEmail] = useState(true)
   const [sms, setSms] = useState(false)
   const [clientUpdates, setClientUpdates] = useState(true)
-  const [teamUpdates, setTeamUpdates] = useState(true)
+  const [clientChanges, setClientChanges] = useState(true)
+  const [teamUpdates] = useState(false)
   return (
     <div className="preferences-settings-stack">
       <section className="settings-card preference-card">
@@ -716,11 +720,11 @@ function NotificationsSettings() {
         </div>
         <div className="preference-toggle">
           <div>
-            <strong>SMS notifications</strong>
+            <strong>SMS notifications <em className="settings-soon">Soon</em></strong>
             <p>Get important schedule changes by text message.</p>
           </div>
           <label className="settings-switch">
-            <input type="checkbox" checked={sms} onChange={(event) => setSms(event.target.checked)} />
+            <input type="checkbox" checked={sms} disabled onChange={(event) => setSms(event.target.checked)} />
             <i />
           </label>
         </div>
@@ -748,7 +752,7 @@ function NotificationsSettings() {
             <p>Send an update when an appointment changes or is cancelled.</p>
           </div>
           <label className="settings-switch">
-            <input type="checkbox" defaultChecked />
+            <input type="checkbox" checked={clientChanges} onChange={(event) => setClientChanges(event.target.checked)} />
             <i />
           </label>
         </div>
@@ -772,11 +776,11 @@ function NotificationsSettings() {
         </div>
         <div className="preference-toggle">
           <div>
-            <strong>New and changed appointments</strong>
+            <strong>New and changed appointments <em className="settings-soon">Soon</em></strong>
             <p>Notify team members when their schedule changes.</p>
           </div>
           <label className="settings-switch">
-            <input type="checkbox" checked={teamUpdates} onChange={(event) => setTeamUpdates(event.target.checked)} />
+            <input type="checkbox" checked={teamUpdates} disabled />
             <i />
           </label>
         </div>
@@ -786,7 +790,7 @@ function NotificationsSettings() {
             <p>Send a morning summary of each team member’s appointments.</p>
           </div>
           <label className="settings-switch">
-            <input type="checkbox" defaultChecked />
+            <input type="checkbox" checked={false} disabled />
             <i />
           </label>
         </div>
@@ -1307,6 +1311,52 @@ function AvailabilityPanel({ type, onClose }: { type: "breaks" | "time-off"; onC
   )
 }
 
+function AvailabilityPanelV2({ type, userId, onClose }: { type: "breaks" | "time-off"; userId: string; onClose: () => void }) {
+  const isBreaks = type === "breaks"
+  const storageKey = `bookora-availability-${userId}`
+  const [breaks, setBreaks] = useState<Record<string, BreakWindow[]>>({ Monday: [{ start: "12:00", end: "13:00" }] })
+  const [timeOff, setTimeOff] = useState<TimeOffRule[]>([])
+  const [draft, setDraft] = useState<TimeOffRule>({ id: "", title: "", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10), startTime: "00:00", endTime: "23:59", allDay: true, repeat: "none" })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(storageKey) || "{}") as { availability_breaks?: Record<string, BreakWindow[]>; time_off?: TimeOffRule[] }
+        if (cached.availability_breaks && active) setBreaks(cached.availability_breaks)
+        if (cached.time_off && active) setTimeOff(cached.time_off)
+      } catch { /* use defaults */ }
+      if (supabase && !userId.startsWith("preview-")) {
+        const { data } = await supabase.from("business_profiles").select("availability_breaks, time_off").eq("id", userId).maybeSingle()
+        if (active && data) {
+          if (data.availability_breaks && typeof data.availability_breaks === "object") setBreaks(data.availability_breaks as Record<string, BreakWindow[]>)
+          if (Array.isArray(data.time_off)) setTimeOff(data.time_off as TimeOffRule[])
+        }
+      }
+    }
+    void load()
+    return () => { active = false }
+  }, [storageKey, userId])
+
+  const persist = async (nextBreaks: Record<string, BreakWindow[]>, nextTimeOff: TimeOffRule[]) => {
+    setSaving(true)
+    const payload = { availability_breaks: nextBreaks, time_off: nextTimeOff }
+    localStorage.setItem(storageKey, JSON.stringify(payload))
+    if (supabase && !userId.startsWith("preview-")) {
+      const result = await supabase.from("business_profiles").update(payload).eq("id", userId)
+      if (result.error) { showToast("Availability could not be saved. Apply the latest database migration first.", "error"); setSaving(false); return }
+    }
+    setSaving(false); showToast("Availability updated"); onClose()
+  }
+
+  const updateBreak = (day: string, index: number, key: keyof BreakWindow, value: string) => setBreaks((current) => ({ ...current, [day]: (current[day] || []).map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item) }))
+  const addBreak = (day: string) => setBreaks((current) => ({ ...current, [day]: [...(current[day] || []), { start: "12:00", end: "13:00" }] }))
+  const removeBreak = (day: string, index: number) => setBreaks((current) => ({ ...current, [day]: (current[day] || []).filter((_, itemIndex) => itemIndex !== index) }))
+
+  return <div className={`availability-panel availability-${type}`} role="dialog" aria-modal="true" aria-labelledby="availability-title"><div className="availability-panel-heading"><div><h3 id="availability-title">Manage {isBreaks ? "breaks" : "time off"}</h3><p>{isBreaks ? "Set recurring breaks that will be unavailable on the booking page." : "Block dates and times from public booking availability."}</p></div><button type="button" aria-label="Close" onClick={onClose}><X /></button></div>{isBreaks ? <div className="availability-rule-list">{days.map((day) => <div className="availability-rule-day" key={day}><strong>{day}</strong>{(breaks[day] || []).map((item, index) => <div className="availability-time-row" key={`${day}-${index}`}><input type="time" value={item.start} onChange={(event) => updateBreak(day, index, "start", event.target.value)} aria-label={`${day} break start`} /><span>to</span><input type="time" value={item.end} onChange={(event) => updateBreak(day, index, "end", event.target.value)} aria-label={`${day} break end`} /><button type="button" onClick={() => removeBreak(day, index)} aria-label={`Remove ${day} break`}><Trash2 size={14} /></button></div>)}<button type="button" className="availability-add-link" onClick={() => addBreak(day)}>+ Add break</button></div>)}</div> : <div className="timeoff-editor"><div className="timeoff-dates"><label><span>Title</span><input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="e.g. Vacation" /></label><label><span>Start date</span><input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></label><label><span>End date</span><input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></label></div><div className="timeoff-options"><label className="checkbox-label"><input type="checkbox" checked={draft.allDay} onChange={(event) => setDraft({ ...draft, allDay: event.target.checked })} /><span>All day</span></label>{!draft.allDay && <><input type="time" value={draft.startTime} onChange={(event) => setDraft({ ...draft, startTime: event.target.value })} aria-label="Time off start" /><span>to</span><input type="time" value={draft.endTime} onChange={(event) => setDraft({ ...draft, endTime: event.target.value })} aria-label="Time off end" /></>}<select value={draft.repeat} onChange={(event) => setDraft({ ...draft, repeat: event.target.value as TimeOffRule["repeat"] })}><option value="none">Does not repeat</option><option value="weekly">Every week</option><option value="monthly">Every month</option></select></div><button type="button" className="settings-primary-action" disabled={saving || !draft.startDate || !draft.endDate} onClick={() => { const next = [...timeOff, { ...draft, id: `time-off-${Date.now()}`, title: draft.title.trim() || "Time off" }]; void persist(breaks, next) }}>Add time off</button><div className="timeoff-saved-list">{timeOff.map((item) => <div key={item.id}><span><strong>{item.title}</strong><small>{item.startDate} to {item.endDate}{item.repeat !== "none" ? ` · ${item.repeat}` : ""}</small></span><button type="button" onClick={() => void persist(breaks, timeOff.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.title}`}><Trash2 size={14} /></button></div>)}</div></div>}<div className="availability-panel-actions"><button type="button" onClick={onClose}>Cancel</button>{isBreaks && <button type="button" className="settings-primary-action" disabled={saving} onClick={() => void persist(breaks, timeOff)}>{saving ? "Saving…" : "Save breaks"}</button>}</div></div>
+}
+
 function AccountSettings({ user }: { user: User }) {
   const [panel, setPanel] = useState<"breaks" | "time-off" | null>(null)
   return (
@@ -1376,7 +1426,7 @@ function AccountSettings({ user }: { user: User }) {
             Manage time off
           </button>
         </div>
-        {panel && <AvailabilityPanel type={panel} onClose={() => setPanel(null)} />}
+        {panel && <AvailabilityPanelV2 type={panel} userId={user.id} onClose={() => setPanel(null)} />}
       </section>
 
       {/* Account Danger Zone with prominent red notice */}

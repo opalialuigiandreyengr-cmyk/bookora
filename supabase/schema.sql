@@ -101,6 +101,8 @@ create table if not exists public.business_profiles (
         {"day": "Saturday", "open": false, "start": "09:00", "end": "17:00"},
         {"day": "Sunday", "open": false, "start": "09:00", "end": "17:00"}
     ]'::jsonb,
+    availability_breaks jsonb not null default '{}'::jsonb,
+    time_off jsonb not null default '[]'::jsonb,
     website text default '',
     instagram text default '',
     facebook text default '',
@@ -136,6 +138,8 @@ create table if not exists public.business_profiles (
 -- Safe migration for projects where business_profiles already exists.
 alter table public.business_profiles
     add column if not exists booking_policy text default '';
+alter table public.business_profiles add column if not exists availability_breaks jsonb not null default '{}'::jsonb;
+alter table public.business_profiles add column if not exists time_off jsonb not null default '[]'::jsonb;
 alter table public.business_profiles
     add column if not exists booking_min_notice_hours integer default 2;
 alter table public.business_profiles

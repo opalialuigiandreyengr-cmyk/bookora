@@ -103,6 +103,8 @@ type BusinessProfile = {
   booking_additional_info?: string | null
   payment_receipt_url?: string | null
   business_hours: Array<{ day: string; open: boolean; start: string; end?: string }> | null
+  availability_breaks?: Record<string, Array<{ start: string; end: string }>> | null
+  time_off?: Array<{ id?: string; title?: string; startDate: string; endDate: string; startTime?: string; endTime?: string; allDay?: boolean; repeat?: "none" | "weekly" | "monthly" }> | null
   owner_name?: string | null
 }
 
@@ -762,6 +764,8 @@ export function CustomerBookingPage() {
     .map((policy) => policy.trim())
     .filter(Boolean) || defaultBookingPolicies
   const schedule = profile?.business_hours ?? []
+  const availabilityBreaks = profile?.availability_breaks ?? {}
+  const timeOffRules = profile?.time_off ?? []
   const showPhoneField = profile?.booking_show_phone ?? true
   const showAddressField = profile?.booking_show_address ?? false
   const showNotesField = profile?.booking_show_notes ?? true
@@ -890,6 +894,17 @@ export function CustomerBookingPage() {
     const daySchedule = schedule.find((item) => item.day.toLowerCase() === weekday.toLowerCase())
     if (!daySchedule?.open || !daySchedule.start || !daySchedule.end) return []
 
+    const timeOffForDate = timeOffRules.filter((rule) => {
+      if (dateKey < rule.startDate || dateKey > rule.endDate) return false
+      if (rule.repeat === "weekly") {
+        const elapsedDays = Math.round((new Date(`${dateKey}T00:00:00Z`).getTime() - new Date(`${rule.startDate}T00:00:00Z`).getTime()) / 86400000)
+        return elapsedDays >= 0 && elapsedDays % 7 === 0
+      }
+      if (rule.repeat === "monthly") return dateKey.slice(8, 10) === rule.startDate.slice(8, 10)
+      return true
+    })
+    if (timeOffForDate.some((rule) => rule.allDay !== false)) return []
+
     const serviceSchedules = selectedServices.map((service) => service.serviceHours?.[weekday]).filter(Boolean) as Array<{ open: boolean; start: string; end: string }>
     if (serviceSchedules.some((item) => !item.open || !item.start || !item.end)) return []
     const openingMinutes = Math.max(timeToMinutes(daySchedule.start), ...serviceSchedules.map((item) => timeToMinutes(item.start)))
@@ -901,11 +916,13 @@ export function CustomerBookingPage() {
     for (let start = openingMinutes; start + requiredMinutes <= closingMinutes; start += bookingSlotSize) {
       if (start < earliestTime) continue
       const hasConflict = bookedTimes.some((booked) => slotOverlapsBookedTime(start, requiredMinutes, booked))
-      if (!hasConflict) slots.push(formatSlotTime(start))
+      const hasBreakConflict = (availabilityBreaks[weekday] || []).some((breakWindow) => start < timeToMinutes(breakWindow.end) && start + requiredMinutes > timeToMinutes(breakWindow.start))
+      const hasPartialTimeOffConflict = timeOffForDate.some((rule) => rule.allDay === false && rule.startTime && rule.endTime && start < timeToMinutes(rule.endTime) && start + requiredMinutes > timeToMinutes(rule.startTime))
+      if (!hasConflict && !hasBreakConflict && !hasPartialTimeOffConflict) slots.push(formatSlotTime(start))
     }
     return slots
   }
-  const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, selectedServices, todayKey, totalDurationMinutes])
+  const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [availabilityBreaks, bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, selectedServices, timeOffRules, todayKey, totalDurationMinutes])
 
   const chooseFirstAvailable = () => {
     for (let offset = 0; offset <= maximumBookingDays; offset += 1) {
@@ -1035,7 +1052,7 @@ export function CustomerBookingPage() {
       const client = supabase
 
       try {
-        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_show_price, booking_show_duration, booking_show_hours, booking_show_staff, booking_show_reviews, booking_allow_customer_login, booking_fee_enabled, booking_fee_type, booking_fee_amount, booking_fee_note, booking_additional_info, payment_receipt_url, business_hours, owner_name"
+        const profileFields = "id, business_name, slug, industry, about, city, country, country_code, phone, address, logo_url, banner_url, website, instagram, facebook, booking_policy, booking_min_notice_hours, booking_max_days, booking_slot_size_minutes, booking_cancellation_notice_hours, booking_buffer_minutes, booking_show_phone, booking_show_address, booking_show_notes, booking_show_design_peg, booking_show_payment_receipt, booking_show_price, booking_show_duration, booking_show_hours, booking_show_staff, booking_show_reviews, booking_allow_customer_login, booking_fee_enabled, booking_fee_type, booking_fee_amount, booking_fee_note, booking_additional_info, payment_receipt_url, business_hours, availability_breaks, time_off, owner_name"
         const profileQuery = () => client.from("business_profiles").select(profileFields)
         let profileResult: any = activeSlug
           ? await profileQuery().eq("slug", activeSlug).limit(1)
