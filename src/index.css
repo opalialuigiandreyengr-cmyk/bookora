@@ -9669,6 +9669,61 @@ svg { stroke-width: 1.8; }
   word-break: break-word;
 }
 
+/* Appointment details use a compact information grid instead of a long stack of cards. */
+.cal-drawer-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 22px 18px;
+  background: #fffdfb;
+}
+
+.cal-drawer-client,
+.cal-drawer-section {
+  grid-column: 1 / -1;
+}
+
+.cal-drawer-section {
+  gap: 10px;
+}
+
+.cal-drawer-info-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.cal-drawer-info-row {
+  min-width: 0;
+  padding: 11px 0;
+  border: 0;
+  border-bottom: 1px solid #f1eeea;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cal-drawer-info-row:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.cal-drawer-attachments {
+  padding-top: 2px;
+}
+
+@media (max-width: 380px) {
+  .cal-drawer-info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cal-drawer-info-row:nth-last-child(-n + 2) {
+    border-bottom: 1px solid #f1eeea;
+  }
+
+  .cal-drawer-info-row:last-child {
+    border-bottom: 0;
+  }
+}
+
 .cal-drawer-attachment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
