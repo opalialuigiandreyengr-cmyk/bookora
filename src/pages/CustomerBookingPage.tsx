@@ -786,6 +786,7 @@ export function CustomerBookingPage() {
         rawVal: 0,
         depositAmount: 0,
         balanceAmount: totalPriceNum,
+        refundAmount: 0,
         isFullPayment: false,
         label: "",
         feeHeading: "Total to pay",
@@ -802,13 +803,15 @@ export function CustomerBookingPage() {
         }, 0)
       : type === "percentage" ? Math.round((totalPriceNum * Math.min(100, rawVal || 0)) / 100) : rawVal
 
-    // When the service price is less than or equal to the fixed fee/deposit, cap deposit at the service price
-    const isFullPayment = totalPriceNum > 0 && deposit >= totalPriceNum
+    const requestedDeposit = deposit
+    // Never charge more than the service total; show the difference as a refund instead.
+    const isFullPayment = totalPriceNum > 0 && requestedDeposit >= totalPriceNum
     if (totalPriceNum > 0 && deposit > totalPriceNum) {
       deposit = totalPriceNum
     }
 
     const balance = Math.max(0, totalPriceNum - deposit)
+    const refundAmount = Math.max(0, requestedDeposit - totalPriceNum)
     const label = isFullPayment
       ? "Full Payment"
       : type === "percentage"
@@ -827,6 +830,7 @@ export function CustomerBookingPage() {
       rawVal,
       depositAmount: deposit,
       balanceAmount: balance,
+      refundAmount,
       isFullPayment,
       label,
       feeHeading,
@@ -2322,7 +2326,7 @@ export function CustomerBookingPage() {
                     <div className="booking-fee-breakdown-header">
                       <div className="booking-fee-badge">
                         <Receipt size={14} />
-                        <span>{bookingFeeInfo.isFullPayment ? "Full Payment Required" : "Reservation Deposit Required"}</span>
+                        <span>{bookingFeeInfo.isFullPayment ? "Payment due today" : "Booking fee required"}</span>
                       </div>
                       <span className="booking-fee-deposit-amount">
                         ₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")}
@@ -2331,23 +2335,27 @@ export function CustomerBookingPage() {
 
                     <div className="booking-fee-breakdown-table">
                       <div className="booking-fee-breakdown-item">
-                        <span>Total service price</span>
+                        <span>Service fee</span>
                         <strong>{totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay || "₱0"}</strong>
                       </div>
                       <div className="booking-fee-breakdown-item highlight">
                         <span>
                           {bookingFeeInfo.isFullPayment
-                            ? "Payment due now (Full amount)"
-                            : `Deposit due now ${bookingFeeInfo.type === "percentage" ? `(${bookingFeeInfo.rawVal}%)` : "(Fixed fee)"}`}
+                            ? "Booking fee"
+                            : "Booking fee"}
                         </span>
                         <strong>₱{bookingFeeInfo.depositAmount.toLocaleString("en-PH")}</strong>
                       </div>
                       <div className="booking-fee-breakdown-item">
-                        <span>Remaining balance at appointment</span>
+                        <span>{bookingFeeInfo.isFullPayment ? "Payment due today" : "Balance at appointment"}</span>
                         <strong className={bookingFeeInfo.isFullPayment ? "text-success" : ""}>
                           {bookingFeeInfo.isFullPayment ? "₱0 (Fully paid upfront)" : `₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`}
                         </strong>
                       </div>
+                      {bookingFeeInfo.refundAmount > 0 && <div className="booking-fee-breakdown-item refund">
+                        <span>Refund due</span>
+                        <strong>₱{bookingFeeInfo.refundAmount.toLocaleString("en-PH")}</strong>
+                      </div>}
                     </div>
 
                     {bookingFeeInfo.note && (
@@ -2358,7 +2366,7 @@ export function CustomerBookingPage() {
                     )}
                     {bookingFeeInfo.isFullPayment ? (
                       <p className="booking-fee-full-note">
-                        💡 Since your service total ({totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay}) is equal to or less than the standard deposit (₱{Number(bookingFeeInfo.rawVal).toLocaleString("en-PH")}), the full amount is settled today — nothing left to pay at your appointment!
+                        Paid in full today. Any amount above the service fee will be refunded.
                       </p>
                     ) : null}
                   </div>

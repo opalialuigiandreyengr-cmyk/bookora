@@ -10620,6 +10620,14 @@ svg { stroke-width: 1.8; }
   font-weight: 700;
 }
 
+.booking-fee-breakdown-item.refund {
+  color: #15803d;
+}
+
+.booking-fee-breakdown-item.refund strong {
+  color: #15803d;
+}
+
 .booking-fee-note-box {
   display: flex;
   align-items: flex-start;
