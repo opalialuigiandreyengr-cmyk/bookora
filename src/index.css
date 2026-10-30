@@ -11409,11 +11409,13 @@ svg { stroke-width: 1.8; }
   }
 
   .appointments-table td:nth-child(3) {
+    position: relative;
     grid-column: 1 / -1;
     display: flex;
     align-items: end;
     gap: 8px;
-    padding-top: 3px;
+    min-height: 48px;
+    padding: 19px 0 0 54px;
     color: var(--foreground);
     font-size: 15px;
     font-weight: 700;
@@ -11423,7 +11425,10 @@ svg { stroke-width: 1.8; }
   .appointments-table td:nth-child(5)::before {
     display: block;
     flex: 0 0 auto;
-    margin-right: 2px;
+    position: absolute;
+    top: 3px;
+    left: 54px;
+    margin-right: 0;
     color: var(--muted-foreground);
     font-size: 9px;
     font-weight: 800;
@@ -11433,9 +11438,29 @@ svg { stroke-width: 1.8; }
 
   .appointments-table td:nth-child(3)::before { content: "SERVICE"; }
 
+  .appointments-table td:nth-child(3)::after,
+  .appointments-table td:nth-child(5)::after {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 9px;
+    background: color-mix(in oklch, var(--primary) 8%, var(--card));
+    color: var(--primary);
+    font-size: 20px;
+    font-weight: 500;
+  }
+
+  .appointments-table td:nth-child(3)::after { content: "✂"; }
+
   .appointments-table td:nth-child(3) small {
     display: inline;
-    margin: 0 0 0 8px;
+    margin: 0 0 0 auto;
+    color: var(--muted-foreground);
+    font-size: 12px;
     font-weight: 500;
   }
 
@@ -11445,25 +11470,38 @@ svg { stroke-width: 1.8; }
   }
 
   .appointments-table td:nth-child(5) {
+    position: relative;
     grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 2px 8px;
-    padding-top: 2px;
+    display: block;
+    min-height: 50px;
+    padding: 19px 0 0 54px;
     color: var(--muted-foreground);
   }
 
   .appointments-table td:nth-child(5)::before {
     content: "DATE / TIME";
-    grid-row: 1 / span 2;
-    padding-top: 3px;
+    top: 3px;
+  }
+
+  .appointments-table td:nth-child(5)::after {
+    content: "◷";
+    background: color-mix(in oklch, #64748b 8%, var(--card));
+    color: #64748b;
   }
 
   .appointments-table td:nth-child(5) small {
-    grid-column: 2;
     display: block;
-    margin: 0;
+    margin: 3px 0 0;
+  }
+
+  .appointments-table td:nth-child(5) .appointment-time svg {
+    display: none;
+  }
+
+  .appointments-table td:nth-child(5) .appointment-time {
+    display: block !important;
+    color: var(--foreground);
+    font-size: 14px;
   }
 
   .appointments-table td:nth-child(7) {
@@ -11474,7 +11512,9 @@ svg { stroke-width: 1.8; }
 
   .appointments-table td:nth-child(8) {
     grid-column: 1 / -1;
-    margin-top: 3px;
+    margin-top: 6px;
+    padding-top: 13px;
+    border-top: 1px solid var(--border);
   }
 
   .appointment-client-button {
