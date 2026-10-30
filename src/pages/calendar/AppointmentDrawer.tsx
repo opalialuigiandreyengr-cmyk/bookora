@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, X, XCircle } from "lucide-react"
+import { CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, Loader2, Mail, MapPin, Phone, Scissors, Tag, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
@@ -23,8 +23,17 @@ export function AppointmentDrawer({
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const [attachmentUrls, setAttachmentUrls] = useState<{ peg: string; receipt: string }>({ peg: "", receipt: "" })
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; label: string } | null>(null)
+  const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
+  const [cancelConfirmation, setCancelConfirmation] = useState("")
+  const [statusUpdating, setStatusUpdating] = useState(false)
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  useEffect(() => {
+    setConfirmAction(null)
+    setCancelConfirmation("")
+    setStatusUpdating(false)
+  }, [appointment?.id])
 
   useEffect(() => {
     if (!appointment) return
@@ -103,6 +112,25 @@ export function AppointmentDrawer({
     .replace(/\s*\[(?:Peg|Payment )?Storage Path:\s*[^\]]+\]/gi, "")
     .replace(/\s*\[(?:Paid in Full|Deposit):\s*[^\]]+\]/gi, "")
     .trim()
+
+  const requestStatusChange = (action: "approve" | "cancel") => {
+    if (statusUpdating) return
+    setCancelConfirmation("")
+    setConfirmAction(action)
+  }
+
+  const confirmStatusChange = async () => {
+    if (!confirmAction || statusUpdating) return
+    if (confirmAction === "cancel" && cancelConfirmation.trim().toUpperCase() !== "YES") return
+    setStatusUpdating(true)
+    try {
+      await onUpdateStatus(appointment.id, confirmAction === "approve" ? "approved" : "cancelled")
+      setConfirmAction(null)
+      setCancelConfirmation("")
+    } finally {
+      setStatusUpdating(false)
+    }
+  }
 
   return (
     <div
@@ -236,14 +264,15 @@ export function AppointmentDrawer({
 
         <footer className="cal-drawer-footer">
           <div className="cal-drawer-status-actions">
-            {appointment.status === "pending" && <Button type="button" className="cal-action-approve" onClick={() => onUpdateStatus(appointment.id, "approved")}><CheckCircle2 size={16} /> Approve</Button>}
+            {appointment.status === "pending" && <Button type="button" className="cal-action-approve" disabled={statusUpdating} onClick={() => requestStatusChange("approve")}><CheckCircle2 size={16} /> Approve</Button>}
             {appointment.status === "approved" && <Button type="button" className="cal-action-approved" disabled><CheckCircle2 size={16} /> Approved</Button>}
             {appointment.status !== "completed" && appointment.status !== "cancelled" && appointment.status !== "no_show" && (
               <Button
                 type="button"
                 variant="outline"
                 className="cal-action-cancel"
-                onClick={() => onUpdateStatus(appointment.id, "cancelled")}
+                disabled={statusUpdating}
+                onClick={() => requestStatusChange("cancel")}
               >
                 <XCircle size={16} />
                 Cancel
@@ -271,6 +300,21 @@ export function AppointmentDrawer({
             )}
           </div>
         </footer>
+        {confirmAction && (
+          <div className="appointment-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !statusUpdating) setConfirmAction(null) }}>
+            <section className="appointment-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="appointment-confirm-title">
+              <h3 id="appointment-confirm-title">{confirmAction === "approve" ? "Approve appointment?" : "Cancel appointment?"}</h3>
+              <p>{confirmAction === "approve" ? "The client will be notified that this appointment is confirmed." : "This will cancel the appointment and send a cancellation email."}</p>
+              {confirmAction === "cancel" && <label className="appointment-confirm-input"><span>Type YES to confirm</span><input autoFocus value={cancelConfirmation} onChange={(event) => setCancelConfirmation(event.target.value)} placeholder="YES" autoComplete="off" /></label>}
+              <div className="appointment-confirm-actions">
+                <Button type="button" variant="outline" disabled={statusUpdating} onClick={() => setConfirmAction(null)}>No</Button>
+                <Button type="button" className={confirmAction === "cancel" ? "cal-action-cancel" : "cal-action-approve"} disabled={statusUpdating || (confirmAction === "cancel" && cancelConfirmation.trim().toUpperCase() !== "YES")} onClick={() => void confirmStatusChange()}>
+                  {statusUpdating ? <><Loader2 size={15} className="animate-spin" /> {confirmAction === "approve" ? "Approving…" : "Cancelling…"}</> : "Yes"}
+                </Button>
+              </div>
+            </section>
+          </div>
+        )}
         {selectedAttachment && <div className="cal-attachment-viewer" role="dialog" aria-modal="true" aria-label={`${selectedAttachment.label} preview`} onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedAttachment(null) }}><div className="cal-attachment-viewer-toolbar"><span>{selectedAttachment.label}</span><button type="button" onClick={() => setSelectedAttachment(null)} aria-label="Close image preview"><X size={20} /></button></div><img src={selectedAttachment.url} alt={selectedAttachment.label} /></div>}
       </aside>
     </div>

@@ -8723,6 +8723,36 @@ svg { stroke-width: 1.8; }
 .reschedule-modal-cancel { border: 1px solid var(--border); background: transparent; color: var(--foreground); }
 .reschedule-modal-save { border: 1px solid var(--primary); background: var(--primary); color: white; }
 
+.appointment-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, .32);
+}
+
+.appointment-confirm-modal {
+  width: min(100%, 340px);
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, .2);
+}
+
+.appointment-confirm-modal h3 { margin: 0; color: var(--foreground); font-size: 16px; }
+.appointment-confirm-modal p { margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.45; }
+.appointment-confirm-input { display: grid; gap: 6px; color: var(--foreground); font-size: 12px; font-weight: 700; }
+.appointment-confirm-input input { min-height: 40px; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--foreground); font: inherit; font-size: 14px; }
+.appointment-confirm-input input:focus-visible { outline: 2px solid color-mix(in oklch, var(--primary) 35%, transparent); outline-offset: 2px; }
+.appointment-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
+.appointment-confirm-actions button { min-height: 40px; }
+.appointment-confirm-actions button svg { flex: 0 0 auto; }
+
 @media (max-width: 520px) {
   .reschedule-modal { padding: 18px; }
   .reschedule-modal-fields { grid-template-columns: 1fr; }
