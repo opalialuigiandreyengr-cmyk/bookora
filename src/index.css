@@ -6458,9 +6458,10 @@ svg { stroke-width: 1.8; }
   position: sticky;
   bottom: 0;
   z-index: 12;
+  box-sizing: border-box;
   width: 100%;
   max-width: none;
-  margin-top: auto;
+  margin-top: 0;
   padding: 10px 20px calc(16px + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 250, 248, .96);
   box-shadow: 0 -8px 20px rgba(78, 48, 40, .06);
