@@ -2050,8 +2050,6 @@ export function CustomerBookingPage() {
                     const pegImagePath = await uploadBookingAttachment(pegImage, pegImageName, "peg")
                     const paymentReceiptPath = await uploadBookingAttachment(paymentReceipt, paymentReceiptName, "receipt")
                     const noteContent = [
-                      pegImagePath ? `[Peg Storage Path: ${pegImagePath}]` : "",
-                      paymentReceiptPath ? `[Receipt Storage Path: ${paymentReceiptPath}]` : "",
                       details.note.trim(),
                     ].filter(Boolean).join(" ")
 
