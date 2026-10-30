@@ -113,6 +113,15 @@ function AppContent() {
   }, [])
 
   useEffect(() => {
+    if (pathname === "/booking-page") {
+      const destination = isClient
+        ? (clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book")
+        : user
+        ? "/dashboard"
+        : "/login"
+      window.location.replace(destination)
+      return
+    }
     if (isCustomerBooking) return
     if (!user) return
     const returnUrl = getCrossSubdomainCookie("bookora_client_return")
