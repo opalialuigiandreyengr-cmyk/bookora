@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CalendarDays, CheckCircle2, Clock3, CreditCard, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, formatTimeRange, getInitials, parseDateKey } from "./types"
+import { supabase } from "@/lib/supabase"
 
 interface AppointmentDrawerProps {
   appointment: CalendarAppointment | null
@@ -20,6 +21,7 @@ export function AppointmentDrawer({
 }: AppointmentDrawerProps) {
   const drawerRef = useRef<HTMLElement | null>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
+  const [attachmentUrls, setAttachmentUrls] = useState<{ peg: string; receipt: string }>({ peg: "", receipt: "" })
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
@@ -48,6 +50,27 @@ export function AppointmentDrawer({
     }
   }, [appointment])
 
+  useEffect(() => {
+    let active = true
+    const loadAttachments = async () => {
+      if (!appointment) { setAttachmentUrls({ peg: "", receipt: "" }); return }
+      const note = appointment.customer_note || ""
+      const pegPath = appointment.peg_image_path || note.match(/\[Peg Storage Path:\s*([^\]]+)\]/i)?.[1]?.trim() || ""
+      const receiptPath = appointment.payment_receipt_path || note.match(/\[(?:Payment )?Receipt Storage Path:\s*([^\]]+)\]/i)?.[1]?.trim() || ""
+      const resolve = async (path: string) => {
+        if (!path) return ""
+        if (/^(https?:\/\/|data:image\/)/i.test(path)) return path
+        if (!supabase) return ""
+        const result = await supabase.storage.from("booking-attachments").createSignedUrl(path, 3600)
+        return result.data?.signedUrl || ""
+      }
+      const [peg, receipt] = await Promise.all([resolve(pegPath), resolve(receiptPath)])
+      if (active) setAttachmentUrls({ peg, receipt })
+    }
+    void loadAttachments()
+    return () => { active = false }
+  }, [appointment])
+
   if (!appointment) return null
 
   const dateObj = parseDateKey(appointment.appointment_date)
@@ -66,6 +89,9 @@ export function AppointmentDrawer({
       : appointment.status === "no_show"
       ? "No-show"
       : "Approved"
+  const cleanCustomerNote = (appointment.customer_note || "")
+    .replace(/\s*\[(?:Peg|Payment )?Storage Path:\s*[^\]]+\]/gi, "")
+    .trim()
 
   return (
     <div
@@ -187,19 +213,27 @@ export function AppointmentDrawer({
                 </div>
               )}
 
-              {appointment.customer_note && (
+              {cleanCustomerNote && (
                 <div className="cal-drawer-info-row">
                   <span className="cal-drawer-info-icon">
                     <FileText size={16} />
                   </span>
                   <div>
                     <small>Client Note</small>
-                    <strong>{appointment.customer_note}</strong>
+                    <strong>{cleanCustomerNote}</strong>
                   </div>
                 </div>
               )}
             </div>
           </div>
+
+          {(attachmentUrls.peg || attachmentUrls.receipt) && <div className="cal-drawer-section cal-drawer-attachments">
+            <h3>Client Attachments</h3>
+            <div className="cal-drawer-attachment-grid">
+              {attachmentUrls.peg && <a href={attachmentUrls.peg} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.peg} alt="Client design reference" /><span>Design reference</span></a>}
+              {attachmentUrls.receipt && <a href={attachmentUrls.receipt} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.receipt} alt="Client payment receipt" /><span>Payment receipt</span></a>}
+            </div>
+          </div>}
         </div>
 
         <footer className="cal-drawer-footer">

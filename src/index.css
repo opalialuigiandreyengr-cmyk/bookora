@@ -9662,6 +9662,33 @@ svg { stroke-width: 1.8; }
   word-break: break-word;
 }
 
+.cal-drawer-attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cal-drawer-attachment {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: #263246;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cal-drawer-attachment img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.2;
+  object-fit: cover;
+  border: 1px solid #eaded8;
+  border-radius: 10px;
+  background: #fffaf8;
+}
+
 .cal-drawer-status-actions {
   display: flex;
   gap: 10px;
