@@ -79,16 +79,16 @@ security definer
 set search_path = public
 as $$
 declare
-  email_enabled boolean;
-  reminder_enabled boolean;
+  email_channel_enabled boolean;
+  reminder_channel_enabled boolean;
   lead_hours integer;
   appointment_start timestamp;
 begin
-  select coalesce(email_enabled, true), coalesce(reminder_enabled, true), greatest(0, coalesce(reminder_lead_hours, 24))
-    into email_enabled, reminder_enabled, lead_hours
-    from public.notification_settings
-    where business_id = new.business_id;
-  if not coalesce(email_enabled, true) or not coalesce(reminder_enabled, true) or coalesce(new.customer_email, '') = '' or lower(coalesce(new.status, '')) in ('cancelled', 'no_show', 'completed') then
+  select coalesce(ns.email_enabled, true), coalesce(ns.reminder_enabled, true), greatest(0, coalesce(ns.reminder_lead_hours, 24))
+    into email_channel_enabled, reminder_channel_enabled, lead_hours
+    from public.notification_settings ns
+    where ns.business_id = new.business_id;
+  if not coalesce(email_channel_enabled, true) or not coalesce(reminder_channel_enabled, true) or coalesce(new.customer_email, '') = '' or lower(coalesce(new.status, '')) in ('cancelled', 'no_show', 'completed') then
     return new;
   end if;
   appointment_start := to_timestamp(new.appointment_date || ' ' || new.appointment_time, 'YYYY-MM-DD HH12:MI AM')::timestamp;
