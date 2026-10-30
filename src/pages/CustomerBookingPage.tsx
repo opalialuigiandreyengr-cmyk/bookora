@@ -2056,6 +2056,8 @@ export function CustomerBookingPage() {
                       : ""
                     const noteContent = [
                       depositNoteTag,
+                      pegImagePath ? `[Peg Storage Path: ${pegImagePath}]` : "",
+                      paymentReceiptPath ? `[Receipt Storage Path: ${paymentReceiptPath}]` : "",
                       details.note.trim(),
                     ].filter(Boolean).join(" ")
 

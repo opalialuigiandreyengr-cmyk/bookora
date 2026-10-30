@@ -113,6 +113,7 @@ type BookingTab = "upcoming" | "past" | "cancelled"
 const cleanCustomerNote = (note?: string | null) => {
   if (!note) return ""
   return note
+    .replace(/\s*\[(?:Peg|Payment Receipt|Receipt) (?:Reference|Storage) Path:[^\]]+\]/gi, "")
     .split(/\r?\n/)
     .filter((line) => !/^\[(?:Peg|Payment Receipt|Receipt) (?:Reference|Storage) Path:/i.test(line.trim()))
     .filter((line) => !/^\[(?:Peg|Payment Receipt|Receipt) Attached:/i.test(line.trim()))
