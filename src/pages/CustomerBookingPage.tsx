@@ -1253,9 +1253,9 @@ export function CustomerBookingPage() {
       let migratedLocal = false
       const normalizedLocal = local.map((item) => {
         const rawStatus = String(item.status || "").trim().toLowerCase()
-        if (!rawStatus || rawStatus === "pending") {
+        if (!rawStatus) {
           migratedLocal = true
-          return { ...item, status: "approved" }
+          return { ...item, status: "pending" }
         }
         return item
       })
@@ -1269,8 +1269,8 @@ export function CustomerBookingPage() {
     } catch {}
     const normalizedList = list.map((item) => {
       const rawStatus = String(item.status || "").trim().toLowerCase()
-      if (!rawStatus || rawStatus === "pending") {
-        return { ...item, status: "approved" }
+      if (!rawStatus) {
+        return { ...item, status: "pending" }
       }
       return item
     })
@@ -2072,7 +2072,7 @@ export function CustomerBookingPage() {
                       buffer_minutes: bookingBufferMinutes,
                       peg_image_path: pegImagePath || null,
                       payment_receipt_path: paymentReceiptPath || null,
-                      status: "approved",
+                      status: "pending",
                     }
 
                     if (!supabase) {
@@ -3844,7 +3844,7 @@ function MyBookingsModal({
               <div className="booking-item-card" key={booking.id}>
                 <div className="booking-item-top">
                   <span className="booking-status-tag confirmed">
-                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : "Confirmed"}
+                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : String(booking.status || "").toLowerCase() === "pending" ? "Pending" : "Confirmed"}
                   </span>
                   <strong style={{ color: "#d85b53", fontSize: 13.5 }}>{booking.total_price}</strong>
                 </div>

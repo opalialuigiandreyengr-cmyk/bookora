@@ -689,7 +689,7 @@ create table if not exists public.appointments (
     recurrence_rule text not null default 'none',
     recurrence_group_id uuid,
     no_show_reason text not null default '',
-    status text not null default 'approved',
+    status text not null default 'pending',
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -718,8 +718,7 @@ alter table public.appointments drop constraint if exists appointments_recurrenc
 alter table public.appointments add constraint appointments_recurrence_rule_check check (recurrence_rule in ('none', 'weekly', 'biweekly')) not valid;
 create index if not exists idx_appointments_staff_member_id on public.appointments (staff_member_id);
 create index if not exists idx_appointments_recurrence_group_id on public.appointments (recurrence_group_id);
-alter table public.appointments alter column status set default 'approved';
-update public.appointments set status = 'approved' where lower(coalesce(status, 'pending')) = 'pending';
+alter table public.appointments alter column status set default 'pending';
 
 -- Private customer-uploaded booking attachments. Guests may upload into the
 -- published business folder; only the owning business can read or delete them.

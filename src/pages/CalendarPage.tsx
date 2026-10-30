@@ -69,7 +69,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
   const [miniMonthDate, setMiniMonthDate] = useState<Date>(() => new Date())
   const searchQuery = ""
-  const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "completed" | "cancelled" | "no_show">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "completed" | "cancelled" | "no_show">("all")
   const [staffFilter, setStaffFilter] = useState("all")
 
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
@@ -115,6 +115,8 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         ? "no_show"
         : ["cancelled", "canceled", "declined", "rejected"].includes(rawStatus)
         ? "cancelled"
+        : rawStatus === "pending"
+        ? "pending"
         : "approved"
 
     const savedDuration = Number(row.duration_minutes) || 60
@@ -711,6 +713,11 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                 {(
                   [
                     ["all", "All bookings", appointments.length],
+                    [
+                      "pending",
+                      "Pending",
+                      appointments.filter((a) => a.status === "pending").length,
+                    ],
                     [
                       "approved",
                       "Confirmed",
