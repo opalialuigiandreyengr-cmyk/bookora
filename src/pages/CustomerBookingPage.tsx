@@ -656,6 +656,23 @@ export function CustomerBookingPage() {
     if (visibleServices.some((service) => service.id === directServiceId)) setServiceIds([directServiceId])
   }, [directServiceId, visibleServices])
   const selectedServices = useMemo(() => visibleServices.filter((service) => serviceIds.includes(service.id)), [serviceIds, visibleServices])
+  const serviceCategoryKey = (service: Service) => service.categoryId || service.category?.trim().toLowerCase() || "uncategorized"
+
+  useEffect(() => {
+    if (!visibleServices.length || serviceIds.length < 2) return
+    const servicesById = new Map(visibleServices.map((service) => [service.id, service]))
+    const seenCategories = new Set<string>()
+    const normalizedIds = serviceIds.filter((id) => {
+      const service = servicesById.get(id)
+      if (!service) return false
+      const categoryKey = serviceCategoryKey(service)
+      if (seenCategories.has(categoryKey)) return false
+      seenCategories.add(categoryKey)
+      return true
+    })
+    if (normalizedIds.length !== serviceIds.length) setServiceIds(normalizedIds)
+  }, [serviceIds, visibleServices])
+
   const selectedServiceLabel = selectedServices.map((service) => service.name).join(", ")
   const selectedPriceLabel = selectedServices.map((service) => service.price).join(" + ")
 
@@ -1319,7 +1336,17 @@ export function CustomerBookingPage() {
     : step === 2
       ? Boolean(time)
       : Boolean(details.name.trim() && (details.email.trim() || details.phone.trim()) && (!showPaymentReceiptField || paymentReceipt))
-  const toggleService = (id: string) => setServiceIds((current) => current.includes(id) ? current.filter((serviceId) => serviceId !== id) : [...current, id])
+  const toggleService = (id: string) => setServiceIds((current) => {
+    if (current.includes(id)) return current.filter((serviceId) => serviceId !== id)
+    const selectedService = visibleServices.find((service) => service.id === id)
+    if (!selectedService) return current
+    const categoryKey = serviceCategoryKey(selectedService)
+    const servicesById = new Map(visibleServices.map((service) => [service.id, service]))
+    return [...current.filter((serviceId) => {
+      const service = servicesById.get(serviceId)
+      return !service || serviceCategoryKey(service) !== categoryKey
+    }), id]
+  })
   const updateDetail = (key: keyof typeof details, value: string) => setDetails((current) => ({ ...current, [key]: value }))
 
   // Handle Review Submission
@@ -1794,17 +1821,17 @@ export function CustomerBookingPage() {
                 </div>
               )}
 
-              <div className="service-list" role="radiogroup" aria-label="Available services">
+              <div className="service-list" aria-label="Available services">
                 {serviceGroups.length ? (
                   serviceGroups.map((group) => (
-                    <section className="service-category-group" key={group.name || "uncategorized"} aria-label={group.name || "Available services"}>
+                    <section className="service-category-group" key={group.name || "uncategorized"} role="radiogroup" aria-label={`${group.name || "Available services"} — choose one`}>
                       {group.name && <h3>{group.name}</h3>}
                       {group.services.map((service) => (
                         <button
                           key={service.id}
                           className={`service-option ${serviceIds.includes(service.id) ? "selected" : ""}`}
                           type="button"
-                          role="checkbox"
+                          role="radio"
                           aria-checked={serviceIds.includes(service.id)}
                           onClick={() => toggleService(service.id)}
                         >
