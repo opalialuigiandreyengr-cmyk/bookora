@@ -12218,6 +12218,8 @@ svg { stroke-width: 1.8; }
   .appointments-table td,
   .payments-table td { border-bottom: 1px solid var(--border); }
 
+  .appointments-table td { border-bottom: 0; }
+
   .clients-search,
   .payments-search,
   .appointments-search,
