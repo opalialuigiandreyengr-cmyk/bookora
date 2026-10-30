@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { CalendarDays, CheckCircle2, Clock3, CreditCard, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { CalendarAppointment, formatTimeRange, getInitials, parseDateKey } from "./types"
+import { CalendarAppointment, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
 
 interface AppointmentDrawerProps {
@@ -154,11 +154,18 @@ export function AppointmentDrawer({
                   <Clock3 size={16} />
                 </span>
                 <div>
-                  <small>Time &amp; Duration</small>
-                  <strong>
-                    {formatTimeRange(appointment.appointment_time, appointment.duration_minutes)} (
-                    {appointment.duration_minutes} mins)
-                  </strong>
+                  <small>Time</small>
+                  <strong>{appointment.appointment_time}</strong>
+                </div>
+              </div>
+
+              <div className="cal-drawer-info-row">
+                <span className="cal-drawer-info-icon">
+                  <Clock3 size={16} />
+                </span>
+                <div>
+                  <small>Duration</small>
+                  <strong>{appointment.duration_minutes} mins</strong>
                 </div>
               </div>
 

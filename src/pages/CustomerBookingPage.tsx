@@ -2166,7 +2166,7 @@ export function CustomerBookingPage() {
                             paymentReceiptDataUrl: paymentReceipt,
                             appointmentDate: calendarEmailLabel(selectedDateKey),
                             appointmentDateKey: selectedDateKey,
-                            appointmentTime: appointmentTimeRange,
+                            appointmentTime: time,
                             durationMinutes: Math.max(5, totalDurationMinutes || bookingSlotSize),
                             totalPrice: appointmentPayload.total_price,
                             bookingId,

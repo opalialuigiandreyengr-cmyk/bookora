@@ -172,7 +172,9 @@ Deno.serve(async (request) => {
         "",
         `Your appointment request for ${payload.businessName} was received. Booking ID: ${payload.bookingId}`,
         `Service: ${payload.serviceNames}`,
-        `When: ${payload.appointmentDate} · ${payload.appointmentTime}`,
+        `Date: ${payload.appointmentDate}`,
+        `Time: ${payload.appointmentTime}`,
+        `Duration: ${payload.durationMinutes} minutes`,
         `With: ${payload.ownerName}`,
         `Estimated total: ${payload.totalPrice}`,
         ...(payload.customerNote ? [`Note: ${payload.customerNote}`] : []),
@@ -200,7 +202,9 @@ Deno.serve(async (request) => {
                   <tr><td style="padding:16px;font-size:14px;line-height:1.55">
                     <p style="margin:0 0 8px"><strong>Booking ID:</strong> ${escapeHtml(payload.bookingId)}</p>
                     <p style="margin:0 0 8px"><strong>Service:</strong> ${serviceNames}</p>
-                    <p style="margin:0 0 8px"><strong>When:</strong> ${escapeHtml(payload.appointmentDate)}, ${escapeHtml(payload.appointmentTime)}</p>
+                    <p style="margin:0 0 8px"><strong>Date:</strong> ${escapeHtml(payload.appointmentDate)}</p>
+                    <p style="margin:0 0 8px"><strong>Time:</strong> ${escapeHtml(payload.appointmentTime)}</p>
+                    <p style="margin:0 0 8px"><strong>Duration:</strong> ${escapeHtml(String(payload.durationMinutes))} minutes</p>
                     <p style="margin:0 0 8px"><strong>With:</strong> ${ownerName}</p>
                     <p style="margin:0 0 8px"><strong>Estimated total:</strong> ${escapeHtml(payload.totalPrice)}</p>
                     <p style="margin:0"><strong>Location:</strong> ${businessLocation}</p>
