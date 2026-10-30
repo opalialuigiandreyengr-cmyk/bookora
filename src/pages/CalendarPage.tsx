@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
+import { sendAppointmentUpdateEmail } from "@/lib/appointmentNotifications"
 import { OwnerSidebar } from "@/components/owner/OwnerSidebar"
 import { getOwnerRouteByKey } from "@/lib/ownerNavigation"
 import {
@@ -355,6 +356,10 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         showToast(error?.message ? `Could not update: ${error.message}` : "Could not update this appointment.", "error")
         return
       }
+      if (status === "cancelled") {
+        const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: id, eventType: "cancellation" })
+        if (!emailResult.ok) showToast(`Appointment cancelled, but email was not sent: ${emailResult.error}`, "error")
+      }
     }
     const next = appointments.map((item) => (item.id === id ? { ...item, status } : item))
     persistLocal(next)
@@ -375,6 +380,8 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
     if (isLive && supabase) {
       const { data, error } = await supabase.from("appointments").update({ appointment_date: nextDate, appointment_time: nextTime }).eq("id", appointment.id).eq("business_id", user.id).select("*")
       if (error || !data?.length) { showToast(error?.message ? `Could not reschedule: ${error.message}` : "Could not reschedule this appointment.", "error"); return }
+      const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: appointment.id, eventType: "reschedule", appointmentDate: nextDate, appointmentTime: nextTime })
+      if (!emailResult.ok) showToast(`Appointment rescheduled, but email was not sent: ${emailResult.error}`, "error")
     }
     const next = appointments.map((item) => item.id === appointment.id ? { ...item, appointment_date: nextDate, appointment_time: nextTime } : item)
     persistLocal(next)
