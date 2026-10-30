@@ -67,6 +67,7 @@ export const ownerRoutes: OwnerRoute[] = [
 export const soloOwnerRoutes = ownerRoutes.filter((route) => [
   "Overview",
   "Calendar",
+  "Appointments",
   "Clients",
   "Services",
   "Payments",
