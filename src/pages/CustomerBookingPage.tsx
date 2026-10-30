@@ -3856,7 +3856,7 @@ function MyBookingsModal({
               <div className="booking-item-card" key={booking.id}>
                 <div className="booking-item-top">
                   <span className="booking-status-tag confirmed">
-                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : String(booking.status || "").toLowerCase() === "pending" ? "Pending" : "Confirmed"}
+                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : String(booking.status || "").toLowerCase() === "pending" ? "Pending" : "Approved"}
                   </span>
                   <strong style={{ color: "#d85b53", fontSize: 13.5 }}>{booking.total_price}</strong>
                 </div>

@@ -338,7 +338,7 @@ export function MyBookingsPage({
     const badge = parseDateBadge(selectedBooking.appointment_date)
     const statusKind = getNormalizedStatus(selectedBooking.status)
     const statusLabel =
-      statusKind === "approved" ? "CONFIRMED" : statusKind === "cancelled" ? "CANCELLED" : "PENDING"
+      statusKind === "approved" ? "APPROVED" : statusKind === "cancelled" ? "CANCELLED" : "PENDING"
     const note = cleanCustomerNote(selectedBooking.customer_note)
 
     return (
@@ -669,7 +669,7 @@ export function MyBookingsPage({
                 const statusKind = getNormalizedStatus(booking.status)
                 const statusLabel =
                   statusKind === "approved"
-                    ? "CONFIRMED"
+                    ? "APPROVED"
                     : statusKind === "cancelled"
                       ? "CANCELLED"
                       : "PENDING"

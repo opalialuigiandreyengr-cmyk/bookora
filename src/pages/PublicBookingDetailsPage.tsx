@@ -97,7 +97,7 @@ export function PublicBookingDetailsPage({ bookingId }: { bookingId: string }) {
   useEffect(() => { void loadBooking() }, [bookingId])
 
   const status = String(booking?.status || "pending").toLowerCase()
-  const statusLabel = status === "approved" ? "Confirmed" : status === "cancelled" ? "Cancelled" : status === "completed" ? "Completed" : status === "no_show" ? "No-show" : "Pending"
+  const statusLabel = status === "approved" ? "Approved" : status === "cancelled" ? "Cancelled" : status === "completed" ? "Completed" : status === "no_show" ? "No-show" : "Pending"
   const durationLabel = booking?.duration_minutes ? `${booking.duration_minutes} mins` : "Duration not provided"
   const location = useMemo(() => [booking?.business_location, booking?.business_address, booking?.business_country].filter(Boolean).join(", "), [booking?.business_address, booking?.business_country, booking?.business_location])
   const note = cleanNote(booking?.customer_note)

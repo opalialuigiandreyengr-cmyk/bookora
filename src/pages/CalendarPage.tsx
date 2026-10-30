@@ -720,7 +720,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                     ],
                     [
                       "approved",
-                      "Confirmed",
+                      "Approved",
                       appointments.filter((a) => a.status === "approved").length,
                     ],
                     [

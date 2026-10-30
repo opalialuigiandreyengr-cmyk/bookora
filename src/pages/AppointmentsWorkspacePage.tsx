@@ -40,7 +40,7 @@ type PaymentRow = {
   transaction_type: string;
 };
 const statusLabels: Record<Status, string> = {
-  approved: "Confirmed",
+  approved: "Approved",
   pending: "Pending",
   completed: "Completed",
   cancelled: "Cancelled",

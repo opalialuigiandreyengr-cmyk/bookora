@@ -9,7 +9,7 @@ import { buildDemoAppointments, type CalendarAppointment, parseDateKey, pickAppo
 import { OwnerPagination, OwnerStatusBadge } from "@/components/owner/OwnerDataPrimitives"
 
 type Status = CalendarAppointment["status"]
-const statusLabels: Record<Status, string> = { approved: "Confirmed", pending: "Pending", completed: "Completed", cancelled: "Cancelled", no_show: "No-show" }
+const statusLabels: Record<Status, string> = { approved: "Approved", pending: "Pending", completed: "Completed", cancelled: "Cancelled", no_show: "No-show" }
 const statusTones: Record<Status, "info" | "warning" | "success" | "danger"> = { approved: "info", pending: "warning", completed: "success", cancelled: "danger", no_show: "danger" }
 
 export function AppointmentsPage({ user }: { user: User; onSignOut: () => void }) {
