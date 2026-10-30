@@ -713,7 +713,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                     ["all", "All bookings", appointments.length],
                     [
                       "approved",
-                      "Approved",
+                      "Confirmed",
                       appointments.filter((a) => a.status === "approved").length,
                     ],
                     [

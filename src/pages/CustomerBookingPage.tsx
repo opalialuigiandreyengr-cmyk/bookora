@@ -2049,13 +2049,7 @@ export function CustomerBookingPage() {
                   try {
                     const pegImagePath = await uploadBookingAttachment(pegImage, pegImageName, "peg")
                     const paymentReceiptPath = await uploadBookingAttachment(paymentReceipt, paymentReceiptName, "receipt")
-                    const depositNoteTag = bookingFeeInfo.enabled
-                      ? bookingFeeInfo.isFullPayment
-                        ? `[Paid in Full: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} | Balance: ₱0]`
-                        : `[Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} | Balance: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}]`
-                      : ""
                     const noteContent = [
-                      depositNoteTag,
                       pegImagePath ? `[Peg Storage Path: ${pegImagePath}]` : "",
                       paymentReceiptPath ? `[Receipt Storage Path: ${paymentReceiptPath}]` : "",
                       details.note.trim(),
@@ -3852,7 +3846,7 @@ function MyBookingsModal({
               <div className="booking-item-card" key={booking.id}>
                 <div className="booking-item-top">
                   <span className="booking-status-tag confirmed">
-                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : "Approved"}
+                    <Check size={11} /> {["cancelled", "canceled", "declined", "rejected"].includes(String(booking.status || "").toLowerCase()) ? "Cancelled" : "Confirmed"}
                   </span>
                   <strong style={{ color: "#d85b53", fontSize: 13.5 }}>{booking.total_price}</strong>
                 </div>

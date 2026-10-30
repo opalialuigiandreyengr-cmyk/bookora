@@ -88,7 +88,7 @@ export function AppointmentDrawer({
       ? "Cancelled"
       : appointment.status === "no_show"
       ? "No-show"
-      : "Approved"
+      : "Confirmed"
   const cleanCustomerNote = (appointment.customer_note || "")
     .replace(/\s*\[(?:Peg|Payment )?Storage Path:\s*[^\]]+\]/gi, "")
     .replace(/\s*\[(?:Paid in Full|Deposit):\s*[^\]]+\]/gi, "")
@@ -260,7 +260,7 @@ export function AppointmentDrawer({
                 variant="outline"
                 onClick={() => onUpdateStatus(appointment.id, "approved")}
               >
-                Restore to Approved
+                Restore to Confirmed
               </Button>
             )}
             {appointment.status !== "cancelled" && (
