@@ -85,6 +85,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
   )
   const [staff, setStaff] = useState<CalendarStaffOption[]>([])
   const serviceDurationsRef = useRef(new Map<string, number>())
+  const [bookingSlotSize, setBookingSlotSize] = useState(30)
   const [loading, setLoading] = useState(true)
 
   const [activeAppointment, setActiveAppointment] = useState<CalendarAppointment | null>(null)
@@ -191,6 +192,15 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       setLoading(true)
 
       if (isLive && supabase) {
+        const profileRes = await supabase
+          .from("business_profiles")
+          .select("booking_slot_size_minutes")
+          .eq("id", user.id)
+          .maybeSingle()
+        if (active && !profileRes.error) {
+          setBookingSlotSize(Math.max(5, Number(profileRes.data?.booking_slot_size_minutes) || 30))
+        }
+
         const servicesRes = await supabase
           .from("services")
           .select("id, name, duration_minutes, price")
@@ -533,7 +543,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
     let end = GRID_END_HOUR
     filteredAppointments.forEach((appt) => {
       const startMins = parseTimeToMinutes(appt.appointment_time)
-      const endMins = startMins + (appt.duration_minutes || 60)
+      const endMins = startMins + bookingSlotSize
       start = Math.min(start, Math.floor(startMins / 60))
       end = Math.max(end, Math.min(23, Math.ceil(endMins / 60) - 1))
     })
@@ -541,10 +551,18 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       gridStartHour: start,
       HOURS: Array.from({ length: end - start + 1 }, (_, idx) => start + idx),
     }
-  }, [filteredAppointments])
+  }, [filteredAppointments, bookingSlotSize])
 
-  const openSlotModal = (dateKey: string, hour: number) => {
-    setDraftSlot({ date: dateKey, time: formatMinutesToTime(hour * 60) })
+  const slotHeightPx = (bookingSlotSize / 60) * HOUR_HEIGHT_PX
+  const timeSlots = useMemo(
+    () => HOURS.flatMap((hour) =>
+      Array.from({ length: Math.ceil(60 / bookingSlotSize) }, (_, index) => hour * 60 + index * bookingSlotSize)
+    ),
+    [HOURS, bookingSlotSize]
+  )
+
+  const openSlotModal = (dateKey: string, slotMinutes: number) => {
+    setDraftSlot({ date: dateKey, time: formatMinutesToTime(slotMinutes) })
     setNewModalOpen(true)
   }
 
@@ -843,13 +861,13 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                 >
                   {/* Left Time Labels */}
                   <div className="cal-time-gutter">
-                    {HOURS.map((hour) => (
+                    {timeSlots.map((slotMinutes) => (
                       <div
-                        key={hour}
+                        key={slotMinutes}
                         className="cal-time-label"
-                        style={{ height: `${HOUR_HEIGHT_PX}px` }}
+                        style={{ height: `${slotHeightPx}px` }}
                       >
-                        <span>{formatMinutesToTime(hour * 60)}</span>
+                        <span>{formatMinutesToTime(slotMinutes)}</span>
                       </div>
                     ))}
                   </div>
@@ -861,15 +879,19 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                     const isToday = key === todayKey
 
                     return (
-                      <div key={key} className={`cal-day-column ${isToday ? "is-today" : ""}`}>
+                      <div
+                        key={key}
+                        className={`cal-day-column ${isToday ? "is-today" : ""}`}
+                        style={{ minHeight: `${timeSlots.length * slotHeightPx}px` }}
+                      >
                         {/* Clickable hour slots */}
-                        {HOURS.map((hour) => (
+                        {timeSlots.map((slotMinutes) => (
                           <div
-                            key={hour}
+                            key={slotMinutes}
                             className="cal-hour-cell"
-                            style={{ height: `${HOUR_HEIGHT_PX}px` }}
-                            onClick={() => openSlotModal(key, hour)}
-                            title={`Click to add appointment at ${formatMinutesToTime(hour * 60)}`}
+                            style={{ height: `${slotHeightPx}px` }}
+                            onClick={() => openSlotModal(key, slotMinutes)}
+                            title={`Click to add appointment at ${formatMinutesToTime(slotMinutes)}`}
                           />
                         ))}
 
@@ -879,10 +901,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                           const gridStartMins = gridStartHour * 60
                           const offsetMinutes = Math.max(0, startMins - gridStartMins)
                           const topPx = (offsetMinutes / 60) * HOUR_HEIGHT_PX
-                          const heightPx = Math.max(
-                            44,
-                            ((appt.duration_minutes || 60) / 60) * HOUR_HEIGHT_PX - 4
-                          )
+                          const heightPx = Math.max(44, slotHeightPx - 4)
 
                           // Slight horizontal offset if two appointments share the exact same time
                           const overlappingIndex = dayAppts
@@ -1040,7 +1059,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
                                   <span>
                                     {formatTimeRange(
                                       appt.appointment_time,
-                                      appt.duration_minutes
+                                      bookingSlotSize
                                     )}
                                   </span>
                                 </div>
