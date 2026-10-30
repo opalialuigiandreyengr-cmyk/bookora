@@ -6,7 +6,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
-  Download,
   Eye,
   Search,
   X,
@@ -103,7 +102,8 @@ export function AppointmentsWorkspacePage({
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | Status>("all");
-  const [date, setDate] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [staffId, setStaffId] = useState("all");
   const [payment, setPayment] = useState<PaymentFilter>("all");
   const [loading, setLoading] = useState(true);
@@ -194,7 +194,8 @@ export function AppointmentsWorkspacePage({
     return appointments.filter(
       (item) =>
         (status === "all" || item.status === status) &&
-        (!date || item.appointment_date === date) &&
+        (!dateFrom || item.appointment_date >= dateFrom) &&
+        (!dateTo || item.appointment_date <= dateTo) &&
         (staffId === "all" || item.staff_member_id === staffId) &&
         (payment === "all" || (item.payment_status || "unpaid") === payment) &&
         (!query ||
@@ -205,12 +206,12 @@ export function AppointmentsWorkspacePage({
             item.service_names,
           ].some((value) => value.toLowerCase().includes(query))),
     );
-  }, [appointments, date, payment, search, staffId, status]);
+  }, [appointments, dateFrom, dateTo, payment, search, staffId, status]);
   const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
   const pageRows = visible.slice((page - 1) * pageSize, page * pageSize);
   useEffect(() => {
     setPage(1);
-  }, [date, payment, search, staffId, status]);
+  }, [dateFrom, dateTo, payment, search, staffId, status]);
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
@@ -386,51 +387,11 @@ export function AppointmentsWorkspacePage({
       `${selectedIds.length} appointment${selectedIds.length === 1 ? "" : "s"} marked as ${statusLabels[nextStatus].toLowerCase()}`,
     );
   };
-  const exportVisible = () => {
-    const rows = visible.filter(
-      (item) => !selectedIds.length || selectedIds.includes(item.id),
-    );
-    const csv = [
-      [
-        "Client",
-        "Email",
-        "Service",
-        "Staff",
-        "Date",
-        "Time",
-        "Payment",
-        "Status",
-      ],
-      ...rows.map((item) => [
-        item.customer_name,
-        item.customer_email,
-        item.service_names,
-        staff.find((member) => member.id === item.staff_member_id)?.full_name ||
-          "Unassigned",
-        item.appointment_date,
-        item.appointment_time,
-        item.payment_status || "unpaid",
-        statusLabels[item.status],
-      ]),
-    ]
-      .map((row) =>
-        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "bookora-appointments.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast("Appointment export downloaded");
-  };
   const clearFilters = () => {
     setSearch("");
     setStatus("all");
-    setDate("");
+    setDateFrom("");
+    setDateTo("");
     setStaffId("all");
     setPayment("all");
   };
@@ -440,13 +401,6 @@ export function AppointmentsWorkspacePage({
         ? current.filter((item) => item !== id)
         : [...current, id],
     );
-  const toggleVisible = () =>
-    setSelectedIds((current) =>
-      pageRows.every((item) => current.includes(item.id))
-        ? current.filter((id) => !pageRows.some((item) => item.id === id))
-        : Array.from(new Set([...current, ...pageRows.map((item) => item.id)])),
-    );
-
   return (
     <div className="dashboard-shell appointments-page-shell">
       <OwnerSidebar
@@ -560,17 +514,30 @@ export function AppointmentsWorkspacePage({
                 <option value="paid">Paid</option>
               </select>
             </label>
-            <label className="appointments-filter">
+            <label className="appointments-filter appointments-date-filter">
               <CalendarDays size={15} />
+              <span>From</span>
               <input
                 type="date"
-                aria-label="Filter by date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
+                aria-label="Filter appointments from date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+              />
+            </label>
+            <label className="appointments-filter appointments-date-filter">
+              <CalendarDays size={15} />
+              <span>To</span>
+              <input
+                type="date"
+                aria-label="Filter appointments to date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(event) => setDateTo(event.target.value)}
               />
             </label>
             {(search ||
-              date ||
+              dateFrom ||
+              dateTo ||
               status !== "all" ||
               staffId !== "all" ||
               payment !== "all") && (
@@ -593,7 +560,8 @@ export function AppointmentsWorkspacePage({
                 Try changing the filters or add a booking from the calendar.
               </span>
               {(search ||
-                date ||
+                dateFrom ||
+                dateTo ||
                 status !== "all" ||
                 staffId !== "all" ||
                 payment !== "all") && (
@@ -607,18 +575,7 @@ export function AppointmentsWorkspacePage({
               className="appointments-table-wrap"
               aria-label="Appointments list"
             >
-              <div className="appointments-bulk-toolbar">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={
-                      pageRows.length > 0 &&
-                      pageRows.every((item) => selectedIds.includes(item.id))
-                    }
-                    onChange={toggleVisible}
-                  />{" "}
-                  Select page
-                </label>
+              {selectedIds.length > 0 && <div className="appointments-bulk-toolbar">
                 {selectedIds.length > 0 && (
                   <>
                     <span>{selectedIds.length} selected</span>
@@ -636,11 +593,7 @@ export function AppointmentsWorkspacePage({
                     </button>
                   </>
                 )}
-                <button type="button" onClick={exportVisible}>
-                  <Download size={14} /> Export
-                  {selectedIds.length ? " selected" : ""}
-                </button>
-              </div>
+              </div>}
               <table className="appointments-table">
                 <thead>
                   <tr>
