@@ -8622,6 +8622,18 @@ svg { stroke-width: 1.8; }
   gap: 5px;
 }
 
+@media (max-width: 680px) {
+  .appointment-row-actions {
+    width: 100%;
+    flex-direction: row;
+  }
+
+  .appointment-row-actions .appointment-row-action {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 .appointment-row-action-secondary {
   color: var(--primary);
   border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
