@@ -10,6 +10,7 @@ import { PasskeyModal } from "@/pages/PasskeyModal"
 import { hasSupabaseConfig, supabase } from "@/lib/supabase"
 import { ToastViewport, showToast } from "@/components/ui/toast"
 const CustomerBookingPage = lazy(() => import("@/pages/CustomerBookingPage").then((module) => ({ default: module.CustomerBookingPage })))
+const PublicBookingDetailsPage = lazy(() => import("@/pages/PublicBookingDetailsPage").then((module) => ({ default: module.PublicBookingDetailsPage })))
 const OwnerModulePage = lazy(() => import("@/pages/OwnerModulePage").then((module) => ({ default: module.OwnerModulePage })))
 const StaffPage = lazy(() => import("@/pages/StaffPage").then((module) => ({ default: module.StaffPage })))
 const AppointmentsPage = lazy(() => import("@/pages/AppointmentsWorkspacePage").then((module) => ({ default: module.AppointmentsWorkspacePage })))
@@ -45,6 +46,9 @@ function WorkspaceLoadingSkeleton({ label = "Loading Bookora…" }: { label?: st
 function AppContent() {
   const hostname = window.location.hostname
   const pathname = window.location.pathname
+  const publicBookingMatch = pathname.match(/^\/booking\/([^/]+)\/?$/)
+  const publicBookingId = publicBookingMatch?.[1] || ""
+  const isPublicBookingDetails = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(publicBookingId)
   const isPublicBookingHost = [".bookora.com", ".bookoraph.com"].some((suffix) => hostname.endsWith(suffix)) && !hostname.startsWith("www.")
   const isCustomerBooking =
     pathname === "/booking" ||
@@ -162,6 +166,7 @@ function AppContent() {
     return () => { active = false }
   }, [isCustomerBooking, user?.id])
 
+  if (isPublicBookingDetails) return <><ToastViewport /><PublicBookingDetailsPage bookingId={decodeURIComponent(publicBookingId)} /></>
   if (isCustomerBooking) return <><ToastViewport /><CustomerBookingPage /></>
 
   // If user is a verified client from a custom slug business

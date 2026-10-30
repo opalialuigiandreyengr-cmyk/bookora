@@ -2057,7 +2057,7 @@ export function CustomerBookingPage() {
                     ].filter(Boolean).join(" ")
 
                     const bookingId = crypto.randomUUID()
-                    const manageBookingsUrl = `${window.location.origin}/bookings?slug=${encodeURIComponent(bookingBrandName)}`
+                    const manageBookingsUrl = `${window.location.origin}/booking/${bookingId}`
                     const appointmentDurationMinutes = Math.max(5, totalDurationMinutes || bookingSlotSize)
 
                     const appointmentPayload = {
