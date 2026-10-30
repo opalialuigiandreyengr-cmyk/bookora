@@ -27,7 +27,6 @@ export type OwnerRouteKey =
   | "Payments"
   | "Reports"
   | "Settings"
-  | "Booking Page"
   | "Notifications"
   | "Integrations"
   | "Webhooks"
@@ -54,7 +53,6 @@ export const ownerRoutes: OwnerRoute[] = [
   { key: "Payments", label: "Payments", path: "/payments", icon: CreditCard, status: "ready" },
   { key: "Reports", label: "Reports", path: "/reports", icon: BarChart3, status: "building" },
   { key: "Settings", label: "Settings", path: "/settings", icon: Settings2, status: "ready" },
-  { key: "Booking Page", label: "Booking Page", path: "/booking-page", icon: Link2, status: "ready" },
   { key: "Notifications", label: "Notifications", path: "/notifications", icon: Bell, status: "ready" },
   { key: "Integrations", label: "Integrations", path: "/integrations", icon: PlugZap, status: "building" },
   { key: "Webhooks", label: "Webhooks", path: "/integrations/webhooks", icon: Link2, status: "ready" },
@@ -73,7 +71,6 @@ export const soloOwnerRoutes = ownerRoutes.filter((route) => [
   "Services",
   "Payments",
   "Settings",
-  "Booking Page",
 ].includes(route.key))
 
 export const ownerRouteByPath = new Map(ownerRoutes.map((route) => [route.path, route]))

@@ -15,7 +15,6 @@ const StaffPage = lazy(() => import("@/pages/StaffPage").then((module) => ({ def
 const AppointmentsPage = lazy(() => import("@/pages/AppointmentsWorkspacePage").then((module) => ({ default: module.AppointmentsWorkspacePage })))
 const ClientsPage = lazy(() => import("@/pages/ClientsPage").then((module) => ({ default: module.ClientsPage })))
 const PaymentsPage = lazy(() => import("@/pages/PaymentsPage").then((module) => ({ default: module.PaymentsPage })))
-const BookingPagePage = lazy(() => import("@/pages/BookingPagePage").then((module) => ({ default: module.BookingPagePage })))
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })))
 const ReportsPage = lazy(() => import("@/pages/ReportsPage").then((module) => ({ default: module.ReportsPage })))
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage").then((module) => ({ default: module.IntegrationsPage })))
@@ -130,7 +129,7 @@ function AppContent() {
         return
       }
       // Clients should never be redirected to business onboarding or salon dashboard
-      const internalBusinessRoutes = ["/dashboard", "/onboarding", "/services", "/calendar", "/settings", "/appointments", "/clients", "/staff", "/payments", "/reports", "/booking-page", "/notifications", "/integrations", "/integrations/webhooks", "/packages", "/advanced-scheduling", "/block-time", "/memberships"]
+      const internalBusinessRoutes = ["/dashboard", "/onboarding", "/services", "/calendar", "/settings", "/appointments", "/clients", "/staff", "/payments", "/reports", "/notifications", "/integrations", "/integrations/webhooks", "/packages", "/advanced-scheduling", "/block-time", "/memberships"]
       if (internalBusinessRoutes.includes(window.location.pathname)) {
         const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
         window.history.replaceState({}, "", destination)
@@ -196,7 +195,6 @@ function AppContent() {
     if (window.location.pathname === "/appointments") return <><ToastViewport /><AppointmentsPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/clients") return <><ToastViewport /><ClientsPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/payments") return <><ToastViewport /><PaymentsPage user={user} onSignOut={handleSignOut} /></>
-    if (window.location.pathname === "/booking-page") return <><ToastViewport /><BookingPagePage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/notifications") return <><ToastViewport /><NotificationsPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/integrations") return <><ToastViewport /><IntegrationsPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/integrations/webhooks") return <><ToastViewport /><WebhookSettingsPage user={user} onSignOut={handleSignOut} /></>
@@ -258,8 +256,6 @@ function AppContent() {
           <ClientsPage user={previewUser} onSignOut={handlePreviewSignOut} />
         ) : window.location.pathname === "/payments" ? (
           <PaymentsPage user={previewUser} onSignOut={handlePreviewSignOut} />
-        ) : window.location.pathname === "/booking-page" ? (
-          <BookingPagePage user={previewUser} onSignOut={handlePreviewSignOut} />
         ) : window.location.pathname === "/notifications" ? (
           <NotificationsPage user={previewUser} onSignOut={handlePreviewSignOut} />
         ) : window.location.pathname === "/integrations" ? (

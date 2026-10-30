@@ -36,11 +36,6 @@ const moduleCopy: Record<Exclude<OwnerRouteKey, "Overview" | "Calendar" | "Servi
     description: "Configure signed outbound appointment events for automation tools and custom workflows.",
     next: ["HTTPS endpoint configuration", "HMAC signature verification", "Delivery retries and history"],
   },
-  "Booking Page": {
-    title: "Booking Page",
-    description: "Share and refine the customer-facing page where clients discover your services and book online.",
-    next: ["Public booking link", "Customer-facing preview", "Branding and booking controls"],
-  },
   Memberships: {
     title: "Memberships",
     description: "Create loyalty plans, enroll clients, and track points earned through repeat visits.",
