@@ -104,9 +104,9 @@ export function AppointmentDrawer({
     >
       <aside ref={drawerRef} className="cal-drawer" role="dialog" aria-modal="true" aria-labelledby="appointment-drawer-title">
         <header className="cal-drawer-header">
-          <div>
-            <span className={`cal-status-pill is-${appointment.status}`}>{statusLabel}</span>
+          <div className="cal-drawer-heading-row">
             <h2 id="appointment-drawer-title">Appointment Details</h2>
+            <span className={`cal-status-pill is-${appointment.status}`}>{statusLabel}</span>
           </div>
           <button type="button" className="cal-drawer-close" onClick={onClose} aria-label="Close details">
             <X size={18} />

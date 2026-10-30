@@ -8606,6 +8606,13 @@ svg { stroke-width: 1.8; }
   border-bottom: 1px solid #ede9e4;
 }
 
+.cal-drawer-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .cal-drawer-close {
   width: 34px;
   height: 34px;
@@ -9565,8 +9572,8 @@ svg { stroke-width: 1.8; }
 
 /* Drawer */
 .cal-drawer-header h2 {
-  margin: 8px 0 0;
-  font-size: 18px;
+  margin: 0;
+  font-size: 16px;
   font-weight: 800;
   color: #141b26;
 }
