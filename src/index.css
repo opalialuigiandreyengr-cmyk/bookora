@@ -9857,10 +9857,75 @@ svg { stroke-width: 1.8; }
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #263246;
   text-decoration: none;
   font-size: 12px;
   font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.cal-drawer-time-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+}
+
+.cal-drawer-time-row > div + div {
+  padding-left: 14px;
+  border-left: 1px solid #f1eeea;
+}
+
+.cal-drawer-attachment:hover img { border-color: #d85b53; }
+
+.cal-attachment-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 20px 24px;
+  background: rgba(15, 23, 42, 0.86);
+}
+
+.cal-attachment-viewer img {
+  display: block;
+  max-width: min(100%, 1100px);
+  max-height: calc(100dvh - 90px);
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.cal-attachment-viewer-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cal-attachment-viewer-toolbar button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.5);
+  color: #fff;
+  cursor: pointer;
 }
 
 .cal-drawer-attachment img {

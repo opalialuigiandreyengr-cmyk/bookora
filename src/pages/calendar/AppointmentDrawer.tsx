@@ -22,6 +22,7 @@ export function AppointmentDrawer({
   const drawerRef = useRef<HTMLElement | null>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const [attachmentUrls, setAttachmentUrls] = useState<{ peg: string; receipt: string }>({ peg: "", receipt: "" })
+  const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; label: string } | null>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
@@ -49,6 +50,13 @@ export function AppointmentDrawer({
       returnFocusRef.current = null
     }
   }, [appointment])
+
+  useEffect(() => {
+    if (!selectedAttachment) return
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedAttachment(null) }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [selectedAttachment])
 
   useEffect(() => {
     let active = true
@@ -149,24 +157,10 @@ export function AppointmentDrawer({
                 </div>
               </div>
 
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon">
-                  <Clock3 size={16} />
-                </span>
-                <div>
-                  <small>Time</small>
-                  <strong>{appointment.appointment_time}</strong>
-                </div>
-              </div>
-
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon">
-                  <Clock3 size={16} />
-                </span>
-                <div>
-                  <small>Duration</small>
-                  <strong>{appointment.duration_minutes} mins</strong>
-                </div>
+              <div className="cal-drawer-info-row cal-drawer-time-row">
+                <span className="cal-drawer-info-icon"><Clock3 size={16} /></span>
+                <div><small>Time</small><strong>{appointment.appointment_time}</strong></div>
+                <div><small>Duration</small><strong>{appointment.duration_minutes} mins</strong></div>
               </div>
 
               <div className="cal-drawer-info-row">
@@ -234,8 +228,8 @@ export function AppointmentDrawer({
           <div className="cal-drawer-section cal-drawer-attachments">
             <h3>Client Attachments</h3>
             <div className="cal-drawer-attachment-grid">
-              {attachmentUrls.peg ? <a href={attachmentUrls.peg} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.peg} alt="Client design reference" /><span>Design peg</span></a> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Design peg</span><small>No attachment</small></div>}
-              {attachmentUrls.receipt ? <a href={attachmentUrls.receipt} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.receipt} alt="Client payment receipt" /><span>Payment receipt</span></a> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Payment receipt</span><small>No attachment</small></div>}
+              {attachmentUrls.peg ? <button type="button" className="cal-drawer-attachment" onClick={() => setSelectedAttachment({ url: attachmentUrls.peg, label: "Design peg" })}><img src={attachmentUrls.peg} alt="Client design reference" /><span>Design peg</span></button> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Design peg</span><small>No attachment</small></div>}
+              {attachmentUrls.receipt ? <button type="button" className="cal-drawer-attachment" onClick={() => setSelectedAttachment({ url: attachmentUrls.receipt, label: "Payment receipt" })}><img src={attachmentUrls.receipt} alt="Client payment receipt" /><span>Payment receipt</span></button> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Payment receipt</span><small>No attachment</small></div>}
             </div>
           </div>
         </div>
@@ -286,6 +280,7 @@ export function AppointmentDrawer({
             <span>Remove from calendar</span>
           </button>
         </footer>
+        {selectedAttachment && <div className="cal-attachment-viewer" role="dialog" aria-modal="true" aria-label={`${selectedAttachment.label} preview`} onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedAttachment(null) }}><div className="cal-attachment-viewer-toolbar"><span>{selectedAttachment.label}</span><button type="button" onClick={() => setSelectedAttachment(null)} aria-label="Close image preview"><X size={20} /></button></div><img src={selectedAttachment.url} alt={selectedAttachment.label} /></div>}
       </aside>
     </div>
   )
