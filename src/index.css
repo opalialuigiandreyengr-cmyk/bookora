@@ -11487,8 +11487,8 @@ svg { stroke-width: 1.8; }
   }
 
   .appointments-table td:nth-child(5) small {
-    display: block;
-    margin: 3px 0 0;
+    display: inline;
+    margin: 0 0 0 8px;
     color: var(--foreground);
     font-size: 14px;
     font-weight: 700;
@@ -11506,7 +11506,7 @@ svg { stroke-width: 1.8; }
   }
 
   .appointments-table td:nth-child(5) .appointment-time {
-    display: block !important;
+    display: inline !important;
     color: var(--foreground);
     font-size: 14px;
     font-weight: 700;
@@ -11514,7 +11514,7 @@ svg { stroke-width: 1.8; }
 
   .appointments-table td:nth-child(7) {
     position: absolute;
-    top: 48px;
+    top: 20px;
     right: 15px;
   }
 
