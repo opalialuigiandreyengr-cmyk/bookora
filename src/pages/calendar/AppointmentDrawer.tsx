@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
+import { CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
@@ -237,27 +237,8 @@ export function AppointmentDrawer({
         <footer className="cal-drawer-footer">
           <div className="cal-drawer-status-actions">
             {appointment.status === "pending" && <Button type="button" className="cal-action-approve" onClick={() => onUpdateStatus(appointment.id, "approved")}><CheckCircle2 size={16} /> Approve</Button>}
-            {appointment.status !== "completed" && (
-              <Button
-                type="button"
-                className="cal-action-complete"
-                onClick={() => onUpdateStatus(appointment.id, "completed")}
-              >
-                <CheckCircle2 size={16} />
-                Mark Completed
-              </Button>
-            )}
-            {appointment.status !== "completed" && appointment.status !== "cancelled" && appointment.status !== "no_show" && <Button type="button" variant="outline" onClick={() => { const reason = window.prompt("Internal no-show reason (optional)") || ""; void onUpdateStatus(appointment.id, "no_show", reason) }}><XCircle size={16} /> Mark No-show</Button>}
-            {appointment.status === "cancelled" && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onUpdateStatus(appointment.id, "approved")}
-              >
-                Restore to Confirmed
-              </Button>
-            )}
-            {appointment.status !== "cancelled" && (
+            {appointment.status === "approved" && <Button type="button" className="cal-action-approved" disabled><CheckCircle2 size={16} /> Approved</Button>}
+            {appointment.status !== "completed" && appointment.status !== "cancelled" && appointment.status !== "no_show" && (
               <Button
                 type="button"
                 variant="outline"
@@ -268,16 +249,27 @@ export function AppointmentDrawer({
                 Cancel
               </Button>
             )}
+            {appointment.status === "approved" && (
+              <Button
+                type="button"
+                className="cal-action-complete"
+                onClick={() => onUpdateStatus(appointment.id, "completed")}
+              >
+                <CheckCircle2 size={16} />
+                Mark Completed
+              </Button>
+            )}
+            {appointment.status === "approved" && <Button type="button" variant="outline" onClick={() => { const reason = window.prompt("Internal no-show reason (optional)") || ""; void onUpdateStatus(appointment.id, "no_show", reason) }}><XCircle size={16} /> Mark No-show</Button>}
+            {appointment.status === "cancelled" && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onUpdateStatus(appointment.id, "approved")}
+              >
+                Restore to Confirmed
+              </Button>
+            )}
           </div>
-          <button
-            type="button"
-            className="cal-action-delete"
-            onClick={() => onDelete(appointment.id)}
-            title="Delete appointment"
-          >
-            <Trash2 size={15} />
-            <span>Remove from calendar</span>
-          </button>
         </footer>
         {selectedAttachment && <div className="cal-attachment-viewer" role="dialog" aria-modal="true" aria-label={`${selectedAttachment.label} preview`} onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedAttachment(null) }}><div className="cal-attachment-viewer-toolbar"><span>{selectedAttachment.label}</span><button type="button" onClick={() => setSelectedAttachment(null)} aria-label="Close image preview"><X size={20} /></button></div><img src={selectedAttachment.url} alt={selectedAttachment.label} /></div>}
       </aside>
