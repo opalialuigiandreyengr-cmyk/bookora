@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { CalendarDays, CheckCircle2, Clock3, CreditCard, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
+import { CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, Mail, MapPin, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
@@ -178,10 +178,6 @@ export function AppointmentDrawer({
                   <strong className="cal-drawer-price">{appointment.total_price}</strong>
                 </div>
               </div>
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon"><CreditCard size={16} /></span>
-                <div><small>Payment</small><strong>{appointment.payment_status === "paid" ? "Paid" : appointment.payment_status === "partial" ? `Partial · ${appointment.payment_balance?.toLocaleString("en-PH", { style: "currency", currency: "PHP" })} due` : "Unpaid"}</strong></div>
-              </div>
               {appointment.meeting_url && <div className="cal-drawer-info-row"><span className="cal-drawer-info-icon"><ExternalLink size={16} /></span><div><small>Meeting link</small><a href={appointment.meeting_url} target="_blank" rel="noreferrer">Open video appointment</a></div></div>}
             </div>
           </div>
@@ -235,13 +231,13 @@ export function AppointmentDrawer({
             </div>
           </div>
 
-          {(attachmentUrls.peg || attachmentUrls.receipt) && <div className="cal-drawer-section cal-drawer-attachments">
+          <div className="cal-drawer-section cal-drawer-attachments">
             <h3>Client Attachments</h3>
             <div className="cal-drawer-attachment-grid">
-              {attachmentUrls.peg && <a href={attachmentUrls.peg} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.peg} alt="Client design reference" /><span>Design reference</span></a>}
-              {attachmentUrls.receipt && <a href={attachmentUrls.receipt} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.receipt} alt="Client payment receipt" /><span>Payment receipt</span></a>}
+              {attachmentUrls.peg ? <a href={attachmentUrls.peg} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.peg} alt="Client design reference" /><span>Design peg</span></a> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Design peg</span><small>No attachment</small></div>}
+              {attachmentUrls.receipt ? <a href={attachmentUrls.receipt} target="_blank" rel="noreferrer" className="cal-drawer-attachment"><img src={attachmentUrls.receipt} alt="Client payment receipt" /><span>Payment receipt</span></a> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Payment receipt</span><small>No attachment</small></div>}
             </div>
-          </div>}
+          </div>
         </div>
 
         <footer className="cal-drawer-footer">

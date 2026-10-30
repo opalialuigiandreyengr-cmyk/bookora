@@ -9689,6 +9689,22 @@ svg { stroke-width: 1.8; }
   background: #fffaf8;
 }
 
+.cal-drawer-attachment-empty {
+  justify-content: center;
+  min-height: 92px;
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px dashed #eaded8;
+  border-radius: 10px;
+  background: #fffaf8;
+}
+
+.cal-drawer-attachment-empty small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .cal-drawer-status-actions {
   display: flex;
   gap: 10px;
