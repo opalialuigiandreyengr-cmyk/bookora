@@ -561,22 +561,30 @@ export function CustomerBookingPage() {
       window.history.replaceState({}, document.title, cleanUrl.toString())
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      syncUserAsClient(data.session?.user ?? null)
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      syncUserAsClient(session?.user ?? null)
-      if (event === "SIGNED_IN" && session?.user) {
-        if (welcomeToastUserId.current !== session.user.id) {
+    const auth = supabase
+    let disposed = false
+    let unsubscribe = () => {}
+    const initializeAuth = async () => {
+      const { data } = await auth.auth.getSession()
+      const existingUser = data.session?.user ?? null
+      if (disposed) return
+      syncUserAsClient(existingUser)
+      // Do not treat a persisted client session as a fresh sign-in.
+      welcomeToastUserId.current = existingUser?.id ?? null
+      const { data: listener } = auth.auth.onAuthStateChange((event, session) => {
+        syncUserAsClient(session?.user ?? null)
+        if (event === "SIGNED_IN" && session?.user && welcomeToastUserId.current !== session.user.id) {
           welcomeToastUserId.current = session.user.id
           const name = String(session.user.user_metadata?.full_name ?? session.user.email?.split("@")[0] ?? "there")
           showToast(`Welcome back, ${name}!`)
+        } else if (event === "SIGNED_OUT") {
+          welcomeToastUserId.current = null
         }
-      } else if (event === "SIGNED_OUT") {
-        welcomeToastUserId.current = null
-      }
-    })
-    return () => listener.subscription.unsubscribe()
+      })
+      unsubscribe = () => listener.subscription.unsubscribe()
+    }
+    void initializeAuth()
+    return () => { disposed = true; unsubscribe() }
   }, [bookingSlug, profile?.id, profile?.business_name])
 
   const handlePegImageUpload = (file: File) => {

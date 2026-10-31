@@ -94,26 +94,34 @@ function AppContent() {
     }
 
     if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => {
-      const nextUser = data.session?.user ?? null
-      setUser(nextUser)
-      setOnboardingDone(Boolean(nextUser?.user_metadata?.onboarding_complete))
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      const nextUser = session?.user ?? null
-      setUser(nextUser)
-      setOnboardingDone(Boolean(nextUser?.user_metadata?.onboarding_complete))
-      if (event === "SIGNED_IN" && nextUser) {
-        if (welcomeToastUserId.current !== nextUser.id) {
+    const auth = supabase
+    let disposed = false
+    let unsubscribe = () => {}
+    const initializeAuth = async () => {
+      const { data } = await auth.auth.getSession()
+      const existingUser = data.session?.user ?? null
+      if (disposed) return
+      setUser(existingUser)
+      setOnboardingDone(Boolean(existingUser?.user_metadata?.onboarding_complete))
+      // An existing persisted session is not a new sign-in. Mark it before
+      // subscribing so revisiting or refreshing does not replay the welcome toast.
+      welcomeToastUserId.current = existingUser?.id ?? null
+      const { data: listener } = auth.auth.onAuthStateChange((event, session) => {
+        const nextUser = session?.user ?? null
+        setUser(nextUser)
+        setOnboardingDone(Boolean(nextUser?.user_metadata?.onboarding_complete))
+        if (event === "SIGNED_IN" && nextUser && welcomeToastUserId.current !== nextUser.id) {
           welcomeToastUserId.current = nextUser.id
           const name = String(nextUser.user_metadata?.full_name ?? nextUser.email?.split("@")[0] ?? "there")
           showToast(`Welcome back, ${name}!`)
+        } else if (event === "SIGNED_OUT") {
+          welcomeToastUserId.current = null
         }
-      } else if (event === "SIGNED_OUT") {
-        welcomeToastUserId.current = null
-      }
-    })
-    return () => listener.subscription.unsubscribe()
+      })
+      unsubscribe = () => listener.subscription.unsubscribe()
+    }
+    void initializeAuth()
+    return () => { disposed = true; unsubscribe() }
   }, [])
 
   useEffect(() => {
