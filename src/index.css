@@ -11666,14 +11666,14 @@ svg { stroke-width: 1.8; }
 .appointments-table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }.appointments-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px; }.appointments-table th { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--muted-foreground); font-size: 10px; letter-spacing: .08em; text-align: left; text-transform: uppercase; }.appointments-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }.appointments-table tr:last-child td { border-bottom: 0; }.appointments-table td small { display: block; margin-top: 4px; color: var(--muted-foreground); font-size: 11px; }.appointment-client-button { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; }.appointment-client-button strong { display: block; }.appointment-time { display: inline-flex !important; align-items: center; gap: 4px; }.appointment-list-status { display: inline-flex; padding: 4px 8px; border-radius: 6px; background: var(--muted); font-size: 11px; font-weight: 750; }.appointment-list-status.approved { background: color-mix(in oklch, #16a34a 12%, var(--card)); color: #166534; }.appointment-list-status.pending { background: color-mix(in oklch, #d97706 14%, var(--card)); color: #92400e; }.appointment-list-status.cancelled { background: color-mix(in oklch, #dc2626 10%, var(--card)); color: #991b1b; }.appointment-list-status.no_show { background: color-mix(in oklch, #7c3aed 10%, var(--card)); color: #6d28d9; }.appointment-row-action { padding: 6px 9px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--foreground); cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }.appointments-empty { display: grid; justify-items: center; gap: 8px; padding: 70px 20px; border: 1px dashed var(--border); border-radius: 13px; color: var(--muted-foreground); text-align: center; }.appointments-empty strong { color: var(--foreground); font-size: 16px; }.appointments-empty button, .appointments-error button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }.appointments-error { display: flex; justify-content: space-between; gap: 16px; margin: 12px 0; padding: 11px 13px; border: 1px solid color-mix(in oklch, #dc2626 28%, var(--border)); border-radius: 9px; background: color-mix(in oklch, #dc2626 6%, var(--card)); color: #b91c1c; font-size: 13px; }
 @media (max-width: 720px) { .appointments-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }.appointments-toolbar { align-items: stretch; flex-direction: column; }.appointments-search { width: auto; }.appointments-filter { justify-content: space-between; }.appointments-primary-action { width: 100%; } }
 .client-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 18px; }.client-stats > div { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in oklch, var(--muted) 38%, var(--card)); }.client-stats strong { overflow: hidden; color: var(--foreground); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }.client-stats span, .client-field-hint { color: var(--muted-foreground); font-size: 10px; }.client-field-hint { display: block; margin-top: 4px; }
-.client-contact-actions { display: flex; flex-wrap: wrap; gap: 7px; }.client-contact-actions a { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; color: var(--primary); font-size: 11px; font-weight: 750; text-decoration: none; }.client-contact-actions a:hover { background: var(--muted); }
+.client-contact-actions { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px 0; }.client-contact-actions a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid color-mix(in oklch, var(--primary) 22%, var(--border)); border-radius: 50%; background: var(--card); color: var(--primary); text-decoration: none; transition: transform 0.15s ease, background 0.15s ease; }.client-contact-actions a:hover { background: color-mix(in oklch, var(--primary) 10%, var(--card)); transform: translateY(-1px); }.client-contact-actions a span { display: none; }.client-contact-actions a.is-disabled { opacity: 0.35; pointer-events: none; }
 .booking-qr-backdrop { position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 20px; background: color-mix(in oklch, #10151d 45%, transparent); }.booking-qr-dialog { display: grid; justify-items: center; gap: 12px; width: min(360px, 100%); padding: 22px; border: 1px solid var(--border); border-radius: 15px; background: var(--card); box-shadow: 0 20px 60px color-mix(in oklch, #111827 25%, transparent); text-align: center; }.booking-qr-dialog header { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; gap: 14px; text-align: left; }.booking-qr-dialog h2 { margin: 4px 0 0; font-size: 20px; }.booking-qr-dialog header button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--muted-foreground); cursor: pointer; }.booking-qr-dialog img { width: 240px; height: 240px; border-radius: 8px; background: white; }.booking-qr-dialog p { margin: 0; color: var(--muted-foreground); font-size: 12px; }.booking-qr-dialog a { color: var(--primary); font-size: 12px; font-weight: 750; }
 .booking-embed-card { display: grid; gap: 14px; margin-top: 16px; padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }.booking-embed-card h2 { margin: 4px 0; font-size: 17px; }.booking-embed-card p:not(.dashboard-kicker) { margin: 0; color: var(--muted-foreground); font-size: 12px; }.booking-embed-code { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--muted); }.booking-embed-code code { flex: 1; overflow: auto; color: var(--foreground); font-size: 11px; white-space: nowrap; }.booking-embed-code button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--primary); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; }
 .booking-first-available { border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
 .notification-quiet-hours { display: grid; gap: 7px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }.notification-quiet-hours strong { font-size: 12px; }.notification-quiet-hours small { color: var(--muted-foreground); font-size: 11px; }.notification-quiet-hours > div { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }.notification-quiet-hours label { display: grid; gap: 5px; color: var(--muted-foreground); font-size: 10px; font-weight: 750; }.notification-quiet-hours input { min-height: 36px; padding: 0 8px; border: 1px solid var(--input); border-radius: 7px; background: var(--background); color: var(--foreground); font: inherit; }
 
 /* Phase 3: client CRM. */
-.clients-main { max-width: 1120px; }.clients-primary-action { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font: inherit; font-size: 13px; font-weight: 750; }.clients-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 12px; color: var(--muted-foreground); font-size: 12px; }.clients-search { display: flex; align-items: center; gap: 8px; width: min(380px, 100%); min-height: 40px; padding: 0 12px; border: 1px solid var(--input); border-radius: 9px; background: var(--card); color: var(--muted-foreground); }.clients-search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 13px; }.clients-list { display: grid; gap: 9px; }.client-card { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }.client-card-main { display: flex; align-items: center; gap: 11px; min-width: 0; border: 0; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; }.client-avatar { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in oklch, var(--primary) 14%, var(--card)); color: var(--primary); font-size: 12px; font-weight: 850; }.client-card-main strong, .client-card-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.client-card-main small { margin-top: 3px; color: var(--muted-foreground); font-size: 11px; }.client-card-tags { display: flex; flex-wrap: wrap; gap: 5px; }.client-card-tags span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 5px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-weight: 700; }.client-view-action { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }.clients-empty { display: grid; justify-items: center; gap: 8px; padding: 70px 20px; border: 1px dashed var(--border); border-radius: 13px; color: var(--muted-foreground); text-align: center; }.clients-empty strong { color: var(--foreground); font-size: 16px; }.clients-error { margin: 12px 0; padding: 11px 13px; border: 1px solid color-mix(in oklch, #dc2626 28%, var(--border)); border-radius: 9px; background: color-mix(in oklch, #dc2626 6%, var(--card)); color: #b91c1c; font-size: 13px; }.client-drawer-backdrop { position: fixed; inset: 0; z-index: 120; display: flex; justify-content: flex-end; background: color-mix(in oklch, #10151d 42%, transparent); }.client-drawer { display: flex; flex-direction: column; width: min(480px, 100%); height: 100%; overflow: auto; padding: 24px; background: var(--card); box-shadow: -18px 0 50px color-mix(in oklch, #111827 18%, transparent); }.client-drawer > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }.client-drawer > header h2 { margin: 4px 0 0; font-size: 22px; }.client-drawer > header button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--muted-foreground); cursor: pointer; }.client-form { display: grid; gap: 15px; padding: 22px 0; }.client-form label { display: grid; gap: 7px; color: var(--foreground); font-size: 12px; font-weight: 750; }.client-form input, .client-form textarea { width: 100%; box-sizing: border-box; min-height: 40px; padding: 9px 11px; border: 1px solid var(--input); border-radius: 8px; outline: 0; background: var(--background); color: var(--foreground); font: inherit; font-size: 13px; }.client-history { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); }.client-history h3 { margin: 0; font-size: 13px; }.client-history div { display: grid; gap: 3px; padding: 9px; border-radius: 8px; background: var(--muted); font-size: 12px; }.client-history span, .client-history p { margin: 0; color: var(--muted-foreground); font-size: 11px; }.client-drawer > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--border); }.client-drawer .staff-primary-button, .client-drawer .staff-secondary-button { min-height: 40px; padding: 0 13px; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 750; }.client-drawer .staff-secondary-button { border: 1px solid var(--border); background: var(--card); color: var(--foreground); }.client-drawer .staff-primary-button { border: 0; background: var(--primary); color: var(--primary-foreground); }
+.clients-main { max-width: 1120px; }.clients-primary-action { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font: inherit; font-size: 13px; font-weight: 750; }.clients-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 12px; color: var(--muted-foreground); font-size: 12px; }.clients-search { display: flex; align-items: center; gap: 8px; width: min(380px, 100%); min-height: 40px; padding: 0 12px; border: 1px solid var(--input); border-radius: 9px; background: var(--card); color: var(--muted-foreground); }.clients-search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 13px; }.clients-list { display: grid; gap: 9px; }.client-card { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }.client-card-main { display: flex; align-items: center; gap: 11px; min-width: 0; border: 0; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; }.client-avatar { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in oklch, var(--primary) 14%, var(--card)); color: var(--primary); font-size: 12px; font-weight: 850; }.client-card-main strong, .client-card-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.client-card-main small { margin-top: 3px; color: var(--muted-foreground); font-size: 11px; }.client-card-tags { display: flex; flex-wrap: wrap; gap: 5px; }.client-card-tags span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 5px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-weight: 700; }.client-view-action { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }.clients-empty { display: grid; justify-items: center; gap: 8px; padding: 70px 20px; border: 1px dashed var(--border); border-radius: 13px; color: var(--muted-foreground); text-align: center; }.clients-empty strong { color: var(--foreground); font-size: 16px; }.clients-error { margin: 12px 0; padding: 11px 13px; border: 1px solid color-mix(in oklch, #dc2626 28%, var(--border)); border-radius: 9px; background: color-mix(in oklch, #dc2626 6%, var(--card)); color: #b91c1c; font-size: 13px; }.client-drawer-backdrop { position: fixed; inset: 0; z-index: 120; display: flex; justify-content: flex-end; background: color-mix(in oklch, #10151d 42%, transparent); }.client-drawer { display: flex; flex-direction: column; width: min(480px, 100%); height: 100%; overflow: auto; padding: 24px; background: var(--card); box-shadow: -18px 0 50px color-mix(in oklch, #111827 18%, transparent); }.client-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }.client-drawer > header h2 { margin: 0; font-size: 18px; font-weight: 700; }.client-back-button { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: var(--card); color: #111827; cursor: pointer; padding: 0; }.client-profile-hero { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }.client-profile-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; background: color-mix(in oklch, var(--primary) 12%, var(--card)); border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--border)); color: var(--primary); font-size: 13px; font-weight: 700; }.client-profile-actions { display: inline-flex; align-items: center; gap: 6px; }.client-profile-actions button { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: var(--card); color: #111827; cursor: pointer; padding: 0; }.client-back-button svg, .client-profile-actions button svg { display: block; width: 16px; height: 16px; color: #111827; stroke: #111827; stroke-width: 2.2; }.booking-dark .client-back-button svg, .booking-dark .client-profile-actions button svg { color: var(--foreground); stroke: var(--foreground); }.client-display-value { display: block; font-size: 14px; font-weight: 500; color: var(--foreground); padding: 4px 0 2px; line-height: 1.4; word-break: break-all; }.client-display-value.is-empty { color: var(--muted-foreground); }.client-form { display: grid; gap: 15px; padding: 22px 0; }.client-form label { display: grid; gap: 7px; color: var(--foreground); font-size: 12px; font-weight: 750; }.client-form input, .client-form textarea { width: 100%; box-sizing: border-box; min-height: 40px; padding: 9px 11px; border: 1px solid var(--input); border-radius: 8px; outline: 0; background: var(--background); color: var(--foreground); font: inherit; font-size: 13px; }.client-history { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); }.client-history h3 { margin: 0; font-size: 13px; }.client-history div { display: grid; gap: 3px; padding: 9px; border-radius: 8px; background: var(--muted); font-size: 12px; }.client-history span, .client-history p { margin: 0; color: var(--muted-foreground); font-size: 11px; }.client-drawer > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--border); }.client-drawer .staff-primary-button, .client-drawer .staff-secondary-button { min-height: 40px; padding: 0 13px; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 750; }.client-drawer .staff-secondary-button { border: 1px solid var(--border); background: var(--card); color: var(--foreground); }.client-drawer .staff-primary-button { border: 0; background: var(--primary); color: var(--primary-foreground); }
 @media (max-width: 680px) { .clients-toolbar { align-items: stretch; flex-direction: column; }.clients-search { width: auto; }.client-card { grid-template-columns: minmax(0, 1fr) auto; }.client-card-tags { grid-column: 1 / -1; }.client-drawer { padding: 20px 16px; } }
 
 /* Keep primary workspace actions in the same sticky header position as Calendar. */
@@ -12654,82 +12654,229 @@ textarea:focus-visible {
   .clients-page-shell .client-avatar { width: 34px; height: 34px; flex-basis: 34px; border-radius: 50%; font-size: 10px; }
   .clients-page-shell .client-card { min-height: 58px; }
   .clients-page-shell .client-card-tags { display: none; }
+
+  /* Drawer mobile view */
   .clients-page-shell .client-drawer-backdrop { justify-content: stretch; }
-  .clients-page-shell .client-drawer { width: 100%; max-width: none; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 0; box-shadow: none; }
-  .clients-page-shell .client-drawer > header { position: sticky; top: 0; z-index: 5; min-height: 58px; box-sizing: border-box; margin: 0 -16px; padding: 8px 16px; align-items: center; background: color-mix(in oklch, var(--card) 96%, transparent); border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); }
-  .clients-page-shell .client-drawer > header > div:not(.client-profile-actions) { min-width: 0; }
-  .clients-page-shell .client-drawer > header .dashboard-kicker { display: none; }
-  .clients-page-shell .client-drawer > header h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
-  .clients-page-shell .client-drawer > header > button { order: -1; width: 32px; height: 32px; flex: 0 0 32px; border: 0; border-radius: 8px; background: transparent; font-size: 0; }
-  .clients-page-shell .client-drawer > header > button svg { display: none; }
-  .clients-page-shell .client-drawer > header > button::before { content: "‹"; display: block; color: var(--foreground); font-size: 29px; font-weight: 300; line-height: 24px; }
-  .clients-page-shell .client-drawer > header::after { content: "✎  ⋮"; margin-left: auto; color: var(--muted-foreground); font-size: 18px; letter-spacing: 7px; }
-  .clients-page-shell .client-drawer > header .client-profile-actions { display: none; }
-  .clients-page-shell .client-form { padding: 18px 0; }
-}
-
-@media (max-width: 680px) {
-  /* Contact-card detail view. */
-  .clients-page-shell .client-drawer > header { position: sticky; min-height: 164px; align-items: flex-start; padding-top: 10px; }
-  .clients-page-shell .client-drawer > header::before { content: ""; position: absolute; top: 53px; left: 50%; width: 62px; height: 62px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in oklch, var(--primary) 12%, var(--card)); border: 1px solid color-mix(in oklch, var(--primary) 18%, var(--border)); }
-  .clients-page-shell .client-drawer > header > div:not(.client-profile-actions) { position: absolute; top: 123px; left: 16px; right: 16px; text-align: center; }
-  .clients-page-shell .client-drawer > header h2 { font-size: 17px; }
-  .clients-page-shell .client-drawer > header::after { top: 12px; right: 16px; position: absolute; }
-  .clients-page-shell .client-form { display: flex; flex-direction: column; gap: 13px; }
-  .clients-page-shell .client-form > label:first-child { display: none; }
-  .clients-page-shell .client-form > label { width: 100%; box-sizing: border-box; }
-  .clients-page-shell .client-contact-actions { order: -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; padding: 0 0 4px; }
-  .clients-page-shell .client-contact-actions a { display: grid; justify-items: center; gap: 5px; min-height: 48px; padding: 7px 3px; border: 1px solid var(--border); border-radius: 9px; color: var(--primary); font-size: 10px; text-decoration: none; }
-  .clients-page-shell .client-contact-actions a:nth-child(1) { order: 3; }
-  .clients-page-shell .client-contact-actions a:nth-child(2) { order: 2; }
-  .clients-page-shell .client-contact-actions a:nth-child(3) { order: 1; }
-  .clients-page-shell .client-contact-actions::after { content: "▣\\A Appointment"; white-space: pre; text-align: center; display: grid; place-items: center; gap: 5px; min-height: 48px; padding: 7px 3px; border: 1px solid var(--border); border-radius: 9px; color: var(--primary); font-size: 10px; }
-  .clients-page-shell .client-stats,
-  .clients-page-shell .client-history,
-  .clients-page-shell .client-block-toggle { width: 100%; box-sizing: border-box; }
-  .clients-page-shell .client-history { margin-top: 2px; }
-  .clients-page-shell .client-drawer > footer { width: 100%; box-sizing: border-box; }
-}
-
-@media (max-width: 680px) {
-  .clients-page-shell .client-drawer > header { min-height: 164px; position: relative; display: block; padding: 0; }
+  .clients-page-shell .client-drawer {
+    width: 100%;
+    max-width: none;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .clients-page-shell .client-drawer > header {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: auto;
+    margin: 0 -16px;
+    padding: 12px 16px 12px;
+    border-bottom: 0;
+    background: var(--card);
+  }
   .clients-page-shell .client-drawer > header::before,
-  .clients-page-shell .client-drawer > header::after { content: none; }
-  .clients-page-shell .client-drawer > header { position: relative !important; overflow: visible !important; }
-  .clients-page-shell .client-back-button { position: absolute !important; top: 8px; left: 16px; z-index: 30 !important; display: grid !important; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: var(--card) !important; color: var(--foreground) !important; visibility: visible !important; }
-  .clients-page-shell .client-profile-actions { position: absolute !important; top: 8px; right: 16px; z-index: 30 !important; display: flex !important; gap: 2px; visibility: visible !important; }
-  .clients-page-shell .client-profile-actions button { display: grid !important; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: var(--card) !important; color: var(--foreground) !important; visibility: visible !important; }
-  .clients-page-shell .client-back-button svg,
-  .clients-page-shell .client-profile-actions svg { display: block !important; width: 15px; height: 15px; color: #334155 !important; stroke: #334155 !important; opacity: 1 !important; visibility: visible !important; }
-  .clients-page-shell .client-drawer > header > button::before { display: none !important; }
-  .clients-page-shell .client-profile-hero { position: absolute !important; top: 37px !important; left: 0 !important; right: 0 !important; display: grid; justify-items: center; gap: 8px; text-align: center; }
-  .clients-page-shell .client-profile-avatar { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid color-mix(in oklch, var(--primary) 18%, var(--border)); border-radius: 50%; background: color-mix(in oklch, var(--primary) 10%, var(--card)); color: var(--primary); font-size: 12px; font-weight: 800; }
-  .clients-page-shell .client-profile-hero h2 { margin: 0; font-size: 14px; font-weight: 650; }
-  .clients-page-shell .client-contact-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 0 6px; }
-  .clients-page-shell .client-contact-actions a,
-  .clients-page-shell .client-contact-actions::after { display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; margin: 0 auto; padding: 0; border-radius: 50%; background: var(--card); color: var(--primary); }
-  .clients-page-shell .client-contact-actions a span { display: none; }
-  .clients-page-shell .client-contact-actions::after { display: none; }
-  .clients-page-shell .client-contact-actions a.is-disabled { opacity: .38; pointer-events: none; }
-  .clients-page-shell .client-contact-actions a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-}
+  .clients-page-shell .client-drawer > header::after,
+  .clients-page-shell .client-drawer::before,
+  .clients-page-shell .client-drawer::after {
+    display: none !important;
+    content: none !important;
+  }
 
-@media (max-width: 680px) {
-  .clients-page-shell .client-drawer::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 15; height: 50px; border-bottom: 1px solid var(--border); background: var(--card); box-shadow: 0 2px 8px color-mix(in oklch, #111827 8%, transparent); pointer-events: none; }
-  .clients-page-shell .client-drawer > header { min-height: 146px; border-bottom: 0; }
-  .clients-page-shell .client-profile-hero { top: 62px !important; gap: 5px; }
-  .clients-page-shell .client-profile-avatar { width: 40px; height: 40px; }
-  .clients-page-shell .client-form { gap: 9px; padding-top: 4px; }
-  .clients-page-shell .client-contact-actions { gap: 2px; padding-bottom: 2px; }
-  .clients-page-shell .client-contact-actions a,
-  .clients-page-shell .client-contact-actions::after { width: 40px; height: 40px; min-height: 40px; }
-  .clients-page-shell .client-form > label:nth-child(4) { display: none; }
-  .clients-page-shell .client-block-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 0; border: 0; background: transparent; }
-  .clients-page-shell .client-block-toggle input { flex: 0 0 16px; margin: 0; }
+  /* Chevron back button (top-left) */
+  .clients-page-shell .client-back-button {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--card);
+    color: #111827;
+    cursor: pointer;
+    padding: 0;
+  }
+  .clients-page-shell .client-back-button::before { display: none !important; }
+
+  /* Actions: Pencil & Ellipsis (top-right) */
+  .clients-page-shell .client-profile-actions {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .clients-page-shell .client-profile-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--card);
+    color: #111827;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  /* Header icon SVGs: black and visible */
+  .clients-page-shell .client-back-button svg,
+  .clients-page-shell .client-profile-actions svg {
+    display: block !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: #111827 !important;
+    stroke: #111827 !important;
+    stroke-width: 2.2 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .booking-dark .clients-page-shell .client-back-button svg,
+  .booking-dark .clients-page-shell .client-profile-actions svg {
+    color: var(--foreground) !important;
+    stroke: var(--foreground) !important;
+  }
+
+  /* Centered Avatar and Name Hero */
+  .clients-page-shell .client-profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    text-align: center;
+  }
+  .clients-page-shell .client-profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: color-mix(in oklch, var(--primary) 12%, var(--card));
+    border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--border));
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .clients-page-shell .client-profile-hero h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+
+  /* Contact Action Buttons (Mail, Phone, Message, Calendar) - closer gaps and centered */
+  .clients-page-shell .client-contact-actions {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin: 4px 0 8px !important;
+    padding: 0 !important;
+  }
+  .clients-page-shell .client-contact-actions a {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid color-mix(in oklch, var(--primary) 22%, var(--border)) !important;
+    border-radius: 50% !important;
+    background: var(--card) !important;
+    color: var(--primary) !important;
+    text-decoration: none !important;
+    order: 0 !important;
+  }
+  .clients-page-shell .client-contact-actions a svg {
+    display: block !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .clients-page-shell .client-contact-actions a span {
+    display: none !important;
+  }
+  .clients-page-shell .client-contact-actions::after {
+    display: none !important;
+    content: none !important;
+  }
+  .clients-page-shell .client-contact-actions a.is-disabled {
+    opacity: 0.35 !important;
+    pointer-events: none !important;
+  }
+
+  /* Form & Fields */
+  .clients-page-shell .client-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 0;
+  }
+  .clients-page-shell .client-form > label {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .clients-page-shell .client-form > label.client-tags-field {
+    display: none;
+  }
+
+  /* Display text for email and phone */
+  .clients-page-shell .client-display-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--foreground);
+    padding: 2px 0;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+  .clients-page-shell .client-display-value.is-empty {
+    color: var(--muted-foreground);
+  }
+
+  /* Block online toggle */
+  .clients-page-shell .client-block-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+  }
+  .clients-page-shell .client-block-toggle input {
+    flex: 0 0 16px;
+    margin: 0;
+  }
   .clients-page-shell .client-block-toggle span { display: block; }
   .clients-page-shell .client-block-toggle small { display: none; }
-  .clients-page-shell .client-form input[readonly] { background: var(--muted); color: var(--muted-foreground); }
-  .clients-page-shell .client-back-button,
-  .clients-page-shell .client-profile-actions button { color: var(--foreground); opacity: 1; }
-  .clients-page-shell .client-drawer > footer { display: none; }
+
+  .clients-page-shell .client-stats,
+  .clients-page-shell .client-history {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .clients-page-shell .client-history {
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  .clients-page-shell .client-drawer > footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: auto;
+    padding: 14px 0 env(safe-area-inset-bottom);
+  }
 }
