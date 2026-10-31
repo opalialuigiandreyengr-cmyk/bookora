@@ -221,7 +221,7 @@ export function NewAppointmentModal({
               )}
             </label>
 
-            {services.length > 1 && <fieldset className="cal-form-field cal-field-full cal-additional-services"><legend>Additional services <small>Select any extras</small></legend><div>{services.filter((service) => service.name !== selectedService).map((service) => <label className={additionalServiceNames.includes(service.name) ? "is-selected" : ""} key={service.name}><input type="checkbox" checked={additionalServiceNames.includes(service.name)} onChange={(event) => setAdditionalServiceNames((current) => event.target.checked ? [...current, service.name] : current.filter((name) => name !== service.name))} /><span><strong>{service.name}</strong><small>{service.duration_minutes} mins · {service.price}</small></span></label>)}</div></fieldset>}
+            {services.length > 1 && <fieldset className="cal-form-field cal-field-full cal-additional-services"><legend>Additional services <small>Select any extras</small></legend><div>{services.filter((service) => service.name !== selectedService).map((service) => <label className={`cal-service-choice ${additionalServiceNames.includes(service.name) ? "is-selected" : ""}`} key={service.name}><input className="cal-service-checkbox" type="checkbox" checked={additionalServiceNames.includes(service.name)} onChange={(event) => setAdditionalServiceNames((current) => event.target.checked ? [...current, service.name] : current.filter((name) => name !== service.name))} /><span><strong>{service.name}</strong><small>{service.duration_minutes} mins · {service.price}</small></span></label>)}</div></fieldset>}
 
             <label className="cal-form-field cal-date-field">
               <span>Date *</span>

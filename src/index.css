@@ -12587,3 +12587,5 @@ textarea:focus-visible {
   min-width: 0;
   overflow: hidden;
 }
+.cal-additional-services .cal-service-choice { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 0 !important; }
+.cal-additional-services .cal-service-checkbox { display: block !important; width: 18px !important; min-width: 18px !important; max-width: 18px !important; height: 18px !important; min-height: 18px !important; flex: 0 0 18px !important; margin: 0 8px 0 0 !important; padding: 0 !important; }
