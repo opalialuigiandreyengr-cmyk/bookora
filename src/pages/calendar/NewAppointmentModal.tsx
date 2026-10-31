@@ -225,12 +225,12 @@ export function NewAppointmentModal({
 
             {services.length > 1 && <fieldset className="cal-form-field cal-field-full cal-additional-services"><legend>Additional services <small>Select any extras</small></legend><div>{services.filter((service) => service.name !== selectedService).map((service) => <label className={additionalServiceNames.includes(service.name) ? "is-selected" : ""} key={service.name}><input type="checkbox" checked={additionalServiceNames.includes(service.name)} onChange={(event) => setAdditionalServiceNames((current) => event.target.checked ? [...current, service.name] : current.filter((name) => name !== service.name))} /><span><strong>{service.name}</strong><small>{service.duration_minutes} mins · {service.price}</small></span></label>)}</div></fieldset>}
 
-            <label className="cal-form-field">
+            <label className="cal-form-field cal-date-field">
               <span>Date *</span>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </label>
 
-            <label className="cal-form-field">
+            <label className="cal-form-field cal-time-field">
               <span>Start Time *</span>
               <select value={time} onChange={(e) => setTime(e.target.value)}>
                 {TIME_SLOTS.map((slot) => (
@@ -241,12 +241,12 @@ export function NewAppointmentModal({
               </select>
             </label>
 
-            <label className="cal-form-field">
+            <label className="cal-form-field cal-duration-field">
               <span>Duration</span>
               <input value={`${combinedDuration} mins`} readOnly aria-readonly="true" />
             </label>
 
-            <label className="cal-form-field">
+            <label className="cal-form-field cal-price-field">
               <span>Total Price</span>
               <input
                 type="text"
