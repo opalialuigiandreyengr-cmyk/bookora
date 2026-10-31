@@ -12560,3 +12560,30 @@ textarea:focus-visible {
   .payments-page-shell .payments-primary-action span { display: none; }
   .payments-page-shell .payments-primary-action { width: 36px; padding: 0; justify-content: center; }
 }
+
+/* Additional-service choices must override the generic full-width form input. */
+.cal-additional-services label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+.cal-additional-services label input[type="checkbox"] {
+  appearance: auto;
+  flex: 0 0 18px;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0 8px 0 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+.cal-additional-services label > span {
+  display: grid;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+}

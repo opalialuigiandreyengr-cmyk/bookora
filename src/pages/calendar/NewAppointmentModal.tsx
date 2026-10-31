@@ -75,8 +75,6 @@ export function NewAppointmentModal({
   const [time, setTime] = useState(defaultTime || "10:00 AM")
   const [saving, setSaving] = useState(false)
   const [staffMemberId, setStaffMemberId] = useState(staff[0]?.id ?? "")
-  const [recurrenceRule, setRecurrenceRule] = useState<"none" | "weekly" | "biweekly">("none")
-  const [recurrenceCount, setRecurrenceCount] = useState("4")
 
   useEffect(() => {
     if (defaultDate) setDate(defaultDate)
@@ -130,8 +128,8 @@ export function NewAppointmentModal({
         staff_member_id: staffMemberId || null,
         location_name: "",
         meeting_url: "",
-        recurrence_rule: recurrenceRule,
-        recurrence_count: recurrenceRule === "none" ? 1 : Number(recurrenceCount) || 2,
+        recurrence_rule: "none",
+        recurrence_count: 1,
       })
       setCustomerName("")
       setCustomerEmail("")
@@ -267,11 +265,6 @@ export function NewAppointmentModal({
                 onChange={(e) => setCustomerNote(e.target.value)}
               />
             </label>
-            <label className="cal-form-field">
-              <span>Repeat</span>
-              <select value={recurrenceRule} onChange={(e) => setRecurrenceRule(e.target.value as typeof recurrenceRule)}><option value="none">Does not repeat</option><option value="weekly">Every week</option><option value="biweekly">Every 2 weeks</option></select>
-            </label>
-            {recurrenceRule !== "none" && <label className="cal-form-field"><span>Occurrences</span><select value={recurrenceCount} onChange={(e) => setRecurrenceCount(e.target.value)}>{[2, 3, 4, 5, 6, 7, 8].map((count) => <option key={count} value={count}>{count} appointments</option>)}</select></label>}
           </div>
 
           <footer className="cal-modal-actions">
