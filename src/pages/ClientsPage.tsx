@@ -74,7 +74,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<Client | null>(null)
-  const [editingContact, setEditingContact] = useState(false)
+  const [editingContact, setEditingContact] = useState(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -160,10 +160,6 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
   useEffect(() => {
     const noteField = document.querySelector(".client-drawer textarea")
     if (noteField instanceof HTMLTextAreaElement) noteField.placeholder = "Add your note"
-  }, [selected?.id])
-
-  useEffect(() => {
-    setEditingContact(false)
   }, [selected?.id])
 
   return <div className="dashboard-shell clients-page-shell">
