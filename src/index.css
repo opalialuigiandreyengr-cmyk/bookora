@@ -12045,6 +12045,14 @@ svg { stroke-width: 1.8; }
 
 /* Narrow mobile owner views: keep the payment page in normal document flow. */
 @media (max-width: 680px) {
+  /* Keep the workspace navigation visible while every owner page scrolls. */
+  .dashboard-content > .dashboard-header {
+    position: sticky !important;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in oklch, var(--card) 96%, transparent);
+    backdrop-filter: blur(12px);
+  }
   .payments-page-shell .payments-primary-action {
     position: static;
     width: 100%;
