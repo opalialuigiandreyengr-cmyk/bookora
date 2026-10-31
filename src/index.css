@@ -12709,3 +12709,21 @@ textarea:focus-visible {
   .clients-page-shell .client-contact-actions a.is-disabled { opacity: .38; pointer-events: none; }
   .clients-page-shell .client-contact-actions a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 }
+
+@media (max-width: 680px) {
+  .clients-page-shell .client-drawer::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 15; height: 52px; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--card) 94%, transparent); pointer-events: none; }
+  .clients-page-shell .client-drawer > header { min-height: 130px; border-bottom: 0; }
+  .clients-page-shell .client-profile-hero { top: 36px !important; gap: 5px; }
+  .clients-page-shell .client-profile-avatar { width: 40px; height: 40px; }
+  .clients-page-shell .client-form { gap: 9px; padding-top: 4px; }
+  .clients-page-shell .client-contact-actions { gap: 6px; padding-bottom: 2px; }
+  .clients-page-shell .client-contact-actions a,
+  .clients-page-shell .client-contact-actions::after { width: 40px; height: 40px; min-height: 40px; }
+  .clients-page-shell .client-form > label:nth-child(4) { display: none; }
+  .clients-page-shell .client-block-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 0; border: 0; background: transparent; }
+  .clients-page-shell .client-block-toggle input { flex: 0 0 16px; margin: 0; }
+  .clients-page-shell .client-block-toggle span { display: block; }
+  .clients-page-shell .client-block-toggle small { display: none; }
+  .clients-page-shell .client-form input[readonly] { background: var(--muted); color: var(--muted-foreground); }
+  .clients-page-shell .client-drawer > footer { position: static; margin-top: 0; padding-top: 10px; }
+}
