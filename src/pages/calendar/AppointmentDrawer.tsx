@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
-import { CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, Loader2, Mail, MapPin, Phone, Scissors, Tag, X, XCircle } from "lucide-react"
+import { CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
+import { showToast } from "@/components/ui/toast"
 
 interface AppointmentDrawerProps {
   appointment: CalendarAppointment | null
@@ -21,6 +22,8 @@ export function AppointmentDrawer({
 }: AppointmentDrawerProps) {
   const drawerRef = useRef<HTMLElement | null>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [attachmentUrls, setAttachmentUrls] = useState<{ peg: string; receipt: string }>({ peg: "", receipt: "" })
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; label: string } | null>(null)
   const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
@@ -33,7 +36,19 @@ export function AppointmentDrawer({
     setConfirmAction(null)
     setCancelConfirmation("")
     setStatusUpdating(false)
+    setMenuOpen(false)
   }, [appointment?.id])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [menuOpen])
 
   useEffect(() => {
     if (!appointment) return
@@ -141,123 +156,256 @@ export function AppointmentDrawer({
       }}
     >
       <aside ref={drawerRef} className="cal-drawer" role="dialog" aria-modal="true" aria-labelledby="appointment-drawer-title">
-        <header className="cal-drawer-header">
-          <div className="cal-drawer-heading-row">
-            <h2 id="appointment-drawer-title">Appointment Details</h2>
-            <span className={`cal-status-pill is-${appointment.status}`}>{statusLabel}</span>
+        <header className="cal-drawer-nav">
+          <div className="cal-drawer-nav-left">
+            <button type="button" className="cal-drawer-nav-back" onClick={onClose} aria-label="Back to calendar">
+              <ChevronLeft size={22} />
+            </button>
+            <div className="cal-drawer-title-wrap">
+              <h2 id="appointment-drawer-title">Overview</h2>
+              <span className={`cal-status-pill is-${appointment.status}`}>{statusLabel}</span>
+            </div>
           </div>
-          <button type="button" className="cal-drawer-close" onClick={onClose} aria-label="Close details">
-            <X size={18} />
-          </button>
+          <div className="cal-drawer-nav-actions">
+            <button
+              type="button"
+              className="cal-drawer-nav-btn"
+              onClick={() => onReschedule(appointment)}
+              aria-label="Edit appointment"
+              title="Reschedule / Edit"
+            >
+              <Pencil size={18} />
+            </button>
+            <div className="cal-drawer-menu-container" ref={menuRef}>
+              <button
+                type="button"
+                className="cal-drawer-nav-btn"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="More options"
+                aria-expanded={menuOpen}
+              >
+                <MoreVertical size={18} />
+              </button>
+              {menuOpen && (
+                <div className="cal-drawer-dropdown-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      void onReschedule(appointment)
+                    }}
+                  >
+                    <Pencil size={14} /> Reschedule
+                  </button>
+                  {appointment.status === "approved" && (
+                    <>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false)
+                          void onUpdateStatus(appointment.id, "completed")
+                        }}
+                      >
+                        <CheckCircle2 size={14} /> Mark Completed
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false)
+                          const reason = window.prompt("Internal no-show reason (optional)") || ""
+                          void onUpdateStatus(appointment.id, "no_show", reason)
+                        }}
+                      >
+                        <XCircle size={14} /> Mark No-show
+                      </button>
+                    </>
+                  )}
+                  {appointment.status === "cancelled" && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        void onUpdateStatus(appointment.id, "approved")
+                      }}
+                    >
+                      <CheckCircle2 size={14} /> Restore to Approved
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(appointment.id)
+                      showToast("Booking ID copied")
+                      setMenuOpen(false)
+                    }}
+                  >
+                    <Copy size={14} /> Copy Booking ID
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="is-danger"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      if (window.confirm("Are you sure you want to delete this appointment?")) {
+                        void onDelete(appointment.id)
+                        onClose()
+                      }
+                    }}
+                  >
+                    <Trash2 size={14} /> Delete Appointment
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </header>
 
         <div className="cal-drawer-body">
-          <div className="cal-drawer-section cal-drawer-schedule">
-            <div className="cal-drawer-client">
+          {/* 1. Service and with duration */}
+          <div className="cal-overview-card cal-overview-service">
+            <div className="cal-overview-card-header">
+              <span className="cal-overview-icon"><Scissors size={16} /></span>
+              <span className="cal-overview-card-label">Service &amp; Duration</span>
+            </div>
+            <div className="cal-service-content">
+              <h3 className="cal-service-name">{appointment.service_names}</h3>
+              <div className="cal-service-meta-badges">
+                <span className="cal-meta-badge duration">
+                  <Clock3 size={13} /> {appointment.duration_minutes} mins
+                </span>
+                <span className="cal-meta-badge price">
+                  <Tag size={13} /> {appointment.total_price}
+                </span>
+              </div>
+            </div>
+            {appointment.meeting_url && (
+              <a className="cal-service-meeting-link" href={appointment.meeting_url} target="_blank" rel="noreferrer">
+                <ExternalLink size={14} /> Join video appointment
+              </a>
+            )}
+            {appointment.status === "no_show" && appointment.no_show_reason && (
+              <div className="cal-service-no-show">
+                <FileText size={13} />
+                <span>No-show reason: {appointment.no_show_reason}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Date and Time */}
+          <div className="cal-overview-card cal-overview-schedule">
+            <div className="cal-overview-card-header">
+              <span className="cal-overview-icon"><CalendarDays size={16} /></span>
+              <span className="cal-overview-card-label">Date &amp; Time</span>
+            </div>
+            <div className="cal-schedule-content">
+              <strong className="cal-schedule-date">{formattedDate}</strong>
+              <span className="cal-schedule-time">{appointment.appointment_time}</span>
+            </div>
+          </div>
+
+          {/* 3. Compact Guest Info: Avatar with Name, Email, and Phone */}
+          <div className="cal-overview-card cal-overview-guest">
+            <div className="cal-overview-card-header">
+              <span className="cal-overview-card-label">Guest</span>
+            </div>
+            <div className="cal-guest-compact-body">
               <span className={`cal-client-avatar ${appointment.color}`}>
                 {getInitials(appointment.customer_name)}
               </span>
-              <div>
-                <strong>{appointment.customer_name}</strong>
-                <span>Client</span>
+              <div className="cal-guest-details">
+                <strong className="cal-guest-name">{appointment.customer_name}</strong>
+                <div className="cal-guest-contact-inline">
+                  {appointment.customer_email ? (
+                    <a href={`mailto:${appointment.customer_email}`} className="cal-guest-inline-item">
+                      <Mail size={13} />
+                      <span>{appointment.customer_email}</span>
+                    </a>
+                  ) : (
+                    <span className="cal-guest-inline-item is-empty">
+                      <Mail size={13} /> No email
+                    </span>
+                  )}
+                  {appointment.customer_phone ? (
+                    <a href={`tel:${appointment.customer_phone}`} className="cal-guest-inline-item">
+                      <Phone size={13} />
+                      <span>{appointment.customer_phone}</span>
+                    </a>
+                  ) : (
+                    <span className="cal-guest-inline-item is-empty">
+                      <Phone size={13} /> No phone provided
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <h3>Service &amp; Schedule</h3>
-            <div className="cal-drawer-info-list">
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon">
-                  <Scissors size={16} />
-                </span>
-                <div>
-                  <small>Service</small>
-                  <strong>{appointment.service_names}</strong>
-                </div>
+            {appointment.customer_address && (
+              <div className="cal-guest-extra-row">
+                <MapPin size={13} />
+                <span>{appointment.customer_address}</span>
               </div>
-              {appointment.status === "no_show" && appointment.no_show_reason && <div className="cal-drawer-info-row"><span className="cal-drawer-info-icon"><FileText size={16} /></span><div><small>Internal no-show reason</small><strong>{appointment.no_show_reason}</strong></div></div>}
+            )}
+            {cleanCustomerNote && (
+              <div className="cal-guest-note-box">
+                <span className="cal-guest-note-label">Client Note:</span>
+                <p className="cal-guest-note-text">{cleanCustomerNote}</p>
+              </div>
+            )}
+          </div>
 
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon">
-                  <CalendarDays size={16} />
-                </span>
-                <div>
-                  <small>Date</small>
-                  <strong>{formattedDate}</strong>
-                </div>
+          {/* 4. Booking ID */}
+          <div className="cal-overview-card cal-overview-booking-id">
+            <div className="cal-booking-id-row">
+              <span className="cal-booking-id-label">Booking ID</span>
+              <div className="cal-booking-id-val">
+                <code>#{appointment.id.length > 12 ? appointment.id.slice(0, 8).toUpperCase() : appointment.id.toUpperCase()}</code>
+                <button
+                  type="button"
+                  className="cal-booking-id-copy"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(appointment.id)
+                    showToast("Booking ID copied")
+                  }}
+                  title="Copy full booking ID"
+                  aria-label="Copy booking ID"
+                >
+                  <Copy size={13} />
+                </button>
               </div>
-
-              <div className="cal-drawer-info-row cal-drawer-time-row">
-                <span className="cal-drawer-info-icon"><Clock3 size={16} /></span>
-                <div><small>Time</small><strong>{appointment.appointment_time}</strong></div>
-                <div><small>Duration</small><strong>{appointment.duration_minutes} mins</strong></div>
-              </div>
-
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon">
-                  <Tag size={16} />
-                </span>
-                <div>
-                  <small>Total Price</small>
-                  <strong className="cal-drawer-price">{appointment.total_price}</strong>
-                </div>
-              </div>
-              {appointment.meeting_url && <div className="cal-drawer-info-row"><span className="cal-drawer-info-icon"><ExternalLink size={16} /></span><div><small>Meeting link</small><a href={appointment.meeting_url} target="_blank" rel="noreferrer">Open video appointment</a></div></div>}
             </div>
           </div>
 
-          <div className="cal-drawer-section cal-drawer-contact">
-            <h3>Client Contact</h3>
-            <div className="cal-drawer-info-list">
-              <div className="cal-drawer-info-row cal-drawer-email">
-                <span className="cal-drawer-info-icon">
-                  <Mail size={16} />
-                </span>
-                <div>
-                  <small>Email</small>
-                  <strong>{appointment.customer_email || "Not provided"}</strong>
-                </div>
-              </div>
-
-              <div className="cal-drawer-info-row">
-                <span className="cal-drawer-info-icon">
-                  <Phone size={16} />
-                </span>
-                <div>
-                  <small>Phone</small>
-                  <strong>{appointment.customer_phone || "Not provided"}</strong>
-                </div>
-              </div>
-
-              {appointment.customer_address && (
-                <div className="cal-drawer-info-row">
-                  <span className="cal-drawer-info-icon">
-                    <MapPin size={16} />
-                  </span>
-                  <div>
-                    <small>Address</small>
-                    <strong>{appointment.customer_address}</strong>
-                  </div>
-                </div>
-              )}
-
-              {cleanCustomerNote && (
-                <div className="cal-drawer-info-row cal-drawer-note">
-                  <span className="cal-drawer-info-icon">
-                    <FileText size={16} />
-                  </span>
-                  <div>
-                    <small>Client Note</small>
-                    <strong>{cleanCustomerNote}</strong>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
+          {/* 5. Client Attachments */}
           <div className="cal-drawer-section cal-drawer-attachments">
             <h3>Client Attachments</h3>
             <div className="cal-drawer-attachment-grid">
-              {attachmentUrls.peg ? <button type="button" className="cal-drawer-attachment" onClick={() => setSelectedAttachment({ url: attachmentUrls.peg, label: "Design peg" })}><img src={attachmentUrls.peg} alt="Client design reference" /><span>Design peg</span></button> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Design peg</span><small>No attachment</small></div>}
-              {attachmentUrls.receipt ? <button type="button" className="cal-drawer-attachment" onClick={() => setSelectedAttachment({ url: attachmentUrls.receipt, label: "Payment receipt" })}><img src={attachmentUrls.receipt} alt="Client payment receipt" /><span>Payment receipt</span></button> : <div className="cal-drawer-attachment cal-drawer-attachment-empty"><span>Payment receipt</span><small>No attachment</small></div>}
+              {attachmentUrls.peg ? (
+                <button type="button" className="cal-drawer-attachment" onClick={() => setSelectedAttachment({ url: attachmentUrls.peg, label: "Design peg" })}>
+                  <img src={attachmentUrls.peg} alt="Client design reference" />
+                  <span>Design peg</span>
+                </button>
+              ) : (
+                <div className="cal-drawer-attachment cal-drawer-attachment-empty">
+                  <span>Design peg</span>
+                  <small>No attachment</small>
+                </div>
+              )}
+              {attachmentUrls.receipt ? (
+                <button type="button" className="cal-drawer-attachment" onClick={() => setSelectedAttachment({ url: attachmentUrls.receipt, label: "Payment receipt" })}>
+                  <img src={attachmentUrls.receipt} alt="Client payment receipt" />
+                  <span>Payment receipt</span>
+                </button>
+              ) : (
+                <div className="cal-drawer-attachment cal-drawer-attachment-empty">
+                  <span>Payment receipt</span>
+                  <small>No attachment</small>
+                </div>
+              )}
             </div>
           </div>
         </div>

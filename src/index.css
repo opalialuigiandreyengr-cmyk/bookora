@@ -9930,76 +9930,429 @@ svg { stroke-width: 1.8; }
   word-break: break-word;
 }
 
-/* Appointment details use a compact information grid instead of a long stack of cards. */
-.cal-drawer-header {
+/* Appointment Overview Drawer (Minimalist Header + Compact Order) */
+.cal-drawer-nav {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 50px;
+  padding: 12px 16px 6px;
+  background: var(--card, #ffffff);
+  border-bottom: none !important;
+}
+
+.cal-drawer-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cal-drawer-nav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none !important;
+  border-radius: 6px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #111827;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.cal-drawer-nav-back:hover {
+  background: var(--muted, rgba(0, 0, 0, 0.04));
+}
+
+.cal-drawer-nav-back svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  stroke: #111827;
+  stroke-width: 2.2;
+}
+
+.booking-dark .cal-drawer-nav-back svg {
+  stroke: var(--foreground);
+  color: var(--foreground);
+}
+
+.cal-drawer-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cal-drawer-title-wrap h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 750;
+  color: var(--foreground, #111827);
+  letter-spacing: -0.01em;
+}
+
+.cal-drawer-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   position: relative;
-  padding: 14px 58px 14px 16px;
 }
 
-.cal-drawer-heading-row {
+.cal-drawer-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none !important;
+  border-radius: 6px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #111827;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.cal-drawer-nav-btn:hover {
+  background: var(--muted, rgba(0, 0, 0, 0.04));
+}
+
+.cal-drawer-nav-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  stroke: #111827;
+  stroke-width: 2;
+}
+
+.booking-dark .cal-drawer-nav-btn svg {
+  stroke: var(--foreground);
+  color: var(--foreground);
+}
+
+.cal-drawer-menu-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.cal-drawer-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 60;
+  min-width: 195px;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #ede9e4);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-drawer-dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding-right: 88px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground, #111827);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
 }
 
-.cal-drawer-heading-row .cal-status-pill {
-  position: absolute;
-  top: 50%;
-  right: 58px;
-  transform: translateY(-50%);
-  white-space: nowrap;
+.cal-drawer-dropdown-menu button:hover {
+  background: var(--muted, #f4f4f5);
 }
 
-.cal-drawer-close {
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  transform: translateY(-50%);
+.cal-drawer-dropdown-menu button.is-danger {
+  color: #dc2626;
+}
+
+.cal-drawer-dropdown-menu button.is-danger:hover {
+  background: color-mix(in oklch, #dc2626 10%, var(--card, #ffffff));
 }
 
 .cal-drawer-body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: start;
-  gap: 16px 14px;
-  padding: 16px;
-  background: #fffdfb;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 6px 16px 20px !important;
+  overflow-y: auto !important;
+  background: var(--background, #fffdfb);
 }
 
-.cal-drawer-client,
-.cal-drawer-section {
-  grid-column: 1 / -1;
+.cal-overview-card {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #ede9e4);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.cal-drawer-section {
-  gap: 10px;
+.cal-overview-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.cal-drawer-info-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 18px;
+.cal-overview-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--primary, #e35659);
 }
 
-.cal-drawer-schedule .cal-drawer-info-list {
-  grid-template-columns: 1fr;
+.cal-overview-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground, #64748b);
 }
 
-.cal-drawer-email,
-.cal-drawer-note {
-  grid-column: 1 / -1;
+.cal-service-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.cal-drawer-info-row {
+.cal-service-name {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--foreground, #141b26);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.cal-service-meta-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.cal-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.cal-meta-badge.duration {
+  background: color-mix(in oklch, var(--primary, #e35659) 12%, var(--card, #ffffff));
+  color: var(--primary, #e35659);
+}
+
+.cal-meta-badge.price {
+  background: var(--muted, #f4f4f5);
+  color: var(--foreground, #111827);
+  font-weight: 750;
+}
+
+.cal-service-meeting-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary, #e35659);
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+.cal-service-no-show {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #dc2626;
+  background: color-mix(in oklch, #dc2626 8%, var(--card, #ffffff));
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.cal-schedule-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-schedule-date {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: var(--foreground, #141b26);
+}
+
+.cal-schedule-time {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted-foreground, #64748b);
+}
+
+.cal-guest-compact-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cal-guest-compact-body .cal-client-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50% !important;
+  font-size: 14px;
+  font-weight: 800;
+  background: color-mix(in oklch, var(--primary, #e35659) 14%, var(--card, #ffffff));
+  color: var(--primary, #e35659);
+}
+
+.cal-guest-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
-  padding: 11px 0;
-  border: 0;
-  border-bottom: 1px solid #f1eeea;
-  border-radius: 0;
-  background: transparent;
 }
 
-.cal-drawer-info-row:nth-last-child(-n + 2) {
-  border-bottom: 0;
+.cal-guest-name {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: var(--foreground, #141b26);
+}
+
+.cal-guest-contact-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-guest-inline-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--foreground, #141b26);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.cal-guest-inline-item:hover {
+  color: var(--primary, #e35659);
+}
+
+.cal-guest-inline-item.is-empty {
+  color: var(--muted-foreground, #94a3b8);
+}
+
+.cal-guest-extra-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground, #64748b);
+}
+
+.cal-guest-note-box {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--muted, #f4f4f5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-guest-note-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted-foreground, #64748b);
+  letter-spacing: 0.04em;
+}
+
+.cal-guest-note-text {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--foreground, #141b26);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.cal-overview-booking-id {
+  padding: 10px 14px;
+}
+
+.cal-booking-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cal-booking-id-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground, #64748b);
+}
+
+.cal-booking-id-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-booking-id-val code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--muted, #f4f4f5);
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--foreground, #111827);
+}
+
+.cal-booking-id-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-foreground, #64748b);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cal-booking-id-copy:hover {
+  background: var(--muted, #f4f4f5);
+  color: var(--foreground, #111827);
 }
 
 .cal-drawer-attachments {
