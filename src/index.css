@@ -12586,6 +12586,21 @@ textarea:focus-visible {
   .payment-form-dialog footer { padding-top: 8px; }
 }
 
+.payments-toolbar .payments-date-filter {
+  border: 1px solid var(--input);
+  background: var(--card);
+  color: var(--foreground);
+  border-radius: 8px;
+}
+
+@media (max-width: 680px) {
+  .payments-compact-heading { min-height: 1px; margin: 0 0 14px; }
+  .payments-form-dialog { max-width: 100%; }
+  .payment-form .payment-client-email-field { grid-column: 1 / -1; }
+  .payment-form .payment-amount-field { grid-column: 1; }
+  .payment-form .payment-status-field { grid-column: 2; }
+}
+
 /* Additional-service choices must override the generic full-width form input. */
 .cal-additional-services label {
   display: flex;
