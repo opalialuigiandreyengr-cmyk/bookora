@@ -151,11 +151,15 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
     if (!draft.full_name.trim()) { showToast("Add a client name first.", "error"); return }
     setSaving(true); const payload = { business_id: user.id, full_name: draft.full_name.trim(), email: draft.email.trim(), phone: draft.phone.trim(), notes: draft.notes.trim(), tags: draft.tags.map((tag) => tag.trim()).filter(Boolean), blocked: Boolean(draft.blocked) }
     if (isLive && supabase) { const result = draft.id ? await supabase.from("clients").update(payload).eq("id", draft.id).eq("business_id", user.id).select("*").single() : await supabase.from("clients").insert(payload).select("*").single(); if (result.error) { showToast(result.error.message, "error"); setSaving(false); return }; draft = { ...draft, id: String(result.data.id), ...payload } } else { draft = { ...draft, id: draft.id || `client-${Date.now()}` } }
-    const next = clients.some((client) => client.id === draft.id) ? clients.map((client) => client.id === draft.id ? draft : client) : [draft, ...clients]; setClients(next); if (!isLive) window.localStorage.setItem(storageKey, JSON.stringify(next)); setSelected(draft); setSaving(false); showToast("Client saved")
+    const next = clients.some((client) => client.id === draft.id) ? clients.map((client) => client.id === draft.id ? draft : client) : [draft, ...clients]; setClients(next); if (!isLive) window.localStorage.setItem(storageKey, JSON.stringify(next)); setSelected(draft); setSaving(false); setEditingContact(false); showToast("Client saved")
   }
 
   const selectedHistory = selected ? historyFor(selected) : []
   const selectedSpend = selectedHistory.reduce((sum, item) => sum + (Number(String(item.total_price).replace(/[^0-9.-]+/g, "")) || 0), 0)
+
+  useEffect(() => {
+    setEditingContact(Boolean(selected && !selected.id))
+  }, [selected?.id])
 
   useEffect(() => {
     const noteField = document.querySelector(".client-drawer textarea")
@@ -181,14 +185,14 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
         <aside className="client-drawer" role="dialog" aria-modal="true" aria-labelledby="client-drawer-title">
           <header className="client-drawer-nav">
             <button type="button" className="client-back-button" aria-label="Back to clients" onClick={() => { setEditingContact(false); setSelected(null) }}>
-              <ChevronLeft size={18} />
+              <ChevronLeft size={22} />
             </button>
             <div className="client-profile-actions">
               <button type="button" aria-label="Edit contact details" aria-pressed={editingContact} onClick={() => setEditingContact((value) => !value)}>
-                <Pencil size={15} />
+                <Pencil size={18} />
               </button>
               <button type="button" aria-label="More client actions">
-                <MoreVertical size={15} />
+                <MoreVertical size={18} />
               </button>
             </div>
           </header>
@@ -271,7 +275,10 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               Tags
               <input
                 value={selected.tags.join(", ")}
-                onChange={(event) => setSelected({ ...selected, tags: event.target.value.split(",").map((tag) => tag.trim()) })}
+                onChange={(event) => {
+                  setSelected({ ...selected, tags: event.target.value.split(",").map((tag) => tag.trim()) })
+                  setEditingContact(true)
+                }}
                 placeholder="regular, bridal, VIP"
               />
             </label>
@@ -279,7 +286,10 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               Internal notes
               <textarea
                 value={selected.notes}
-                onChange={(event) => setSelected({ ...selected, notes: event.target.value })}
+                onChange={(event) => {
+                  setSelected({ ...selected, notes: event.target.value })
+                  setEditingContact(true)
+                }}
                 rows={4}
                 maxLength={500}
                 placeholder="Add your note"
@@ -290,7 +300,10 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               <input
                 type="checkbox"
                 checked={Boolean(selected.blocked)}
-                onChange={(event) => setSelected({ ...selected, blocked: event.target.checked })}
+                onChange={(event) => {
+                  setSelected({ ...selected, blocked: event.target.checked })
+                  setEditingContact(true)
+                }}
               />
               <span>
                 <strong>Block online booking</strong>
@@ -317,10 +330,33 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               )}
             </section>
           </div>
-          <footer>
-            <button type="button" className="staff-secondary-button" onClick={() => { setEditingContact(false); setSelected(null) }}>Cancel</button>
-            <button type="button" className="staff-primary-button" disabled={saving} onClick={() => void saveClient(selected)}>{saving ? "Saving…" : "Save client"}</button>
-          </footer>
+          {(!selected.id || editingContact) && (
+            <footer>
+              <button
+                type="button"
+                className="staff-secondary-button"
+                onClick={() => {
+                  if (!selected.id) {
+                    setSelected(null)
+                  } else {
+                    const original = clients.find((client) => client.id === selected.id)
+                    if (original) setSelected(original)
+                  }
+                  setEditingContact(false)
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="staff-primary-button"
+                disabled={saving}
+                onClick={() => void saveClient(selected)}
+              >
+                {saving ? "Saving…" : "Save client"}
+              </button>
+            </footer>
+          )}
         </aside>
       </div>
     )}
