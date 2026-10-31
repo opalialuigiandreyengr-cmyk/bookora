@@ -12699,6 +12699,9 @@ textarea:focus-visible {
   .clients-page-shell .client-back-button { position: absolute !important; top: 8px; left: 16px; z-index: 30 !important; display: grid !important; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: var(--card) !important; color: var(--foreground) !important; visibility: visible !important; }
   .clients-page-shell .client-profile-actions { position: absolute !important; top: 8px; right: 16px; z-index: 30 !important; display: flex !important; gap: 2px; visibility: visible !important; }
   .clients-page-shell .client-profile-actions button { display: grid !important; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: var(--card) !important; color: var(--foreground) !important; visibility: visible !important; }
+  .clients-page-shell .client-back-button svg,
+  .clients-page-shell .client-profile-actions svg { display: block !important; width: 15px; height: 15px; color: #334155 !important; stroke: #334155 !important; opacity: 1 !important; visibility: visible !important; }
+  .clients-page-shell .client-drawer > header > button::before { display: none !important; }
   .clients-page-shell .client-profile-hero { position: absolute !important; top: 37px !important; left: 0 !important; right: 0 !important; display: grid; justify-items: center; gap: 8px; text-align: center; }
   .clients-page-shell .client-profile-avatar { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid color-mix(in oklch, var(--primary) 18%, var(--border)); border-radius: 50%; background: color-mix(in oklch, var(--primary) 10%, var(--card)); color: var(--primary); font-size: 12px; font-weight: 800; }
   .clients-page-shell .client-profile-hero h2 { margin: 0; font-size: 14px; font-weight: 650; }
