@@ -12561,6 +12561,31 @@ textarea:focus-visible {
   .payments-page-shell .payments-primary-action { width: 36px; padding: 0; justify-content: center; }
 }
 
+/* Keep the payment action in the sticky workspace header. A legacy mobile rule
+   sets this action back to static flow, so this is intentionally last. */
+@media (max-width: 680px) {
+  .payments-page-shell .payments-primary-action {
+    position: fixed !important;
+    z-index: 80;
+    top: 12px;
+    right: 12px;
+    width: auto;
+    min-height: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0 10px;
+    border-radius: 9px;
+  }
+  .payments-page-shell .dashboard-page-heading { padding-right: 0; }
+  .payment-form-dialog { max-height: 90dvh; padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
+  .payment-form-dialog header { padding-bottom: 11px; }
+  .payment-form-dialog header h2 { font-size: 17px; font-weight: 700; }
+  .payment-form { gap: 8px; padding: 12px 0; }
+  .payment-form label { gap: 4px; font-size: 10px; }
+  .payment-form input, .payment-form select, .payment-form textarea { min-height: 38px; border-radius: 7px; }
+  .payment-form-dialog footer { padding-top: 8px; }
+}
+
 /* Additional-service choices must override the generic full-width form input. */
 .cal-additional-services label {
   display: flex;
