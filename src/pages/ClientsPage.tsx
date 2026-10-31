@@ -179,14 +179,10 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
     {selected && (
       <div className="client-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null) }}>
         <aside className="client-drawer" role="dialog" aria-modal="true" aria-labelledby="client-drawer-title">
-          <header>
+          <header className="client-drawer-nav">
             <button type="button" className="client-back-button" aria-label="Back to clients" onClick={() => { setEditingContact(false); setSelected(null) }}>
               <ChevronLeft size={18} />
             </button>
-            <div className="client-profile-hero">
-              <span className="client-profile-avatar">{selected.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "?"}</span>
-              <h2 id="client-drawer-title">{selected.id ? selected.full_name : "Add client"}</h2>
-            </div>
             <div className="client-profile-actions">
               <button type="button" aria-label="Edit contact details" aria-pressed={editingContact} onClick={() => setEditingContact((value) => !value)}>
                 <Pencil size={15} />
@@ -196,6 +192,10 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               </button>
             </div>
           </header>
+          <div className="client-profile-hero">
+            <span className="client-profile-avatar">{selected.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "?"}</span>
+            <h2 id="client-drawer-title">{selected.id ? selected.full_name : "Add client"}</h2>
+          </div>
           {selected.id && (
             <div className="client-contact-actions" aria-label="Contact client">
               <a className={!selected.email ? "is-disabled" : ""} href={selected.email ? `mailto:${selected.email}` : undefined} aria-label="Email" title="Email client">
@@ -228,38 +228,45 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
                 />
               </label>
             )}
-            <label>
-              Email
-              {editingContact || !selected.id ? (
-                <input
-                  type="email"
-                  value={selected.email}
-                  onChange={(event) => setSelected({ ...selected, email: event.target.value })}
-                  maxLength={150}
-                  placeholder="client@example.com"
-                />
-              ) : (
-                <span className={`client-display-value ${!selected.email ? "is-empty" : ""}`}>
-                  {selected.email || "—"}
-                </span>
-              )}
-            </label>
-            <label>
-              Phone
-              {editingContact || !selected.id ? (
-                <input
-                  type="tel"
-                  value={selected.phone}
-                  onChange={(event) => setSelected({ ...selected, phone: event.target.value })}
-                  maxLength={40}
-                  placeholder="+63 900 000 0000"
-                />
-              ) : (
-                <span className={`client-display-value ${!selected.phone ? "is-empty" : ""}`}>
-                  {selected.phone || "—"}
-                </span>
-              )}
-            </label>
+            {editingContact || !selected.id ? (
+              <>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={selected.email}
+                    onChange={(event) => setSelected({ ...selected, email: event.target.value })}
+                    maxLength={150}
+                    placeholder="client@example.com"
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    type="tel"
+                    value={selected.phone}
+                    onChange={(event) => setSelected({ ...selected, phone: event.target.value })}
+                    maxLength={40}
+                    placeholder="+63 900 000 0000"
+                  />
+                </label>
+              </>
+            ) : (
+              <div className="client-contact-info-list">
+                <div className="client-inline-row">
+                  <span className="client-inline-label">Email:</span>
+                  <span className={`client-inline-value ${!selected.email ? "is-empty" : ""}`}>
+                    {selected.email || "—"}
+                  </span>
+                </div>
+                <div className="client-inline-row">
+                  <span className="client-inline-label">Phone:</span>
+                  <span className={`client-inline-value ${!selected.phone ? "is-empty" : ""}`}>
+                    {selected.phone || "—"}
+                  </span>
+                </div>
+              </div>
+            )}
             <label className="client-tags-field">
               Tags
               <input
