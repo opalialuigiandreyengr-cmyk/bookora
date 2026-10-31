@@ -12667,3 +12667,26 @@ textarea:focus-visible {
   .clients-page-shell .client-drawer > header .client-profile-actions { display: none; }
   .clients-page-shell .client-form { padding: 18px 0; }
 }
+
+@media (max-width: 680px) {
+  /* Contact-card detail view. */
+  .clients-page-shell .client-drawer > header { position: sticky; min-height: 164px; align-items: flex-start; padding-top: 10px; }
+  .clients-page-shell .client-drawer > header::before { content: ""; position: absolute; top: 53px; left: 50%; width: 62px; height: 62px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in oklch, var(--primary) 12%, var(--card)); border: 1px solid color-mix(in oklch, var(--primary) 18%, var(--border)); }
+  .clients-page-shell .client-drawer > header > div:not(.client-profile-actions) { position: absolute; top: 123px; left: 16px; right: 16px; text-align: center; }
+  .clients-page-shell .client-drawer > header h2 { font-size: 17px; }
+  .clients-page-shell .client-drawer > header::after { top: 12px; right: 16px; position: absolute; }
+  .clients-page-shell .client-form { display: flex; flex-direction: column; gap: 13px; }
+  .clients-page-shell .client-form > label:first-child { display: none; }
+  .clients-page-shell .client-form > label { width: 100%; box-sizing: border-box; }
+  .clients-page-shell .client-contact-actions { order: -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; padding: 0 0 4px; }
+  .clients-page-shell .client-contact-actions a { display: grid; justify-items: center; gap: 5px; min-height: 48px; padding: 7px 3px; border: 1px solid var(--border); border-radius: 9px; color: var(--primary); font-size: 10px; text-decoration: none; }
+  .clients-page-shell .client-contact-actions a:nth-child(1) { order: 3; }
+  .clients-page-shell .client-contact-actions a:nth-child(2) { order: 2; }
+  .clients-page-shell .client-contact-actions a:nth-child(3) { order: 1; }
+  .clients-page-shell .client-contact-actions::after { content: "▣\\A Appointment"; white-space: pre; text-align: center; display: grid; place-items: center; gap: 5px; min-height: 48px; padding: 7px 3px; border: 1px solid var(--border); border-radius: 9px; color: var(--primary); font-size: 10px; }
+  .clients-page-shell .client-stats,
+  .clients-page-shell .client-history,
+  .clients-page-shell .client-block-toggle { width: 100%; box-sizing: border-box; }
+  .clients-page-shell .client-history { margin-top: 2px; }
+  .clients-page-shell .client-drawer > footer { width: 100%; box-sizing: border-box; }
+}

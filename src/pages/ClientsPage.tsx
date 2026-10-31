@@ -156,6 +156,11 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
   const selectedHistory = selected ? historyFor(selected) : []
   const selectedSpend = selectedHistory.reduce((sum, item) => sum + (Number(String(item.total_price).replace(/[^0-9.-]+/g, "")) || 0), 0)
 
+  useEffect(() => {
+    const noteField = document.querySelector(".client-drawer textarea")
+    if (noteField instanceof HTMLTextAreaElement) noteField.placeholder = "Add your note"
+  }, [selected?.id])
+
   return <div className="dashboard-shell clients-page-shell">
     <OwnerSidebar user={user} active="Clients" open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNavigate={(path) => window.location.assign(path)} />
     <div className="dashboard-content"><header className="dashboard-header"><OwnerMobileMenuButton onOpen={() => setSidebarOpen(true)} /><div className="dashboard-header-context"><span>Clients</span><small>Owner workspace</small></div></header>
