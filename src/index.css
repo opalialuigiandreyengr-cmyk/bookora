@@ -12711,9 +12711,9 @@ textarea:focus-visible {
 }
 
 @media (max-width: 680px) {
-  .clients-page-shell .client-drawer::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 15; height: 52px; border-bottom: 1px solid var(--border); background: color-mix(in oklch, var(--card) 94%, transparent); pointer-events: none; }
-  .clients-page-shell .client-drawer > header { min-height: 130px; border-bottom: 0; }
-  .clients-page-shell .client-profile-hero { top: 36px !important; gap: 5px; }
+  .clients-page-shell .client-drawer::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 15; height: 50px; border-bottom: 1px solid var(--border); background: var(--card); box-shadow: 0 2px 8px color-mix(in oklch, #111827 8%, transparent); pointer-events: none; }
+  .clients-page-shell .client-drawer > header { min-height: 146px; border-bottom: 0; }
+  .clients-page-shell .client-profile-hero { top: 62px !important; gap: 5px; }
   .clients-page-shell .client-profile-avatar { width: 40px; height: 40px; }
   .clients-page-shell .client-form { gap: 9px; padding-top: 4px; }
   .clients-page-shell .client-contact-actions { gap: 6px; padding-bottom: 2px; }
@@ -12725,5 +12725,7 @@ textarea:focus-visible {
   .clients-page-shell .client-block-toggle span { display: block; }
   .clients-page-shell .client-block-toggle small { display: none; }
   .clients-page-shell .client-form input[readonly] { background: var(--muted); color: var(--muted-foreground); }
-  .clients-page-shell .client-drawer > footer { position: static; margin-top: 0; padding-top: 10px; }
+  .clients-page-shell .client-back-button,
+  .clients-page-shell .client-profile-actions button { color: var(--foreground); opacity: 1; }
+  .clients-page-shell .client-drawer > footer { display: none; }
 }
