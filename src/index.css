@@ -12646,3 +12646,24 @@ textarea:focus-visible {
   .client-view-action { grid-column: 2; grid-row: 1; align-self: center; justify-self: end; min-height: 32px; white-space: nowrap; }
   .client-card-tags { grid-column: 1 / -1; grid-row: 2; min-height: 0; }
 }
+
+@media (max-width: 680px) {
+  .clients-page-shell .clients-toolbar { margin-top: 0; margin-bottom: 10px; }
+  .clients-page-shell .clients-toolbar > span { display: none; }
+  .clients-page-shell .client-card-main small { display: none; }
+  .clients-page-shell .client-avatar { width: 34px; height: 34px; flex-basis: 34px; border-radius: 50%; font-size: 10px; }
+  .clients-page-shell .client-card { min-height: 58px; }
+  .clients-page-shell .client-card-tags { display: none; }
+  .clients-page-shell .client-drawer-backdrop { justify-content: stretch; }
+  .clients-page-shell .client-drawer { width: 100%; max-width: none; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 0; box-shadow: none; }
+  .clients-page-shell .client-drawer > header { position: sticky; top: 0; z-index: 5; min-height: 58px; box-sizing: border-box; margin: 0 -16px; padding: 8px 16px; align-items: center; background: color-mix(in oklch, var(--card) 96%, transparent); border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); }
+  .clients-page-shell .client-drawer > header > div:not(.client-profile-actions) { min-width: 0; }
+  .clients-page-shell .client-drawer > header .dashboard-kicker { display: none; }
+  .clients-page-shell .client-drawer > header h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .clients-page-shell .client-drawer > header > button { order: -1; width: 32px; height: 32px; flex: 0 0 32px; border: 0; border-radius: 8px; background: transparent; font-size: 0; }
+  .clients-page-shell .client-drawer > header > button svg { display: none; }
+  .clients-page-shell .client-drawer > header > button::before { content: "‹"; display: block; color: var(--foreground); font-size: 29px; font-weight: 300; line-height: 24px; }
+  .clients-page-shell .client-drawer > header::after { content: "✎  ⋮"; margin-left: auto; color: var(--muted-foreground); font-size: 18px; letter-spacing: 7px; }
+  .clients-page-shell .client-drawer > header .client-profile-actions { display: none; }
+  .clients-page-shell .client-form { padding: 18px 0; }
+}
