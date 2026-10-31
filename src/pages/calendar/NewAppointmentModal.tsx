@@ -74,9 +74,7 @@ export function NewAppointmentModal({
   const [date, setDate] = useState(defaultDate || toDateKey(new Date()))
   const [time, setTime] = useState(defaultTime || "10:00 AM")
   const [saving, setSaving] = useState(false)
-  const [staffMemberId, setStaffMemberId] = useState("")
-  const [locationName, setLocationName] = useState("")
-  const [meetingUrl, setMeetingUrl] = useState("")
+  const [staffMemberId, setStaffMemberId] = useState(staff[0]?.id ?? "")
   const [recurrenceRule, setRecurrenceRule] = useState<"none" | "weekly" | "biweekly">("none")
   const [recurrenceCount, setRecurrenceCount] = useState("4")
 
@@ -92,6 +90,12 @@ export function NewAppointmentModal({
       setDuration(String(services[0].duration_minutes || 60))
     }
   }, [services, selectedService])
+
+  useEffect(() => {
+    // This workspace currently has one owner/team member. Keep the assignment
+    // implicit so the appointment cannot accidentally be left unassigned.
+    if (staff.length > 0) setStaffMemberId(staff[0].id)
+  }, [staff, open])
 
   if (!open) return null
 
@@ -124,8 +128,8 @@ export function NewAppointmentModal({
         appointment_time: time,
         duration_minutes: combinedDuration,
         staff_member_id: staffMemberId || null,
-        location_name: locationName.trim(),
-        meeting_url: meetingUrl.trim(),
+        location_name: "",
+        meeting_url: "",
         recurrence_rule: recurrenceRule,
         recurrence_count: recurrenceRule === "none" ? 1 : Number(recurrenceCount) || 2,
       })
@@ -219,7 +223,7 @@ export function NewAppointmentModal({
               )}
             </label>
 
-            {services.length > 1 && <fieldset className="cal-form-field cal-field-full cal-additional-services"><legend>Additional services</legend><div>{services.filter((service) => service.name !== selectedService).map((service) => <label key={service.name}><input type="checkbox" checked={additionalServiceNames.includes(service.name)} onChange={(event) => setAdditionalServiceNames((current) => event.target.checked ? [...current, service.name] : current.filter((name) => name !== service.name))} />{service.name} <small>{service.duration_minutes} mins · {service.price}</small></label>)}</div></fieldset>}
+            {services.length > 1 && <fieldset className="cal-form-field cal-field-full cal-additional-services"><legend>Additional services <small>Select any extras</small></legend><div>{services.filter((service) => service.name !== selectedService).map((service) => <label className={additionalServiceNames.includes(service.name) ? "is-selected" : ""} key={service.name}><input type="checkbox" checked={additionalServiceNames.includes(service.name)} onChange={(event) => setAdditionalServiceNames((current) => event.target.checked ? [...current, service.name] : current.filter((name) => name !== service.name))} /><span><strong>{service.name}</strong><small>{service.duration_minutes} mins · {service.price}</small></span></label>)}</div></fieldset>}
 
             <label className="cal-form-field">
               <span>Date *</span>
@@ -238,14 +242,8 @@ export function NewAppointmentModal({
             </label>
 
             <label className="cal-form-field">
-              <span>Duration (mins)</span>
-              <select value={duration} onChange={(e) => setDuration(e.target.value)}>
-                <option value="30">30 mins</option>
-                <option value="45">45 mins</option>
-                <option value="60">60 mins</option>
-                <option value="90">90 mins</option>
-                <option value="120">120 mins</option>
-              </select>
+              <span>Duration</span>
+              <input value={`${combinedDuration} mins`} readOnly aria-readonly="true" />
             </label>
 
             <label className="cal-form-field">
@@ -258,24 +256,7 @@ export function NewAppointmentModal({
               />
             </label>
 
-            <label className="cal-form-field">
-              <span>Assigned staff</span>
-              <select value={staffMemberId} onChange={(e) => setStaffMemberId(e.target.value)}>
-                <option value="">Unassigned</option>
-                {staff.map((member) => <option key={member.id} value={member.id}>{member.full_name}</option>)}
-              </select>
-            </label>
-
-            <label className="cal-form-field">
-              <span>Location</span>
-              <input value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="Default location" maxLength={120} />
-            </label>
-
-            <label className="cal-form-field cal-field-full">
-              <span>Meeting link (optional)</span>
-              <input type="url" value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://meet.google.com/..." maxLength={2048} pattern="https://.*" />
-              <small>Use an HTTPS Zoom, Google Meet, or other provider link.</small>
-            </label>
+            {staff[0] && <div className="cal-form-field cal-owner-field"><span>Assigned staff</span><div className="cal-owner-value">{staff[0].full_name}<small>Owner</small></div></div>}
 
             <label className="cal-form-field cal-field-full">
               <span>Notes (optional)</span>
