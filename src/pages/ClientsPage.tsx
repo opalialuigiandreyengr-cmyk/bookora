@@ -5,8 +5,9 @@ import { OwnerMobileMenuButton, OwnerSidebar } from "@/components/owner/OwnerSid
 import { showToast } from "@/components/ui/toast"
 import { supabase } from "@/lib/supabase"
 import { buildDemoAppointments, type CalendarAppointment } from "@/pages/calendar/types"
+import { EditClientPage, type EditableClient } from "@/pages/EditClientPage"
 
-type Client = { id: string; full_name: string; email: string; phone: string; notes: string; tags: string[]; blocked?: boolean; created_at?: string }
+type Client = EditableClient
 const demoClients: Client[] = [
   { id: "client-anna", full_name: "Anna Reyes", email: "anna.reyes@example.com", phone: "+63 917 204 8812", notes: "Prefers soft neutral nude gel shade.", tags: ["returning"], blocked: false, created_at: "2026-01-12" },
   { id: "client-liza", full_name: "Liza Gomez", email: "liza.gomez@example.com", phone: "+63 918 552 3109", notes: "French tip nail art request.", tags: ["regular"], blocked: false, created_at: "2026-02-04" },
@@ -166,21 +167,17 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
     if (noteField instanceof HTMLTextAreaElement) noteField.placeholder = "Add your note"
   }, [selected?.id])
 
-  useEffect(() => {
-    setEditingContact(false)
-  }, [selected?.id])
-
   return <div className="dashboard-shell clients-page-shell">
     <OwnerSidebar user={user} active="Clients" open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNavigate={(path) => window.location.assign(path)} />
     <div className="dashboard-content"><header className="dashboard-header"><OwnerMobileMenuButton onOpen={() => setSidebarOpen(true)} /><div className="dashboard-header-context"><span>Clients</span><small>Owner workspace</small></div></header>
       <main className="dashboard-main clients-main">
-        <div className="dashboard-page-heading clients-compact-heading"><div className="clients-heading-actions"><button className="clients-primary-action" type="button" onClick={() => setSelected(emptyClient())}><Plus size={16} /> Add client</button></div></div>
+        <div className="dashboard-page-heading clients-compact-heading"><div className="clients-heading-actions"><button className="clients-primary-action" type="button" onClick={() => { setSelected(emptyClient()); setEditingContact(true) }}><Plus size={16} /> Add client</button></div></div>
         {error && <div className="clients-error" role="alert">{error}</div>}
         <div className="clients-toolbar"><label className="clients-search"><Search size={16} /><input aria-label="Search clients" placeholder="Search name, email, phone, or tag" value={search} onChange={(event) => setSearch(event.target.value)} /></label></div>
-        {loading ? <div className="clients-empty">Loading clients…</div> : visible.length === 0 ? <div className="clients-empty"><Users size={24} /><strong>{clients.length ? "No matching clients" : "No clients yet"}</strong><span>{clients.length ? "Try a different search term." : "Add your first client to start building a relationship history."}</span>{clients.length === 0 && <button type="button" onClick={() => setSelected(emptyClient())}>Add client</button>}</div> : <section className="clients-list" aria-label="Clients">{visible.map((client) => <article className="client-card" key={client.id}><button type="button" className="client-card-main" onClick={() => setSelected(client)}><span className="client-avatar">{client.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "?"}</span><span><strong>{client.full_name}</strong><small>{client.email || "No email"}</small><small>{client.phone || "No phone"}</small></span></button><div className="client-card-tags">{client.blocked && <span className="client-blocked-tag">Blocked online</span>}{client.tags.map((tag) => <span key={tag}><Tag size={12} /> {tag}</span>)}</div><button type="button" className="client-view-action" onClick={() => setSelected(client)}>View <ArrowRight size={14} /></button></article>)}</section>}
+        {loading ? <div className="clients-empty">Loading clients…</div> : visible.length === 0 ? <div className="clients-empty"><Users size={24} /><strong>{clients.length ? "No matching clients" : "No clients yet"}</strong><span>{clients.length ? "Try a different search term." : "Add your first client to start building a relationship history."}</span>{clients.length === 0 && <button type="button" onClick={() => { setSelected(emptyClient()); setEditingContact(true) }}>Add client</button>}</div> : <section className="clients-list" aria-label="Clients">{visible.map((client) => <article className="client-card" key={client.id}><button type="button" className="client-card-main" onClick={() => setSelected(client)}><span className="client-avatar">{client.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "?"}</span><span><strong>{client.full_name}</strong><small>{client.email || "No email"}</small><small>{client.phone || "No phone"}</small></span></button><div className="client-card-tags">{client.blocked && <span className="client-blocked-tag">Blocked online</span>}{client.tags.map((tag) => <span key={tag}><Tag size={12} /> {tag}</span>)}</div><button type="button" className="client-view-action" aria-label={`View ${client.full_name}`} onClick={() => setSelected(client)}><ArrowRight size={16} /></button></article>)}</section>}
       </main>
     </div>
-    {selected && (
+    {selected && (!editingContact || Boolean(selected.id)) && (
       <div className="client-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null) }}>
         <aside className="client-drawer" role="dialog" aria-modal="true" aria-labelledby="client-drawer-title">
           <header className="client-drawer-nav">
@@ -188,7 +185,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               <ChevronLeft size={22} />
             </button>
             <div className="client-profile-actions">
-              <button type="button" aria-label="Edit contact details" aria-pressed={editingContact} onClick={() => setEditingContact((value) => !value)}>
+              <button type="button" aria-label="Edit client" aria-pressed={editingContact} onClick={() => selected.id ? setEditingContact(true) : setEditingContact((value) => !value)}>
                 <Pencil size={18} />
               </button>
               <button type="button" aria-label="More client actions">
@@ -221,7 +218,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
             </div>
           )}
           <div className="client-form">
-            {(!selected.id || editingContact) && (
+            {!selected.id && (
               <label>
                 Name
                 <input
@@ -232,7 +229,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
                 />
               </label>
             )}
-            {editingContact || !selected.id ? (
+            {!selected.id ? (
               <>
                 <label>
                   Email
@@ -275,6 +272,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               Tags
               <input
                 value={selected.tags.join(", ")}
+                readOnly={Boolean(selected.id)}
                 onChange={(event) => {
                   setSelected({ ...selected, tags: event.target.value.split(",").map((tag) => tag.trim()) })
                   setEditingContact(true)
@@ -286,6 +284,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               Internal notes
               <textarea
                 value={selected.notes}
+                readOnly={Boolean(selected.id)}
                 onChange={(event) => {
                   setSelected({ ...selected, notes: event.target.value })
                   setEditingContact(true)
@@ -300,6 +299,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               <input
                 type="checkbox"
                 checked={Boolean(selected.blocked)}
+                disabled={Boolean(selected.id)}
                 onChange={(event) => {
                   setSelected({ ...selected, blocked: event.target.checked })
                   setEditingContact(true)
@@ -330,7 +330,7 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
               )}
             </section>
           </div>
-          {(!selected.id || editingContact) && (
+          {!selected.id && (
             <footer>
               <button
                 type="button"
@@ -360,5 +360,6 @@ function LegacyClientsPage({ user }: { user: User; onSignOut: () => void }) {
         </aside>
       </div>
     )}
+    {selected && editingContact && <EditClientPage client={selected} isNew={!selected.id} saving={saving} onChange={setSelected} onClose={() => { setEditingContact(false); if (!selected.id) setSelected(null) }} onSave={() => void saveClient(selected)} />}
   </div>
 }

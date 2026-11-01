@@ -37,6 +37,7 @@ export interface CalendarServiceOption {
   duration_minutes: number
   price: string
 }
+export interface CalendarClientOption { id: string; full_name: string; email: string; phone: string }
 export interface CalendarStaffOption { id: string; full_name: string }
 
 const COLOR_PALETTE: AppointmentColor[] = ["coral", "lilac", "peach", "mint", "blue"]

@@ -4,7 +4,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
-type UpdatePayload = { businessId: string; appointmentId: string; eventType: "cancellation" | "reschedule"; appointmentDate?: string; appointmentTime?: string }
+type UpdatePayload = { businessId: string; appointmentId: string; eventType: "cancellation" | "reschedule" | "reminder"; appointmentDate?: string; appointmentTime?: string }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } })
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character] || character))
 const parseDataImage = (value: string) => {
@@ -20,7 +20,7 @@ Deno.serve(async (request) => {
   const apiKey = Deno.env.get("RESEND_API_KEY")?.trim()
   if (!apiKey) return json({ error: "Resend API key is not configured" }, 500)
   const payload = await request.json() as UpdatePayload
-  if (!payload.businessId || !payload.appointmentId || !["cancellation", "reschedule"].includes(payload.eventType)) return json({ error: "Invalid appointment update payload" }, 400)
+  if (!payload.businessId || !payload.appointmentId || !["cancellation", "reschedule", "reminder"].includes(payload.eventType)) return json({ error: "Invalid appointment update payload" }, 400)
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")?.replace(/\/$/, "") || ""
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
@@ -50,9 +50,10 @@ Deno.serve(async (request) => {
   const time = payload.appointmentTime || appointment.appointment_time
   const duration = Number(appointment.duration_minutes) || 0
   const cancelled = payload.eventType === "cancellation"
-  const subject = cancelled ? `Appointment cancelled - ${businessName}` : `Appointment rescheduled - ${businessName}`
-  const title = cancelled ? "Appointment Cancelled" : "Appointment Rescheduled"
-  const intro = cancelled ? "Your appointment has been cancelled." : "Your appointment has been rescheduled to the following time."
+  const reminder = payload.eventType === "reminder"
+  const subject = cancelled ? `Appointment cancelled - ${businessName}` : reminder ? `Appointment reminder - ${businessName}` : `Appointment rescheduled - ${businessName}`
+  const title = cancelled ? "Appointment Cancelled" : reminder ? "Appointment Reminder" : "Appointment Rescheduled"
+  const intro = cancelled ? "Your appointment has been cancelled." : reminder ? "This is a reminder for your upcoming appointment." : "Your appointment has been rescheduled to the following time."
   const text = [`Hi ${appointment.customer_name || "there"},`, "", intro, "", `Service: ${appointment.service_names || "Appointment"}`, `Date: ${date}`, `Time: ${time}`, ...(duration ? [`Duration: ${duration} minutes`] : []), `With: ${ownerName}`, ...(businessLocation ? [`Location: ${businessLocation}`] : []), "", `If you have questions, please contact ${businessName}.`].join("\n")
   const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0;padding:0;background:#f8f6f3;font-family:Arial,Helvetica,sans-serif;color:#263246"><tr><td align="center" style="padding:28px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#fff;border:1px solid #eaded8;border-radius:14px"><tr><td style="padding:22px 24px 14px;border-bottom:1px solid #f0e7e2"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td valign="middle">${brandMark}</td><td valign="middle" style="padding-left:10px;font-size:20px;font-weight:700;color:#263246">${escapeHtml(businessName)}</td></tr></table></td></tr><tr><td style="padding:24px"><h2 style="margin:0 0 12px;color:#c25750;font-size:24px;line-height:1.2">${title}</h2><p style="margin:0 0 12px;font-size:15px;line-height:1.6">Hi ${escapeHtml(appointment.customer_name || "there")},</p><p style="margin:0 0 18px;font-size:15px;line-height:1.6">${intro}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fffaf8;border:1px solid #eaded8;border-radius:10px"><tr><td style="padding:16px;font-size:14px;line-height:1.55"><p style="margin:0 0 8px"><strong>Service:</strong> ${escapeHtml(appointment.service_names || "Appointment")}</p><p style="margin:0 0 8px"><strong>Date:</strong> ${escapeHtml(date)}</p><p style="margin:0 0 8px"><strong>Time:</strong> ${escapeHtml(time)}</p>${duration ? `<p style="margin:0 0 8px"><strong>Duration:</strong> ${duration} minutes</p>` : ""}<p style="margin:0 0 8px"><strong>With:</strong> ${escapeHtml(ownerName)}</p>${businessLocation ? `<p style="margin:0"><strong>Location:</strong> ${escapeHtml(businessLocation)}</p>` : ""}</td></tr></table><p style="margin:18px 0 0;font-size:14px;line-height:1.6">If you have questions, please contact ${escapeHtml(businessName)}.</p></td></tr><tr><td style="padding:14px 24px;border-top:1px solid #f0e7e2;color:#8a929e;font-size:12px">Powered by <strong style="color:#b25550">Bookora</strong></td></tr></table></td></tr></table>`
   const attachments = remoteLogoUrl ? [{ path: logoCandidate, filename: "business-logo.png", content_id: "business-logo" }] : dataLogo ? [{ content: dataLogo.content, filename: dataLogo.filename, content_id: "business-logo" }] : []

@@ -31,6 +31,7 @@ import {
   addDays,
   buildDemoAppointments,
   CalendarAppointment,
+  CalendarClientOption,
   CalendarServiceOption,
   CalendarStaffOption,
   CalendarViewMode,
@@ -45,6 +46,7 @@ import {
 } from "./calendar/types"
 import { AppointmentDrawer } from "./calendar/AppointmentDrawer"
 import { NewAppointmentModal } from "./calendar/NewAppointmentModal"
+import type { AppointmentEditDraft } from "./calendar/EditAppointmentModal"
 
 const GRID_START_HOUR = 8 // default 8:00 AM (expands to fit earlier bookings)
 const GRID_END_HOUR = 19 // default 7:00 PM (expands to fit later bookings)
@@ -73,6 +75,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
   const [staffFilter, setStaffFilter] = useState("all")
 
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
+  const [clients, setClients] = useState<CalendarClientOption[]>([])
   const [services, setServices] = useState<CalendarServiceOption[]>(() =>
     user.id === "preview-user-123" || !supabase
       ? [
@@ -219,6 +222,8 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         }
         const staffRes = await supabase.from("staff_members").select("id, full_name").eq("business_id", user.id).eq("status", "active").order("full_name", { ascending: true })
         if (active && !staffRes.error) setStaff((staffRes.data || []) as CalendarStaffOption[])
+        const clientsRes = await supabase.from("clients").select("id, full_name, email, phone").eq("business_id", user.id).order("full_name", { ascending: true })
+        if (active && !clientsRes.error) setClients((clientsRes.data || []).map((row) => ({ id: String(row.id), full_name: String(row.full_name || "Client"), email: String(row.email || ""), phone: String(row.phone || "") })))
 
         if (active) await fetchLiveAppointments()
         return
@@ -388,27 +393,30 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
     showToast(`Appointment marked as ${status}`)
   }
 
-  const handleReschedule = async (appointment: CalendarAppointment) => {
-    const nextDate = window.prompt("New date (YYYY-MM-DD)", appointment.appointment_date)?.trim()
-    if (!nextDate) return
-    const nextTime = window.prompt("New time (for example, 2:30 PM)", appointment.appointment_time)?.trim()
-    if (!nextTime) return
+  const handleUpdateAppointment = async (appointment: CalendarAppointment, draft: AppointmentEditDraft) => {
+    const nextDate = draft.appointment_date.trim()
+    const nextTime = draft.appointment_time.trim()
     const incomingStart = parseTimeToMinutes(nextTime)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || toDateKey(parseDateKey(nextDate)) !== nextDate || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(nextTime)) { showToast("Enter a valid date and time.", "error"); return }
-    const incomingEnd = incomingStart + Math.max(appointment.duration_minutes || 60, 1) + Math.max(appointment.buffer_minutes || 0, 0)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || toDateKey(parseDateKey(nextDate)) !== nextDate || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(nextTime)) { showToast("Enter a valid date and time.", "error"); return false }
+    const incomingEnd = incomingStart + Math.max(draft.duration_minutes || 60, 1) + Math.max(appointment.buffer_minutes || 0, 0)
     const conflict = appointments.find((other) => other.id !== appointment.id && other.appointment_date === nextDate && other.status !== "cancelled" && other.status !== "no_show" && incomingStart < parseTimeToMinutes(other.appointment_time) + Math.max(other.duration_minutes || 60, 1) + Math.max(other.buffer_minutes || 0, 0) && incomingEnd > parseTimeToMinutes(other.appointment_time))
-    if (conflict) { showToast(`That time overlaps ${conflict.customer_name}'s appointment. Choose another time.`, "error"); return }
+    if (conflict) { showToast(`That time overlaps ${conflict.customer_name}'s appointment. Choose another time.`, "error"); return false }
+    const update = { customer_name: draft.customer_name.trim(), customer_email: draft.customer_email.trim(), customer_phone: draft.customer_phone.trim(), customer_note: draft.customer_note?.trim() || "", service_names: draft.service_names.trim(), appointment_date: nextDate, appointment_time: nextTime, duration_minutes: Math.max(1, Number(draft.duration_minutes) || 60), total_price: draft.total_price.trim(), status: draft.status }
+    if (!update.customer_name || !update.service_names) { showToast("Add a client name and service first.", "error"); return false }
     if (isLive && supabase) {
-      const { data, error } = await supabase.from("appointments").update({ appointment_date: nextDate, appointment_time: nextTime }).eq("id", appointment.id).eq("business_id", user.id).select("*")
-      if (error || !data?.length) { showToast(error?.message ? `Could not reschedule: ${error.message}` : "Could not reschedule this appointment.", "error"); return }
-      const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: appointment.id, eventType: "reschedule", appointmentDate: nextDate, appointmentTime: nextTime })
-      if (!emailResult.ok) showToast(`Appointment rescheduled, but email was not sent: ${emailResult.error}`, "error")
+      const { data, error } = await supabase.from("appointments").update(update).eq("id", appointment.id).eq("business_id", user.id).select("*")
+      if (error || !data?.length) { showToast(error?.message ? `Could not save appointment: ${error.message}` : "Could not save this appointment.", "error"); return false }
+      if (appointment.appointment_date !== nextDate || appointment.appointment_time !== nextTime) {
+        const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: appointment.id, eventType: "reschedule", appointmentDate: nextDate, appointmentTime: nextTime })
+        if (!emailResult.ok) showToast(`Appointment saved, but email was not sent: ${emailResult.error}`, "error")
+      }
     }
-    const next = appointments.map((item) => item.id === appointment.id ? { ...item, appointment_date: nextDate, appointment_time: nextTime } : item)
+    const next = appointments.map((item) => item.id === appointment.id ? { ...item, ...update } : item)
     persistLocal(next)
-    setActiveAppointment((current) => current?.id === appointment.id ? { ...current, appointment_date: nextDate, appointment_time: nextTime } : current)
+    setActiveAppointment((current) => current?.id === appointment.id ? { ...current, ...update } : current)
     setSelectedDate(parseDateKey(nextDate))
-    showToast("Appointment rescheduled")
+    showToast("Appointment updated")
+    return true
   }
 
   const handleDeleteAppointment = async (id: string) => {
@@ -1085,7 +1093,10 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         appointment={activeAppointment}
         onClose={() => setActiveAppointment(null)}
         onUpdateStatus={handleUpdateStatus}
-        onReschedule={handleReschedule}
+        onUpdateAppointment={handleUpdateAppointment}
+        services={services}
+        appointments={appointments}
+        clients={clients.length ? clients : appointments.map((item) => ({ id: item.id, full_name: item.customer_name, email: item.customer_email, phone: item.customer_phone })).filter((client, index, list) => list.findIndex((item) => item.full_name === client.full_name && item.email === client.email) === index)}
         onDelete={handleDeleteAppointment}
       />
 

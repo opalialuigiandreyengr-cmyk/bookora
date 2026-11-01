@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from "react"
-import { CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
+import { Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { CalendarAppointment, getInitials, parseDateKey } from "./types"
+import { CalendarAppointment, CalendarClientOption, CalendarServiceOption, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
+import { sendAppointmentUpdateEmail } from "@/lib/appointmentNotifications"
+import { AppointmentReminderModal } from "./AppointmentReminderModal"
+import { AppointmentOverviewPage } from "./AppointmentOverviewPage"
+import { EditAppointmentModal, type AppointmentEditDraft } from "./EditAppointmentModal"
 
 interface AppointmentDrawerProps {
   appointment: CalendarAppointment | null
   onClose: () => void
   onUpdateStatus: (id: string, status: CalendarAppointment["status"], noShowReason?: string) => Promise<void>
-  onReschedule: (appointment: CalendarAppointment) => Promise<void>
+  onUpdateAppointment?: (appointment: CalendarAppointment, draft: AppointmentEditDraft) => Promise<boolean>
+  onReschedule?: (appointment: CalendarAppointment) => Promise<void>
+  services?: CalendarServiceOption[]
+  appointments?: CalendarAppointment[]
+  clients?: CalendarClientOption[]
   onDelete: (id: string) => Promise<void>
 }
 
@@ -17,7 +25,11 @@ export function AppointmentDrawer({
   appointment,
   onClose,
   onUpdateStatus,
+  onUpdateAppointment,
   onReschedule,
+  services = [],
+  appointments = [],
+  clients = [],
   onDelete,
 }: AppointmentDrawerProps) {
   const drawerRef = useRef<HTMLElement | null>(null)
@@ -29,6 +41,11 @@ export function AppointmentDrawer({
   const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState("")
   const [statusUpdating, setStatusUpdating] = useState(false)
+  const [reminderSentAt, setReminderSentAt] = useState<string | null>(null)
+  const [reminderConfirmOpen, setReminderConfirmOpen] = useState(false)
+  const [reminderSending, setReminderSending] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
@@ -37,6 +54,11 @@ export function AppointmentDrawer({
     setCancelConfirmation("")
     setStatusUpdating(false)
     setMenuOpen(false)
+    setReminderConfirmOpen(false)
+    setReminderSending(false)
+    setReminderSentAt(null)
+    setEditOpen(false)
+    setEditSaving(false)
   }, [appointment?.id])
 
   useEffect(() => {
@@ -74,6 +96,22 @@ export function AppointmentDrawer({
       returnFocusRef.current = null
     }
   }, [appointment])
+
+  useEffect(() => {
+    let active = true
+    const loadReminderStatus = async () => {
+      if (!appointment) return
+      const localKey = `bookora-reminder-sent-${appointment.id}`
+      const localTimestamp = window.localStorage.getItem(localKey)
+      if (localTimestamp && active) setReminderSentAt(localTimestamp)
+      if (!supabase || !appointment.business_id) return
+      const result = await supabase.from("notification_events").select("created_at, status").eq("appointment_id", appointment.id).eq("business_id", appointment.business_id).eq("event_type", "reminder").eq("channel", "email").eq("status", "sent").order("created_at", { ascending: false }).limit(1)
+      const timestamp = result.data?.[0]?.created_at ? String(result.data[0].created_at) : ""
+      if (active && timestamp) setReminderSentAt(timestamp)
+    }
+    void loadReminderStatus()
+    return () => { active = false }
+  }, [appointment?.id, appointment?.business_id])
 
   useEffect(() => {
     if (!selectedAttachment) return
@@ -147,6 +185,23 @@ export function AppointmentDrawer({
     }
   }
 
+  const sendReminder = async () => {
+    if (!appointment || reminderSending || reminderSentAt) return
+    if (!appointment.customer_email.trim()) { showToast("This appointment has no client email.", "error"); return }
+    setReminderSending(true)
+    const result = await sendAppointmentUpdateEmail({ businessId: appointment.business_id, appointmentId: appointment.id, eventType: "reminder" })
+    if (!result.ok) {
+      showToast(`Reminder was not sent: ${result.error}`, "error")
+    } else {
+      const timestamp = new Date().toISOString()
+      window.localStorage.setItem(`bookora-reminder-sent-${appointment.id}`, timestamp)
+      setReminderSentAt(timestamp)
+      setReminderConfirmOpen(false)
+      showToast("Reminder sent")
+    }
+    setReminderSending(false)
+  }
+
   return (
     <div
       className="cal-drawer-backdrop"
@@ -155,7 +210,7 @@ export function AppointmentDrawer({
         if (event.currentTarget === event.target) onClose()
       }}
     >
-      <aside ref={drawerRef} className="cal-drawer" role="dialog" aria-modal="true" aria-labelledby="appointment-drawer-title">
+      <AppointmentOverviewPage ref={drawerRef} titleId="appointment-drawer-title">
         <header className="cal-drawer-nav">
           <div className="cal-drawer-nav-left">
             <button type="button" className="cal-drawer-nav-back" onClick={onClose} aria-label="Back to calendar">
@@ -170,9 +225,9 @@ export function AppointmentDrawer({
             <button
               type="button"
               className="cal-drawer-nav-btn"
-              onClick={() => onReschedule(appointment)}
+              onClick={() => onUpdateAppointment ? setEditOpen(true) : void onReschedule?.(appointment)}
               aria-label="Edit appointment"
-              title="Reschedule / Edit"
+              title="Edit appointment"
             >
               <Pencil size={18} />
             </button>
@@ -188,16 +243,6 @@ export function AppointmentDrawer({
               </button>
               {menuOpen && (
                 <div className="cal-drawer-dropdown-menu" role="menu">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false)
-                      void onReschedule(appointment)
-                    }}
-                  >
-                    <Pencil size={14} /> Reschedule
-                  </button>
                   {appointment.status === "approved" && (
                     <>
                       <button
@@ -380,6 +425,17 @@ export function AppointmentDrawer({
             </div>
           </div>
 
+          <div className="cal-reminder-row">
+            <div className="cal-reminder-copy">
+              <Bell size={15} />
+              <div>
+                <strong>{reminderSentAt ? "Reminder sent" : "Client reminder"}</strong>
+                <small>{reminderSentAt ? new Date(reminderSentAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }) : appointment.customer_email || "No client email"}</small>
+              </div>
+            </div>
+            {reminderSentAt ? <span className="cal-reminder-sent">Sent</span> : <button type="button" className="cal-reminder-button" disabled={!appointment.customer_email} onClick={() => setReminderConfirmOpen(true)}><Mail size={14} /> Send reminder</button>}
+          </div>
+
           {/* 5. Client Attachments */}
           <div className="cal-drawer-section cal-drawer-attachments">
             <h3>Client Attachments</h3>
@@ -462,8 +518,10 @@ export function AppointmentDrawer({
             </section>
           </div>
         )}
+        {reminderConfirmOpen && <AppointmentReminderModal customerName={appointment.customer_name} customerEmail={appointment.customer_email} sending={reminderSending} onCancel={() => setReminderConfirmOpen(false)} onConfirm={() => void sendReminder()} />}
+        {editOpen && onUpdateAppointment && <EditAppointmentModal appointment={appointment} appointments={appointments} clients={clients} services={services} saving={editSaving} onClose={() => setEditOpen(false)} onSave={(draft) => { setEditSaving(true); void onUpdateAppointment(appointment, draft).then((saved) => { if (saved) setEditOpen(false) }).finally(() => setEditSaving(false)) }} />}
         {selectedAttachment && <div className="cal-attachment-viewer" role="dialog" aria-modal="true" aria-label={`${selectedAttachment.label} preview`} onMouseDown={(event) => { if (event.currentTarget === event.target) setSelectedAttachment(null) }}><div className="cal-attachment-viewer-toolbar"><span>{selectedAttachment.label}</span><button type="button" onClick={() => setSelectedAttachment(null)} aria-label="Close image preview"><X size={20} /></button></div><img src={selectedAttachment.url} alt={selectedAttachment.label} /></div>}
-      </aside>
+      </AppointmentOverviewPage>
     </div>
   )
 }

@@ -8722,6 +8722,194 @@ svg { stroke-width: 1.8; }
   }
 }
 
+/* Client editing is a focused, mobile-first task. Keep the profile visible
+   underneath while the editor arrives from the bottom, then return cleanly. */
+.edit-client-backdrop { position: fixed; inset: 0; z-index: 140; display: flex; align-items: flex-end; justify-content: center; background: rgb(15 23 42 / 42%); animation: edit-client-fade-in .18s ease-out; }
+.edit-client-sheet { display: flex; flex-direction: column; width: min(560px, 100%); max-height: min(94dvh, 760px); overflow: hidden; background: var(--card); border-radius: 20px 20px 0 0; box-shadow: 0 -18px 52px rgb(15 23 42 / 18%); animation: edit-client-slide-up .24s cubic-bezier(.22, 1, .36, 1); }
+.edit-client-header { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: 62px; padding: 10px 16px 8px; }
+.edit-client-header h2 { margin: 0; text-align: center; color: var(--foreground); font-size: 17px; font-weight: 750; }
+.edit-client-back { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--foreground); cursor: pointer; }
+.edit-client-back:hover, .edit-client-back:focus-visible { background: var(--muted); }
+.edit-client-header-spacer { width: 40px; }
+.edit-client-content { overflow-y: auto; padding: 20px 20px 28px; }
+.edit-client-identity { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.edit-client-avatar { display: grid; place-items: center; flex: 0 0 52px; width: 52px; height: 52px; border-radius: 50%; background: color-mix(in oklch, var(--primary) 12%, var(--card)); border: 1px solid color-mix(in oklch, var(--primary) 22%, var(--border)); color: var(--primary); font-size: 15px; font-weight: 800; }
+.edit-client-identity div { display: grid; gap: 3px; min-width: 0; }
+.edit-client-identity strong { overflow: hidden; color: var(--foreground); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.edit-client-identity span { color: var(--muted-foreground); font-size: 12px; }
+.edit-client-form { display: grid; gap: 17px; }
+.edit-client-form label { display: grid; gap: 7px; color: var(--foreground); font-size: 12px; font-weight: 750; }
+.edit-client-form .edit-client-floating-field { position: relative; display: grid; gap: 0; }
+.edit-client-floating-field > span { position: absolute; z-index: 1; top: 50%; left: 12px; max-width: calc(100% - 24px); overflow: hidden; padding: 0 2px; color: var(--muted-foreground); font-size: 14px; font-weight: 450; pointer-events: none; transform: translateY(-50%); transition: top .16s ease, color .16s ease, font-size .16s ease, transform .16s ease; }
+.edit-client-floating-field:focus-within > span, .edit-client-floating-field.has-value > span { top: 6px; color: var(--primary); font-size: 11px; font-weight: 750; background: transparent; transform: none; }
+.edit-client-floating-field:focus-within > input, .edit-client-floating-field.has-value > input { padding-top: 18px; padding-bottom: 4px; }
+.edit-client-textarea-field > span { top: 18px; }
+.edit-client-textarea-field:focus-within > span, .edit-client-textarea-field.has-value > span { top: 10px; }
+.edit-client-textarea-field:focus-within > textarea, .edit-client-textarea-field.has-value > textarea { padding-top: 24px; }
+.edit-client-form input, .edit-client-form textarea { width: 100%; box-sizing: border-box; min-height: 44px; padding: 10px 12px; border: 1px solid var(--input); border-radius: 10px; outline: 0; background: var(--background); color: var(--foreground); font: inherit; font-size: 16px; font-weight: 450; }
+.edit-client-form input::placeholder, .edit-client-form textarea::placeholder { color: var(--muted-foreground); opacity: 1; }
+.edit-client-form textarea { min-height: 96px; resize: vertical; }
+.edit-client-form input:disabled { opacity: 1; cursor: not-allowed; background: var(--muted); color: var(--muted-foreground); }
+.edit-client-form label small { color: var(--muted-foreground); font-size: 11px; font-weight: 450; line-height: 1.35; }
+.edit-client-toggle { display: flex !important; grid-template-columns: auto 1fr; align-items: flex-start; gap: 10px !important; padding-top: 2px; }
+.edit-client-toggle > input { flex: 0 0 18px; width: 18px; min-height: 18px; height: 18px; margin: 1px 0 0; padding: 0; accent-color: var(--primary); }
+.edit-client-toggle > span { display: grid; gap: 3px; }
+.edit-client-toggle strong { font-size: 12px; }
+.edit-client-footer { display: flex; gap: 9px; padding: 12px 20px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in oklch, var(--card) 96%, transparent); backdrop-filter: blur(10px); }
+.edit-client-footer button { flex: 1; min-height: 44px; }
+.client-form input[readonly], .client-form textarea[readonly] { background: transparent; border-color: transparent; padding-inline: 0; }
+@keyframes edit-client-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes edit-client-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .edit-client-backdrop, .edit-client-sheet { animation: none; } }
+@media (min-width: 681px) { .edit-client-content { padding-inline: 28px; } .edit-client-footer { padding-inline: 28px; } }
+
+/* Clients list controls stay tight to the workspace header. */
+.clients-page-shell .clients-toolbar { margin-top: 0; }
+.clients-page-shell .clients-compact-heading { margin-bottom: 0; }
+.clients-page-shell .client-view-action { justify-content: center; width: 36px; min-width: 36px; height: 36px; padding: 0; }
+.clients-page-shell .client-view-action svg { display: block; }
+
+/* Calendar overview: calm, compact rows instead of stacked cards. */
+.cal-overview-card { border: 0; border-radius: 0; background: transparent; padding: 9px 0; gap: 6px; }
+.cal-drawer-body { gap: 0 !important; }
+.cal-overview-card-header { min-height: 18px; }
+.cal-overview-card-label, .cal-booking-id-label { font-size: 10px; }
+.cal-service-content, .cal-schedule-content { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+.cal-service-name, .cal-schedule-date { font-size: 14px; }
+.cal-service-meta-badges { margin-top: 0; flex-wrap: nowrap; }
+.cal-guest-compact-body { gap: 10px; }
+.cal-guest-contact-inline { gap: 1px; }
+.cal-guest-inline-item { font-size: 12px; }
+.cal-guest-extra-row { margin-top: 2px; }
+.cal-guest-note-box { margin-top: 3px; padding: 7px 9px; }
+.cal-overview-booking-id { padding: 8px 0; }
+.cal-reminder-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent); border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent); }
+.cal-reminder-copy { display: flex; align-items: center; gap: 9px; min-width: 0; color: var(--primary); }
+.cal-reminder-copy > div { display: grid; gap: 2px; min-width: 0; }
+.cal-reminder-copy strong { color: var(--foreground); font-size: 12px; }
+.cal-reminder-copy small { overflow: hidden; color: var(--muted-foreground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.cal-reminder-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 0 10px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); border-radius: 8px; background: color-mix(in oklch, var(--primary) 8%, var(--card)); color: var(--primary); cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; white-space: nowrap; }
+.cal-reminder-button:disabled { cursor: not-allowed; opacity: .45; }
+.cal-reminder-sent { padding: 4px 7px; border-radius: 999px; background: color-mix(in oklch, #10b981 12%, var(--card)); color: #047857; font-size: 10px; font-weight: 800; }
+.appointment-reminder-backdrop { position: fixed; inset: 0; z-index: 230; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 42%); }
+.appointment-reminder-modal { display: grid; gap: 12px; width: min(360px, 100%); padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); box-shadow: 0 18px 48px rgb(15 23 42 / 18%); animation: reminder-modal-in .18s ease-out; }
+.appointment-reminder-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in oklch, var(--primary) 12%, var(--card)); color: var(--primary); }
+.appointment-reminder-modal h3 { margin: 0; color: var(--foreground); font-size: 16px; }
+.appointment-reminder-modal p { margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+.appointment-reminder-modal p strong { color: var(--foreground); }
+.appointment-reminder-actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: 8px; margin-top: 4px; }
+.appointment-reminder-actions button { min-height: 40px; }
+@keyframes reminder-modal-in { from { opacity: 0; transform: translateY(5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 680px) {
+  .cal-drawer-backdrop { align-items: flex-end; justify-content: stretch; animation: calDrawerFadeIn .18s ease-out; }
+  .cal-drawer { width: 100%; max-width: none; height: 94dvh; max-height: 94dvh; border-radius: 18px 18px 0 0; box-shadow: 0 -16px 42px rgb(15 23 42 / 16%); animation: calSheetUp .28s cubic-bezier(.22, 1, .36, 1); }
+  .cal-drawer-body { padding: 4px 16px 18px !important; }
+  .cal-reminder-row { padding: 11px 0; }
+  .appointment-reminder-backdrop { place-items: end center; padding: 0; }
+  .appointment-reminder-modal { width: 100%; border: 0; border-radius: 18px 18px 0 0; padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); animation: calSheetUp .24s cubic-bezier(.22, 1, .36, 1); }
+}
+@keyframes calDrawerFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cal-drawer-backdrop, .cal-drawer, .appointment-reminder-modal { animation: none; } }
+
+/* The overview is the workspace itself: full viewport, entering from the right. */
+.cal-drawer-overview-page { width: 100%; max-width: none; animation: calSlideIn .2s cubic-bezier(.16, 1, .3, 1); }
+.edit-appointment-backdrop { position: fixed; inset: 0; z-index: 240; display: flex; align-items: flex-end; justify-content: center; background: rgb(15 23 42 / 42%); }
+.edit-appointment-sheet { width: min(560px, 100%); height: 92dvh; max-height: 92dvh; overflow-y: auto; border-radius: 18px 18px 0 0; background: var(--card); box-shadow: 0 -18px 52px rgb(15 23 42 / 18%); animation: calSheetUp .28s cubic-bezier(.22, 1, .36, 1); }
+.edit-appointment-header { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: 58px; padding: 9px 16px; }
+.edit-appointment-header h2 { margin: 0; color: var(--foreground); font-size: 17px; text-align: center; }
+.edit-appointment-header button { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--foreground); cursor: pointer; }
+.edit-appointment-form { display: grid; gap: 14px; padding: 4px 20px calc(18px + env(safe-area-inset-bottom)); }
+.edit-appointment-form label { display: grid; gap: 6px; color: var(--foreground); font-size: 11px; font-weight: 750; }
+.edit-appointment-form input, .edit-appointment-form textarea { width: 100%; box-sizing: border-box; min-height: 42px; padding: 9px 11px; border: 1px solid var(--input); border-radius: 9px; background: var(--background); color: var(--foreground); font: inherit; font-size: 16px; }
+.edit-appointment-form textarea { resize: vertical; }
+.edit-appointment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.edit-appointment-section-title { margin-top: 4px; color: var(--muted-foreground); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.edit-appointment-form footer { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+.edit-appointment-form footer button { min-height: 44px; }
+.edit-appointment-content { display: grid; gap: 0; padding: 4px 16px 34px; overflow-y: auto; }
+.edit-appointment-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 20px; align-items: center; gap: 10px; width: 100%; min-height: 68px; padding: 10px 0; border: 0; border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent); background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; }
+.edit-appointment-row-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in oklch, var(--primary) 10%, var(--card)); color: var(--primary); }
+.edit-appointment-row > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.edit-appointment-row small { color: var(--muted-foreground); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.edit-appointment-row strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.edit-appointment-row em { display: inline-flex; align-items: center; gap: 4px; overflow: hidden; color: var(--muted-foreground); font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.edit-appointment-row > svg { color: var(--muted-foreground); }
+.edit-appointment-guest-row { cursor: default; }
+.edit-appointment-hidden-fields { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.edit-appointment-inline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent); }
+.edit-appointment-inline-fields label { display: grid; gap: 5px; color: var(--muted-foreground); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.edit-appointment-inline-fields input { min-height: 40px; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); color: var(--foreground); font: inherit; font-size: 16px; text-transform: none; }
+.edit-appointment-edit-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent); }
+.edit-appointment-edit-fields label { display: grid; gap: 5px; color: var(--muted-foreground); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.edit-appointment-edit-fields label:first-child, .edit-appointment-edit-fields label:nth-child(2), .edit-appointment-edit-fields label:nth-child(3) { grid-column: 1 / -1; }
+.edit-appointment-edit-fields input, .edit-appointment-note textarea { min-height: 40px; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); color: var(--foreground); font: inherit; font-size: 16px; text-transform: none; }
+.edit-appointment-note { display: grid; gap: 8px; padding: 14px 0 3px; color: var(--muted-foreground); font-size: 11px; font-weight: 800; }
+.edit-appointment-note > span { display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .06em; }
+.edit-appointment-note textarea { width: 100%; resize: vertical; }
+.edit-appointment-footer { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in oklch, var(--card) 96%, transparent); backdrop-filter: blur(10px); }
+.edit-appointment-footer button { min-height: 44px; }
+.edit-service-backdrop { position: fixed; inset: 0; z-index: 250; display: flex; align-items: flex-end; justify-content: center; background: rgb(15 23 42 / 34%); }
+.edit-service-sheet { width: min(520px, 100%); height: 92dvh; max-height: 92dvh; overflow-y: auto; border-radius: 18px 0 0 18px; background: var(--card); box-shadow: -18px 0 52px rgb(15 23 42 / 18%); animation: calSlideIn .24s cubic-bezier(.16, 1, .3, 1); }
+.edit-service-header { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: 58px; padding: 9px 16px; }
+.edit-service-header h2 { margin: 0; color: var(--foreground); font-size: 17px; text-align: center; }
+.edit-service-header button { display: grid; place-items: center; width: 40px; height: 40px; border: 0; background: transparent; color: var(--foreground); cursor: pointer; }
+.edit-service-list { display: grid; gap: 2px; padding: 4px 16px 20px; }
+.edit-service-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 10px 2px; border: 0; border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent); background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; }
+.edit-service-option-copy { display: grid; gap: 5px; }
+.edit-service-option-copy strong { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.edit-service-option-copy strong svg { flex: 0 0 auto; color: var(--muted-foreground); stroke-width: 1.8; }
+.edit-service-option-copy small { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 11px; }
+.edit-service-option.is-selected .edit-service-option-copy strong { color: var(--primary); }
+.edit-service-check { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--primary); }
+.edit-service-option.is-selected .edit-service-check { background: color-mix(in oklch, var(--primary) 12%, var(--card)); }
+.edit-service-empty { color: var(--muted-foreground); font-size: 13px; }
+.edit-guest-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; margin-bottom: 8px; border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border)); border-radius: 9px; background: color-mix(in oklch, var(--primary) 7%, var(--card)); color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
+.edit-guest-new-form { display: grid; gap: 9px; margin-bottom: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.edit-guest-new-form label { display: grid; gap: 4px; color: var(--muted-foreground); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.edit-guest-new-form input { min-height: 38px; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--input); border-radius: 8px; background: var(--card); color: var(--foreground); font: inherit; font-size: 14px; text-transform: none; }
+.edit-guest-save { min-height: 38px; border: 0; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
+.edit-guest-save:disabled { cursor: not-allowed; opacity: .5; }
+.edit-appointment-status { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent); color: var(--muted-foreground); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.edit-appointment-status span { display: inline-flex; align-items: center; gap: 6px; }
+.edit-appointment-status select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); color: var(--foreground); font: inherit; font-size: 14px; text-transform: none; }
+@media (max-width: 680px) { .edit-service-sheet { width: 100%; height: 92dvh; max-height: 92dvh; border-radius: 18px 18px 0 0; box-shadow: 0 -18px 52px rgb(15 23 42 / 18%); } }
+.edit-datetime-backdrop { position: fixed; inset: 0; z-index: 255; display: flex; align-items: flex-end; justify-content: center; background: rgb(15 23 42 / 34%); }
+.edit-datetime-sheet { display: flex; flex-direction: column; width: min(520px, 100%); height: 92dvh; max-height: 92dvh; overflow: hidden; border-radius: 18px 18px 0 0; background: var(--card); box-shadow: 0 -18px 52px rgb(15 23 42 / 18%); animation: calSheetUp .24s cubic-bezier(.22, 1, .36, 1); }
+.edit-datetime-header { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: 58px; padding: 9px 16px; }
+.edit-datetime-header h2 { margin: 0; color: var(--foreground); font-size: 17px; text-align: center; }
+.edit-datetime-header button { display: grid; place-items: center; width: 40px; height: 40px; border: 0; background: transparent; color: var(--foreground); cursor: pointer; }
+.edit-datetime-content { flex: 1; overflow-y: auto; padding: 4px 16px 18px; }
+.edit-datetime-date { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 5px 8px; margin-bottom: 18px; color: var(--primary); font-size: 11px; font-weight: 800; }
+.edit-datetime-date span { color: var(--foreground); }
+.edit-datetime-date input { grid-column: 1 / -1; width: 100%; min-height: 44px; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--input); border-radius: 9px; background: var(--background); color: var(--foreground); font: inherit; font-size: 16px; }
+.edit-datetime-date { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 18px; color: var(--primary); font-size: 11px; font-weight: 800; }
+.edit-datetime-date-heading { display: inline-flex; align-items: center; gap: 8px; color: var(--foreground); }
+.edit-calendar { display: grid; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+.edit-calendar-toolbar { display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; text-align: center; }
+.edit-calendar-toolbar strong { color: var(--foreground); font-size: 13px; }
+.edit-calendar-toolbar button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--foreground); cursor: pointer; }
+.edit-calendar-toolbar button:hover { background: var(--muted); }
+.edit-calendar-weekdays, .edit-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.edit-calendar-weekdays span { color: var(--muted-foreground); font-size: 9px; font-weight: 800; text-align: center; text-transform: uppercase; }
+.edit-calendar-grid button, .edit-calendar-grid > span { display: grid; place-items: center; min-height: 34px; }
+.edit-calendar-grid button { border: 0; border-radius: 8px; background: transparent; color: var(--foreground); cursor: pointer; font: inherit; font-size: 12px; }
+.edit-calendar-grid button:hover { background: var(--muted); }
+.edit-calendar-grid button:disabled { cursor: not-allowed; opacity: .3; text-decoration: line-through; }
+.edit-calendar-grid button.is-selected { background: var(--primary); color: var(--primary-foreground); font-weight: 800; }
+.edit-datetime-time-heading { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 9px; color: var(--foreground); font-size: 11px; font-weight: 800; }
+.edit-datetime-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.edit-datetime-times button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--foreground); cursor: pointer; font: inherit; font-size: 12px; }
+.edit-datetime-times button.is-selected { border-color: var(--primary); background: color-mix(in oklch, var(--primary) 10%, var(--card)); color: var(--primary); font-weight: 750; }
+.edit-datetime-empty { grid-column: 1 / -1; margin: 4px 0; color: var(--muted-foreground); font-size: 11px; text-align: center; }
+.edit-datetime-footer { flex-shrink: 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in oklch, var(--card) 96%, transparent); }
+.edit-datetime-footer button { width: 100%; min-height: 42px; border: 0; border-radius: 9px; background: var(--primary); color: var(--primary-foreground); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
+@media (max-width: 680px) { .edit-datetime-sheet { width: 100%; height: 92dvh; max-height: 92dvh; } }
+@media (max-width: 680px) {
+  .cal-drawer-backdrop { align-items: stretch; justify-content: flex-end; }
+  .cal-drawer-overview-page { height: 100%; max-height: none; border-radius: 0; animation: calSlideIn .2s cubic-bezier(.16, 1, .3, 1); }
+}
+@media (prefers-reduced-motion: reduce) { .cal-drawer-overview-page, .edit-appointment-sheet { animation: none; } }
+
 /* Mobile services and appointment polish. */
 @media (max-width: 680px) {
   .services-library-nav h1 { display: none; }
