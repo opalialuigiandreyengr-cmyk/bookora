@@ -89,6 +89,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
   const [staff, setStaff] = useState<CalendarStaffOption[]>([])
   const serviceDurationsRef = useRef(new Map<string, number>())
   const [bookingSlotSize, setBookingSlotSize] = useState(30)
+  const [bookingFee, setBookingFee] = useState<{ enabled: boolean; type: "fixed" | "percentage"; amount: number }>({ enabled: false, type: "fixed", amount: 0 })
   const [loading, setLoading] = useState(true)
 
   const [activeAppointment, setActiveAppointment] = useState<CalendarAppointment | null>(null)
@@ -200,11 +201,16 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       if (isLive && supabase) {
         const profileRes = await supabase
           .from("business_profiles")
-          .select("booking_slot_size_minutes")
+          .select("booking_slot_size_minutes, booking_fee_enabled, booking_fee_type, booking_fee_amount")
           .eq("id", user.id)
           .maybeSingle()
         if (active && !profileRes.error) {
           setBookingSlotSize(Math.max(5, Number(profileRes.data?.booking_slot_size_minutes) || 30))
+          setBookingFee({
+            enabled: Boolean(profileRes.data?.booking_fee_enabled),
+            type: profileRes.data?.booking_fee_type === "percentage" ? "percentage" : "fixed",
+            amount: Math.max(0, Number(profileRes.data?.booking_fee_amount) || 0),
+          })
         }
 
         const servicesRes = await supabase
@@ -417,6 +423,26 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
     persistLocal(next)
     setActiveAppointment((current) => current?.id === id ? { ...current, ...update } : current)
     showToast(sendEmail ? "Final amount sent to the client" : "Final amount saved")
+    return true
+  }
+
+  const handleCollectPayment = async (appointment: CalendarAppointment, payment: { amount: number; method: string; note: string }) => {
+    if (isLive && supabase && payment.amount > 0) {
+      const { error } = await supabase.from("payment_transactions").insert({
+        business_id: user.id,
+        appointment_id: appointment.id,
+        client_name: appointment.customer_name,
+        client_email: appointment.customer_email,
+        amount: Math.round(payment.amount * 100) / 100,
+        currency: "PHP",
+        transaction_type: "payment",
+        method: payment.method,
+        status: "paid",
+        note: payment.note,
+      })
+      if (error) { showToast(`Could not record payment: ${error.message}`, "error"); return false }
+    }
+    await handleUpdateStatus(appointment.id, "completed")
     return true
   }
 
@@ -1126,6 +1152,8 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         onUpdateStatus={handleUpdateStatus}
         onUpdateAppointment={handleUpdateAppointment}
         onUpdateFinalAmount={handleUpdateFinalAmount}
+        onCollectPayment={handleCollectPayment}
+        bookingFee={bookingFee}
         services={services}
         appointments={appointments}
         clients={clients.length ? clients : appointments.map((item) => ({ id: item.id, full_name: item.customer_name, email: item.customer_email, phone: item.customer_phone })).filter((client, index, list) => list.findIndex((item) => item.full_name === client.full_name && item.email === client.email) === index)}

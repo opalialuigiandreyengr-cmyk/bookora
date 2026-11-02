@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, DollarSign, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
+import { Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, CreditCard, DollarSign, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Plus, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, CalendarClientOption, CalendarServiceOption, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
@@ -15,6 +15,8 @@ interface AppointmentDrawerProps {
   onUpdateStatus: (id: string, status: CalendarAppointment["status"], noShowReason?: string) => Promise<void>
   onUpdateAppointment?: (appointment: CalendarAppointment, draft: AppointmentEditDraft) => Promise<boolean>
   onUpdateFinalAmount?: (id: string, amount: number, note: string, sendEmail: boolean) => Promise<boolean>
+  onCollectPayment?: (appointment: CalendarAppointment, payment: { amount: number; method: string; note: string }) => Promise<boolean>
+  bookingFee?: { enabled: boolean; type: "fixed" | "percentage"; amount: number }
   onReschedule?: (appointment: CalendarAppointment) => Promise<void>
   services?: CalendarServiceOption[]
   appointments?: CalendarAppointment[]
@@ -28,6 +30,8 @@ export function AppointmentDrawer({
   onUpdateStatus,
   onUpdateAppointment,
   onUpdateFinalAmount,
+  onCollectPayment,
+  bookingFee = { enabled: false, type: "fixed", amount: 0 },
   onReschedule,
   services = [],
   appointments = [],
@@ -51,6 +55,14 @@ export function AppointmentDrawer({
   const [finalAmount, setFinalAmount] = useState("")
   const [finalAmountNote, setFinalAmountNote] = useState("")
   const [finalAmountSaving, setFinalAmountSaving] = useState(false)
+  const [finalAmountConfirmOpen, setFinalAmountConfirmOpen] = useState(false)
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const [paymentSaving, setPaymentSaving] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState("cash")
+  const [discountType, setDiscountType] = useState<"fixed" | "percent">("fixed")
+  const [discountValue, setDiscountValue] = useState("")
+  const [addOns, setAddOns] = useState<Array<{ id: number; name: string; amount: string }>>([])
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
@@ -66,6 +78,13 @@ export function AppointmentDrawer({
     setEditSaving(false)
     setFinalAmount(appointment?.final_total_amount == null ? "" : String(appointment.final_total_amount))
     setFinalAmountNote(appointment?.final_amount_note || "")
+    setFinalAmountConfirmOpen(false)
+    setPaymentOpen(false)
+    setPaymentSaving(false)
+    setPaymentAmount("")
+    setDiscountType("fixed")
+    setDiscountValue("")
+    setAddOns([])
   }, [appointment?.id])
 
   useEffect(() => {
@@ -210,13 +229,46 @@ export function AppointmentDrawer({
   }
 
   const saveFinalAmount = async (sendEmail: boolean) => {
-    if (!onUpdateFinalAmount || finalAmountSaving) return
+    if (!onUpdateFinalAmount || finalAmountSaving) return false
     const amount = Number(finalAmount.replace(/[^0-9.-]+/g, ""))
-    if (!Number.isFinite(amount) || amount < 0) { showToast("Enter a valid final amount.", "error"); return }
-    if (sendEmail && !appointment.customer_email.trim()) { showToast("This appointment has no client email.", "error"); return }
-    if (sendEmail && !window.confirm(`Send the final amount of ₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })} to ${appointment.customer_name}?`)) return
+    if (!Number.isFinite(amount) || amount < 0) { showToast("Enter a valid final amount.", "error"); return false }
+    if (sendEmail && !appointment.customer_email.trim()) { showToast("This appointment has no client email.", "error"); return false }
     setFinalAmountSaving(true)
-    try { await onUpdateFinalAmount(appointment.id, amount, finalAmountNote, sendEmail) } finally { setFinalAmountSaving(false) }
+    try {
+      const saved = await onUpdateFinalAmount(appointment.id, amount, finalAmountNote, sendEmail)
+      if (saved && sendEmail) setFinalAmountConfirmOpen(false)
+      return saved
+    } finally { setFinalAmountSaving(false) }
+  }
+
+  const estimatedAmount = Number(String(appointment.total_price || "").replace(/[^0-9.-]+/g, "")) || 0
+  const baseAmount = appointment.final_total_amount ?? estimatedAmount
+  const bookingFeePaid = bookingFee.enabled
+    ? Math.min(baseAmount, bookingFee.type === "percentage" ? baseAmount * Math.min(100, Math.max(0, bookingFee.amount)) / 100 : Math.max(0, bookingFee.amount))
+    : 0
+  const addOnTotal = addOns.reduce((sum, item) => sum + (Number(item.amount.replace(/[^0-9.-]+/g, "")) || 0), 0)
+  const subtotal = Math.max(0, baseAmount - bookingFeePaid + addOnTotal)
+  const rawDiscount = Number(discountValue.replace(/[^0-9.-]+/g, "")) || 0
+  const discountAmount = discountType === "percent" ? Math.min(subtotal, subtotal * Math.min(100, Math.max(0, rawDiscount)) / 100) : Math.min(subtotal, Math.max(0, rawDiscount))
+  const paymentTotal = Math.max(0, subtotal - discountAmount)
+  const alreadyPaid = Math.max(0, Number(appointment.payment_paid || 0))
+  const balanceDue = Math.max(0, paymentTotal - alreadyPaid)
+
+  const openPaymentModal = () => {
+    setPaymentAmount(balanceDue.toFixed(2))
+    setPaymentOpen(true)
+  }
+
+  const collectPayment = async () => {
+    if (!onCollectPayment || paymentSaving) return
+    const amount = Number(paymentAmount.replace(/[^0-9.-]+/g, "")) || 0
+    if (amount < 0 || amount > balanceDue) { showToast(`Enter an amount between ₱0.00 and ₱${balanceDue.toLocaleString("en-PH", { minimumFractionDigits: 2 })}.`, "error"); return }
+    const note = [`Final total: ₱${paymentTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`, ...(addOns.length ? [`Add-ons: ${addOns.filter((item) => item.name.trim()).map((item) => `${item.name.trim()} ₱${(Number(item.amount) || 0).toFixed(2)}`).join(", ")}`] : []), ...(discountAmount ? [`Discount: -₱${discountAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`] : [])].join(" · ")
+    setPaymentSaving(true)
+    try {
+      const saved = await onCollectPayment(appointment, { amount, method: paymentMethod, note })
+      if (saved) setPaymentOpen(false)
+    } finally { setPaymentSaving(false) }
   }
 
   return (
@@ -368,9 +420,9 @@ export function AppointmentDrawer({
               <div><span>Estimated total</span><strong>{appointment.total_price}</strong></div>
               <label><span>Final total</span><input inputMode="decimal" value={finalAmount} onChange={(event) => setFinalAmount(event.target.value)} placeholder="₱0.00" aria-label="Final total amount" /></label>
             </div>
-            <label className="cal-pricing-note"><span>Note for client (optional)</span><textarea rows={2} value={finalAmountNote} onChange={(event) => setFinalAmountNote(event.target.value)} placeholder="For example: Added nail art after design review" /></label>
+            <label className="cal-pricing-note"><span>Note for client (optional)</span><textarea rows={2} value={finalAmountNote} onChange={(event) => setFinalAmountNote(event.target.value)} placeholder="Add a note..." /></label>
             {appointment.final_amount_sent_at && <small className="cal-pricing-sent">Sent {new Date(appointment.final_amount_sent_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</small>}
-            <div className="cal-pricing-actions"><Button type="button" variant="outline" disabled={finalAmountSaving || !onUpdateFinalAmount} onClick={() => void saveFinalAmount(false)}>{finalAmountSaving ? "Saving…" : "Save amount"}</Button><Button type="button" className="cal-action-approve" disabled={finalAmountSaving || !onUpdateFinalAmount} onClick={() => void saveFinalAmount(true)}><Mail size={14} /> Send final amount</Button></div>
+            <div className="cal-pricing-actions"><Button type="button" variant="outline" disabled={finalAmountSaving || !onUpdateFinalAmount} onClick={() => void saveFinalAmount(false)}>{finalAmountSaving ? "Saving…" : "Save amount"}</Button><Button type="button" className="cal-action-approve" disabled={finalAmountSaving || !onUpdateFinalAmount} onClick={() => setFinalAmountConfirmOpen(true)}><Mail size={14} /> Send final amount</Button></div>
           </div>
 
           {/* 2. Date and Time */}
@@ -516,7 +568,7 @@ export function AppointmentDrawer({
               <Button
                 type="button"
                 className="cal-action-complete"
-                onClick={() => onUpdateStatus(appointment.id, "completed")}
+                onClick={openPaymentModal}
               >
                 <CheckCircle2 size={16} />
                 Mark Completed
@@ -546,6 +598,27 @@ export function AppointmentDrawer({
                   {statusUpdating ? <><Loader2 size={15} className="animate-spin" /> {confirmAction === "approve" ? "Approving…" : "Cancelling…"}</> : "Yes"}
                 </Button>
               </div>
+            </section>
+          </div>
+        )}
+        {finalAmountConfirmOpen && <div className="appointment-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !finalAmountSaving) setFinalAmountConfirmOpen(false) }}><section className="appointment-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="final-amount-confirm-title"><h3 id="final-amount-confirm-title">Send final amount?</h3><p>Send the confirmed final amount of <strong>₱{(Number(finalAmount) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong> to {appointment.customer_name} at {appointment.customer_email}.</p><div className="appointment-confirm-actions"><Button type="button" variant="outline" disabled={finalAmountSaving} onClick={() => setFinalAmountConfirmOpen(false)}>Cancel</Button><Button type="button" className="cal-action-approve" disabled={finalAmountSaving} onClick={() => void saveFinalAmount(true)}>{finalAmountSaving ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : <><Mail size={15} /> Send amount</>}</Button></div></section></div>}
+        {paymentOpen && (
+          <div className="appointment-confirm-backdrop appointment-payment-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !paymentSaving) setPaymentOpen(false) }}>
+            <section className="appointment-payment-modal" role="dialog" aria-modal="true" aria-labelledby="appointment-payment-title">
+              <header><div><h3 id="appointment-payment-title">Complete appointment</h3><p>Review the final bill and record the payment received.</p></div><button type="button" onClick={() => setPaymentOpen(false)} aria-label="Close payment modal"><X size={18} /></button></header>
+              <div className="appointment-payment-breakdown">
+                <div><span>Base total</span><strong>₱{baseAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong></div>
+                {bookingFeePaid > 0 && <div className="appointment-payment-fee"><span>Booking fee paid</span><strong>-₱{bookingFeePaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong></div>}
+                {addOns.map((item, index) => <div className="appointment-payment-addon" key={item.id}><input value={item.name} onChange={(event) => setAddOns((current) => current.map((entry) => entry.id === item.id ? { ...entry, name: event.target.value } : entry))} placeholder="Add-on name" /><input inputMode="decimal" value={item.amount} onChange={(event) => setAddOns((current) => current.map((entry) => entry.id === item.id ? { ...entry, amount: event.target.value } : entry))} placeholder="₱0.00" aria-label={`Add-on ${index + 1} amount`} /></div>)}
+                <button type="button" className="appointment-payment-add" onClick={() => setAddOns((current) => [...current, { id: Date.now(), name: "", amount: "" }])}><Plus size={14} /> Add purchase add-on</button>
+                <div className="appointment-payment-discount">
+                  <div className="appointment-payment-discount-type"><span>Discount type</span><div className="appointment-payment-toggle" role="group" aria-label="Discount type"><button type="button" className={discountType === "fixed" ? "active" : ""} aria-pressed={discountType === "fixed"} onClick={() => setDiscountType("fixed")}>Fixed</button><button type="button" className={discountType === "percent" ? "active" : ""} aria-pressed={discountType === "percent"} onClick={() => setDiscountType("percent")}>%</button></div></div>
+                  <label><span>Discount</span><input inputMode="decimal" value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} placeholder={discountType === "percent" ? "0%" : "₱0.00"} /></label>
+                </div>
+                <div className="appointment-payment-summary"><span>Subtotal</span><strong>₱{subtotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong><span>Discount</span><strong>-₱{discountAmount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong><span>Final total</span><strong>₱{paymentTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong><span>Already paid</span><strong>₱{alreadyPaid.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong><span>Balance due</span><strong className="is-balance">₱{balanceDue.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong></div>
+                <div className="appointment-payment-fields"><label><span>Amount received</span><input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label><label><span>Payment method</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option><option value="e_wallet">E-wallet</option><option value="other">Other</option></select></label></div>
+              </div>
+              <footer className="appointment-confirm-actions"><Button type="button" variant="outline" disabled={paymentSaving} onClick={() => setPaymentOpen(false)}>Cancel</Button><Button type="button" className="cal-action-complete" disabled={paymentSaving} onClick={() => void collectPayment()}>{paymentSaving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : <><CreditCard size={15} /> Record &amp; complete</>}</Button></footer>
             </section>
           </div>
         )}
