@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ChevronLeft, ChevronRight, Clock3, FileText, Mail, Phone, UserRound, Tag } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock3, FileText, Mail, UserRound, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { CalendarAppointment, CalendarClientOption, CalendarServiceOption } from "./types"
 import { SelectServiceModal } from "./SelectServiceModal"
@@ -72,7 +72,7 @@ export function EditAppointmentModal({ appointment, services, saving, onClose, o
           </button>
           <button type="button" className="edit-appointment-row edit-appointment-guest-row" onClick={() => setGuestOpen(true)}>
             <span className="edit-appointment-row-icon"><UserRound size={16} /></span>
-            <span><small>Guest</small><strong>{draft.customer_name}</strong><em><Mail size={12} /> {draft.customer_email || "No email"}</em><em><Phone size={12} /> {draft.customer_phone || "No phone"}</em></span>
+            <span><small>Guest</small><strong>{draft.customer_name}</strong><em><Mail size={12} /> {draft.customer_email || "No email"}</em></span>
             <ChevronRight size={18} />
           </button>
           <label className="edit-appointment-status"><span><Tag size={15} /> Label / status</span><select value={draft.status} onChange={(event) => update({ status: event.target.value as CalendarAppointment["status"] })}><option value="pending">Pending</option><option value="approved">Approved</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="no_show">No-show</option></select></label>

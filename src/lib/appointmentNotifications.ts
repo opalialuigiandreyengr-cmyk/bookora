@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase"
 export async function sendAppointmentUpdateEmail(input: {
   businessId: string
   appointmentId: string
-  eventType: "booking_confirmation" | "cancellation" | "reschedule" | "reminder"
+  eventType: "booking_confirmation" | "cancellation" | "final_amount" | "reschedule" | "reminder"
   appointmentDate?: string
   appointmentTime?: string
 }) {

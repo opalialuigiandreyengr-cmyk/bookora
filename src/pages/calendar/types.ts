@@ -12,6 +12,9 @@ export interface CalendarAppointment {
   customer_note?: string
   service_names: string
   total_price: string
+  final_total_amount?: number | null
+  final_amount_note?: string
+  final_amount_sent_at?: string | null
   appointment_date: string // YYYY-MM-DD
   appointment_time: string // e.g. "10:30 AM"
   duration_minutes: number

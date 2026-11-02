@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
+import { Bell, CalendarDays, CheckCircle2, ChevronLeft, Clock3, Copy, DollarSign, ExternalLink, FileText, Loader2, Mail, MapPin, MoreVertical, Pencil, Phone, Scissors, Tag, Trash2, X, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarAppointment, CalendarClientOption, CalendarServiceOption, getInitials, parseDateKey } from "./types"
 import { supabase } from "@/lib/supabase"
@@ -14,6 +14,7 @@ interface AppointmentDrawerProps {
   onClose: () => void
   onUpdateStatus: (id: string, status: CalendarAppointment["status"], noShowReason?: string) => Promise<void>
   onUpdateAppointment?: (appointment: CalendarAppointment, draft: AppointmentEditDraft) => Promise<boolean>
+  onUpdateFinalAmount?: (id: string, amount: number, note: string, sendEmail: boolean) => Promise<boolean>
   onReschedule?: (appointment: CalendarAppointment) => Promise<void>
   services?: CalendarServiceOption[]
   appointments?: CalendarAppointment[]
@@ -26,6 +27,7 @@ export function AppointmentDrawer({
   onClose,
   onUpdateStatus,
   onUpdateAppointment,
+  onUpdateFinalAmount,
   onReschedule,
   services = [],
   appointments = [],
@@ -46,6 +48,9 @@ export function AppointmentDrawer({
   const [reminderSending, setReminderSending] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
+  const [finalAmount, setFinalAmount] = useState("")
+  const [finalAmountNote, setFinalAmountNote] = useState("")
+  const [finalAmountSaving, setFinalAmountSaving] = useState(false)
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
@@ -59,6 +64,8 @@ export function AppointmentDrawer({
     setReminderSentAt(null)
     setEditOpen(false)
     setEditSaving(false)
+    setFinalAmount(appointment?.final_total_amount == null ? "" : String(appointment.final_total_amount))
+    setFinalAmountNote(appointment?.final_amount_note || "")
   }, [appointment?.id])
 
   useEffect(() => {
@@ -202,6 +209,16 @@ export function AppointmentDrawer({
     setReminderSending(false)
   }
 
+  const saveFinalAmount = async (sendEmail: boolean) => {
+    if (!onUpdateFinalAmount || finalAmountSaving) return
+    const amount = Number(finalAmount.replace(/[^0-9.-]+/g, ""))
+    if (!Number.isFinite(amount) || amount < 0) { showToast("Enter a valid final amount.", "error"); return }
+    if (sendEmail && !appointment.customer_email.trim()) { showToast("This appointment has no client email.", "error"); return }
+    if (sendEmail && !window.confirm(`Send the final amount of ₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })} to ${appointment.customer_name}?`)) return
+    setFinalAmountSaving(true)
+    try { await onUpdateFinalAmount(appointment.id, amount, finalAmountNote, sendEmail) } finally { setFinalAmountSaving(false) }
+  }
+
   return (
     <div
       className="cal-drawer-backdrop"
@@ -340,6 +357,20 @@ export function AppointmentDrawer({
                 <span>No-show reason: {appointment.no_show_reason}</span>
               </div>
             )}
+          </div>
+
+          <div className="cal-overview-card cal-overview-pricing">
+            <div className="cal-overview-card-header">
+              <span className="cal-overview-icon"><DollarSign size={16} /></span>
+              <span className="cal-overview-card-label">Pricing &amp; payment</span>
+            </div>
+            <div className="cal-pricing-grid">
+              <div><span>Estimated total</span><strong>{appointment.total_price}</strong></div>
+              <label><span>Final total</span><input inputMode="decimal" value={finalAmount} onChange={(event) => setFinalAmount(event.target.value)} placeholder="₱0.00" aria-label="Final total amount" /></label>
+            </div>
+            <label className="cal-pricing-note"><span>Note for client (optional)</span><textarea rows={2} value={finalAmountNote} onChange={(event) => setFinalAmountNote(event.target.value)} placeholder="For example: Added nail art after design review" /></label>
+            {appointment.final_amount_sent_at && <small className="cal-pricing-sent">Sent {new Date(appointment.final_amount_sent_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</small>}
+            <div className="cal-pricing-actions"><Button type="button" variant="outline" disabled={finalAmountSaving || !onUpdateFinalAmount} onClick={() => void saveFinalAmount(false)}>{finalAmountSaving ? "Saving…" : "Save amount"}</Button><Button type="button" className="cal-action-approve" disabled={finalAmountSaving || !onUpdateFinalAmount} onClick={() => void saveFinalAmount(true)}><Mail size={14} /> Send final amount</Button></div>
           </div>
 
           {/* 2. Date and Time */}

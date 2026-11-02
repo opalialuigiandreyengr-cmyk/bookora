@@ -680,6 +680,9 @@ create table if not exists public.appointments (
     customer_note text default '',
     service_names text not null,
     total_price text not null default '₱0',
+    final_total_amount numeric(12,2),
+    final_amount_note text not null default '',
+    final_amount_sent_at timestamp with time zone,
     appointment_date text not null,
     appointment_time text not null,
     duration_minutes integer,
@@ -707,6 +710,11 @@ alter table public.appointments add column if not exists duration_minutes intege
 alter table public.appointments add column if not exists buffer_minutes integer default 0;
 alter table public.appointments add column if not exists peg_image_path text;
 alter table public.appointments add column if not exists payment_receipt_path text;
+alter table public.appointments add column if not exists final_total_amount numeric(12,2);
+alter table public.appointments add column if not exists final_amount_note text not null default '';
+alter table public.appointments add column if not exists final_amount_sent_at timestamp with time zone;
+alter table public.appointments drop constraint if exists appointments_final_total_amount_check;
+alter table public.appointments add constraint appointments_final_total_amount_check check (final_total_amount is null or final_total_amount >= 0) not valid;
 alter table public.appointments add column if not exists staff_member_id uuid references public.staff_members(id) on delete set null;
 alter table public.appointments add column if not exists location_name text not null default '';
 alter table public.appointments add column if not exists meeting_url text not null default '';

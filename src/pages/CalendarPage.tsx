@@ -141,6 +141,9 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       customer_note: String(row.customer_note || ""),
       service_names: String(row.service_names || "Appointment"),
       total_price: String(row.total_price || "₱0"),
+      final_total_amount: row.final_total_amount == null ? null : Number(row.final_total_amount),
+      final_amount_note: String(row.final_amount_note || ""),
+      final_amount_sent_at: row.final_amount_sent_at ? String(row.final_amount_sent_at) : null,
       appointment_date: String(row.appointment_date || "").slice(0, 10),
       appointment_time: String(row.appointment_time || "10:00 AM"),
       duration_minutes: serviceDuration,
@@ -394,6 +397,27 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
     persistLocal(next)
     setActiveAppointment((prev) => (prev && prev.id === id ? { ...prev, status } : prev))
     showToast(`Appointment marked as ${status}`)
+  }
+
+  const handleUpdateFinalAmount = async (id: string, amount: number, note: string, sendEmail: boolean) => {
+    if (!Number.isFinite(amount) || amount < 0) { showToast("Enter a valid final amount.", "error"); return false }
+    const update: Partial<CalendarAppointment> = { final_total_amount: Math.round(amount * 100) / 100, final_amount_note: note.trim() }
+    if (isLive && supabase) {
+      const { data, error } = await supabase.from("appointments").update(update).eq("id", id).eq("business_id", user.id).select("id")
+      if (error || !data?.length) { showToast(error?.message ? `Could not save final amount: ${error.message}` : "Could not save the final amount.", "error"); return false }
+      if (sendEmail) {
+        const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: id, eventType: "final_amount" })
+        if (!emailResult.ok) { showToast(`Final amount saved, but email was not sent: ${emailResult.error}`, "error"); return false }
+        const sentAt = new Date().toISOString()
+        await supabase.from("appointments").update({ final_amount_sent_at: sentAt }).eq("id", id).eq("business_id", user.id)
+        update.final_amount_sent_at = sentAt
+      }
+    }
+    const next = appointments.map((item) => item.id === id ? { ...item, ...update } : item)
+    persistLocal(next)
+    setActiveAppointment((current) => current?.id === id ? { ...current, ...update } : current)
+    showToast(sendEmail ? "Final amount sent to the client" : "Final amount saved")
+    return true
   }
 
   const handleUpdateAppointment = async (appointment: CalendarAppointment, draft: AppointmentEditDraft) => {
@@ -1101,6 +1125,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
         onClose={() => setActiveAppointment(null)}
         onUpdateStatus={handleUpdateStatus}
         onUpdateAppointment={handleUpdateAppointment}
+        onUpdateFinalAmount={handleUpdateFinalAmount}
         services={services}
         appointments={appointments}
         clients={clients.length ? clients : appointments.map((item) => ({ id: item.id, full_name: item.customer_name, email: item.customer_email, phone: item.customer_phone })).filter((client, index, list) => list.findIndex((item) => item.full_name === client.full_name && item.email === client.email) === index)}
