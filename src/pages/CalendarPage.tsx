@@ -385,6 +385,9 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       if (status === "cancelled") {
         const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: id, eventType: "cancellation" })
         if (!emailResult.ok) showToast(`Appointment cancelled, but email was not sent: ${emailResult.error}`, "error")
+      } else if (status === "approved") {
+        const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: id, eventType: "booking_confirmation" })
+        if (!emailResult.ok) showToast(`Appointment approved, but confirmation email was not sent: ${emailResult.error}`, "error")
       }
     }
     const next = appointments.map((item) => (item.id === id ? { ...item, status } : item))
@@ -409,6 +412,10 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       if (appointment.appointment_date !== nextDate || appointment.appointment_time !== nextTime) {
         const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: appointment.id, eventType: "reschedule", appointmentDate: nextDate, appointmentTime: nextTime })
         if (!emailResult.ok) showToast(`Appointment saved, but email was not sent: ${emailResult.error}`, "error")
+      }
+      if (appointment.status !== "approved" && update.status === "approved") {
+        const emailResult = await sendAppointmentUpdateEmail({ businessId: user.id, appointmentId: appointment.id, eventType: "booking_confirmation" })
+        if (!emailResult.ok) showToast(`Appointment saved, but confirmation email was not sent: ${emailResult.error}`, "error")
       }
     }
     const next = appointments.map((item) => item.id === appointment.id ? { ...item, ...update } : item)

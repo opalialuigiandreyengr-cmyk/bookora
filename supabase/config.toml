@@ -3,6 +3,9 @@ project_id = "sqpffxlwadqezfxnuzgy"
 [functions.send-booking-email]
 verify_jwt = false
 
+[functions.send-appointment-update-email]
+verify_jwt = true
+
 [functions.process-notification-events]
 verify_jwt = false
 

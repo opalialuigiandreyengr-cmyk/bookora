@@ -8814,7 +8814,7 @@ svg { stroke-width: 1.8; }
 /* The overview is the workspace itself: full viewport, entering from the right. */
 .cal-drawer-overview-page { width: 100%; max-width: none; animation: calSlideIn .2s cubic-bezier(.16, 1, .3, 1); }
 .edit-appointment-backdrop { position: fixed; inset: 0; z-index: 240; display: flex; align-items: flex-end; justify-content: center; background: rgb(15 23 42 / 42%); }
-.edit-appointment-sheet { width: min(560px, 100%); height: 92dvh; max-height: 92dvh; overflow-y: auto; border-radius: 18px 18px 0 0; background: var(--card); box-shadow: 0 -18px 52px rgb(15 23 42 / 18%); animation: calSheetUp .28s cubic-bezier(.22, 1, .36, 1); }
+.edit-appointment-sheet { display: flex; flex-direction: column; width: min(560px, 100%); height: 92dvh; max-height: 92dvh; overflow: hidden; border-radius: 18px 18px 0 0; background: var(--card); box-shadow: 0 -18px 52px rgb(15 23 42 / 18%); animation: calSheetUp .28s cubic-bezier(.22, 1, .36, 1); }
 .edit-appointment-header { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; min-height: 58px; padding: 9px 16px; }
 .edit-appointment-header h2 { margin: 0; color: var(--foreground); font-size: 17px; text-align: center; }
 .edit-appointment-header button { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--foreground); cursor: pointer; }
@@ -8826,7 +8826,7 @@ svg { stroke-width: 1.8; }
 .edit-appointment-section-title { margin-top: 4px; color: var(--muted-foreground); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .edit-appointment-form footer { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
 .edit-appointment-form footer button { min-height: 44px; }
-.edit-appointment-content { display: grid; gap: 0; padding: 4px 16px 34px; overflow-y: auto; }
+.edit-appointment-content { display: grid; flex: 1 1 auto; gap: 0; min-height: 0; padding: 4px 16px 34px; overflow-y: auto; overscroll-behavior: contain; }
 .edit-appointment-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 20px; align-items: center; gap: 10px; width: 100%; min-height: 68px; padding: 10px 0; border: 0; border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent); background: transparent; color: var(--foreground); cursor: pointer; text-align: left; font: inherit; }
 .edit-appointment-row-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in oklch, var(--primary) 10%, var(--card)); color: var(--primary); }
 .edit-appointment-row > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
@@ -8846,7 +8846,7 @@ svg { stroke-width: 1.8; }
 .edit-appointment-note { display: grid; gap: 8px; padding: 14px 0 3px; color: var(--muted-foreground); font-size: 11px; font-weight: 800; }
 .edit-appointment-note > span { display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .06em; }
 .edit-appointment-note textarea { width: 100%; resize: vertical; }
-.edit-appointment-footer { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in oklch, var(--card) 96%, transparent); backdrop-filter: blur(10px); }
+.edit-appointment-footer { position: relative; z-index: 2; display: grid; flex: 0 0 auto; grid-template-columns: 1fr 1.3fr; gap: 8px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in oklch, var(--card) 96%, transparent); box-shadow: 0 -8px 20px rgb(15 23 42 / 6%); backdrop-filter: blur(10px); }
 .edit-appointment-footer button { min-height: 44px; }
 .edit-service-backdrop { position: fixed; inset: 0; z-index: 250; display: flex; align-items: flex-end; justify-content: center; background: rgb(15 23 42 / 34%); }
 .edit-service-sheet { width: min(520px, 100%); height: 92dvh; max-height: 92dvh; overflow-y: auto; border-radius: 18px 0 0 18px; background: var(--card); box-shadow: -18px 0 52px rgb(15 23 42 / 18%); animation: calSlideIn .24s cubic-bezier(.16, 1, .3, 1); }
