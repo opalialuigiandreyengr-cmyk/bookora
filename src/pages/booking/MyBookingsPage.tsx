@@ -51,7 +51,6 @@ type MyBookingsPageProps = {
   onBack: () => void
   onBookNew: () => void
   onSignIn: () => void
-  onReschedule?: (booking: CustomerBooking) => void
   onCancelBooking?: (bookingId: string) => Promise<void> | void
 }
 
@@ -207,13 +206,12 @@ export function MyBookingsPage({
   onBack,
   onBookNew,
   onSignIn,
-  onReschedule,
   onCancelBooking,
 }: MyBookingsPageProps) {
   const [activeTab, setActiveTab] = useState<BookingTab>("upcoming")
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
-  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null)
+  const [cancelConfirmBooking, setCancelConfirmBooking] = useState<CustomerBooking | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [entryLoading, setEntryLoading] = useState(true)
 
@@ -294,7 +292,7 @@ export function MyBookingsPage({
   )
 
   useEffect(() => {
-    setConfirmingCancelId(null)
+    setCancelConfirmBooking(null)
     setMoreMenuOpen(false)
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [selectedBookingId])
@@ -309,14 +307,10 @@ export function MyBookingsPage({
   }
 
   const handleCancelAppointment = async (booking: CustomerBooking) => {
-    if (confirmingCancelId !== booking.id) {
-      setConfirmingCancelId(booking.id)
-      return
-    }
     setCancellingId(booking.id)
     try {
       await onCancelBooking?.(booking.id)
-      setConfirmingCancelId(null)
+      setCancelConfirmBooking(null)
     } finally {
       setCancellingId(null)
     }
@@ -540,40 +534,36 @@ export function MyBookingsPage({
 
             {/* Action Buttons */}
             <div className="my-booking-detail-actions">
-              <button
-                type="button"
-                className="my-booking-reschedule-btn"
-                onClick={() => {
-                  if (onReschedule) {
-                    onReschedule(selectedBooking)
-                  } else {
-                    onBookNew()
-                  }
-                }}
-              >
-                <CalendarDays size={17} />
-                <span>Reschedule</span>
-              </button>
-
               {statusKind !== "cancelled" && (
                 <button
                   type="button"
-                  className={`my-booking-cancel-btn ${confirmingCancelId === selectedBooking.id ? "is-confirming" : ""}`}
+                  className="my-booking-cancel-btn"
                   disabled={cancellingId === selectedBooking.id}
-                  onClick={() => handleCancelAppointment(selectedBooking)}
+                  onClick={() => setCancelConfirmBooking(selectedBooking)}
                 >
                   <Trash2 size={17} />
-                  <span>
-                    {cancellingId === selectedBooking.id
-                      ? "Cancelling..."
-                      : confirmingCancelId === selectedBooking.id
-                        ? "Tap again to confirm cancel"
-                        : "Cancel Booking"}
-                  </span>
+                  <span>{cancellingId === selectedBooking.id ? "Cancelling..." : "Cancel Booking"}</span>
                 </button>
               )}
             </div>
           </div>
+          {cancelConfirmBooking && (
+            <div className="my-booking-cancel-confirm-backdrop" role="presentation" onMouseDown={(event) => {
+              if (event.currentTarget === event.target && !cancellingId) setCancelConfirmBooking(null)
+            }}>
+              <section className="my-booking-cancel-confirm" role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title">
+                <Trash2 size={22} aria-hidden="true" />
+                <h2 id="cancel-booking-title">Cancel this booking?</h2>
+                <p>This will cancel your appointment. A cancellation email will be sent to your email address.</p>
+                <div className="my-booking-cancel-confirm-actions">
+                  <button type="button" className="my-booking-cancel-keep" disabled={Boolean(cancellingId)} onClick={() => setCancelConfirmBooking(null)}>Keep booking</button>
+                  <button type="button" className="my-booking-cancel-confirm-btn" disabled={Boolean(cancellingId)} onClick={() => void handleCancelAppointment(cancelConfirmBooking)}>
+                    {cancellingId ? "Cancelling…" : "Yes, cancel"}
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
         </div>
       </main>
     )

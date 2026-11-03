@@ -36,6 +36,7 @@ import {
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
+import { sendAppointmentUpdateEmail } from "@/lib/appointmentNotifications"
 import { setCrossSubdomainCookie } from "@/lib/domain"
 import { createPortal } from "react-dom"
 import { BookingServicesPage } from "@/pages/booking/BookingServicesPage"
@@ -1309,6 +1310,15 @@ export function CustomerBookingPage() {
           showToast(error.message || "This booking cannot be cancelled.", "error")
           return
         }
+        const emailResult = await sendAppointmentUpdateEmail({
+          businessId: profile?.id || "",
+          appointmentId: bookingId,
+          eventType: "cancellation",
+        })
+        if (!emailResult.ok) {
+          console.warn("Booking cancelled, but cancellation email was not sent", emailResult.error)
+          showToast("Booking cancelled, but the email could not be sent.", "error")
+        }
       } catch (error) {
         showToast(error instanceof Error ? error.message : "This booking cannot be cancelled.", "error")
         return
@@ -1411,26 +1421,6 @@ export function CustomerBookingPage() {
         onBookNew={() => {
           closeBookingsPage()
           navigateToBookingStep(1, true)
-        }}
-        onReschedule={(booking) => {
-          const requestedNames = booking.service_names
-            .split(",")
-            .map((name) => name.trim().toLowerCase())
-            .filter(Boolean)
-          const matchedIds = visibleServices
-            .filter((svc) => requestedNames.includes(svc.name.trim().toLowerCase()))
-            .map((svc) => svc.id)
-          if (matchedIds.length > 0) {
-            setServiceIds(matchedIds)
-          } else if (visibleServices.length > 0 && serviceIds.length === 0) {
-            setServiceIds([visibleServices[0].id])
-          }
-          if (booking.appointment_date && booking.appointment_date >= todayKey) {
-            setSelectedDateKey(booking.appointment_date)
-          }
-          closeBookingsPage()
-          navigateToBookingStep(2, true)
-          showToast("Select a new date & time to reschedule.")
         }}
         onCancelBooking={handleCancelCustomerBooking}
         onSignIn={() => {
