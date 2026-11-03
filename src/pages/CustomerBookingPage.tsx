@@ -781,6 +781,7 @@ export function CustomerBookingPage() {
 
   // Owner Name & Team Resolution
   const ownerFullName = profile?.owner_name || (currentUser?.user_metadata?.full_name ? String(currentUser.user_metadata.full_name) : "Luigi Opalia")
+  const customerAvatarUrl = String(currentUser?.user_metadata?.avatar_url ?? currentUser?.user_metadata?.picture ?? "").trim()
   const ownerInitials = ownerFullName.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
   const defaultBookingPolicies = [
     "A 50% deposit is required to secure your appointment.",
@@ -955,22 +956,6 @@ export function CustomerBookingPage() {
     return slots
   }
   const availableTimeSlots = useMemo(() => availableSlotsForDate(selectedDateKey), [availabilityBreaks, bookingBufferMinutes, bookingSlotSize, bookedTimes, currentMinutes, minimumNoticeHours, schedule, selectedDateKey, selectedServices, timeOffRules, todayKey, totalDurationMinutes])
-
-  const chooseFirstAvailable = () => {
-    for (let offset = 0; offset <= maximumBookingDays; offset += 1) {
-      const candidateKey = addDaysToKey(todayKey, offset)
-      const slots = availableSlotsForDate(candidateKey)
-      if (!slots.length) continue
-      const [year, month] = candidateKey.split("-").map(Number)
-      setSelectedDateKey(candidateKey)
-      setCalendarMonth(new Date(Date.UTC(year, month - 1, 1)))
-      setTime(slots[0])
-      setSummaryDateVisible(false)
-      transitionToBookingStep(3)
-      return
-    }
-    showToast("No appointments are available in the current booking window.", "error")
-  }
 
   useEffect(() => {
     if (step !== 2 || bookingDataLoading || bookingTimesLoading || availableTimeSlots.length > 0) return
@@ -1520,14 +1505,18 @@ export function CustomerBookingPage() {
                 className={`booking-user-badge ${accountOpen ? "is-open" : ""}`}
                 type="button"
                 aria-label="Open user account menu"
-                aria-expanded={accountOpen}
+                  aria-expanded={accountOpen}
                 onClick={() => {
                   setAccountOpen((open) => !open)
                   setMenuOpen(false)
                 }}
                 >
                   <span className="booking-user-avatar">
-                    {currentUser.user_metadata?.full_name?.charAt(0)?.toUpperCase() || currentUser.email?.charAt(0)?.toUpperCase() || "U"}
+                    {customerAvatarUrl ? (
+                      <img src={customerAvatarUrl} alt="" />
+                    ) : (
+                      currentUser.user_metadata?.full_name?.charAt(0)?.toUpperCase() || currentUser.email?.charAt(0)?.toUpperCase() || "U"
+                    )}
                   </span>
               </button>
 
@@ -1556,9 +1545,6 @@ export function CustomerBookingPage() {
                     }}
                   >
                     <Star size={15} /> Write a review
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => setAccountOpen(false)}>
-                    <Heart size={15} /> Saved studios
                   </button>
                   <div className="account-dropdown-divider" />
                   <button
@@ -1997,7 +1983,6 @@ export function CustomerBookingPage() {
               <div className="time-section">
                 <div className="subsection-heading">
                   <span>Available times</span>
-                  <button type="button" className="booking-first-available" onClick={chooseFirstAvailable}>First available</button>
                   <small>
                     {selectedDate.day}, {selectedDate.month} {selectedDate.date}
                   </small>
@@ -2049,17 +2034,6 @@ export function CustomerBookingPage() {
                 )}
               </div>
 
-              <div className="booking-actions">
-                <span className="secure-note">
-                  {bookingFeeInfo.enabled ? (
-                    bookingFeeInfo.isFullPayment
-                      ? "Paid in full today · ₱0 balance at your appointment"
-                      : `Deposit: ₱${bookingFeeInfo.depositAmount.toLocaleString("en-PH")} · Balance at venue: ₱${bookingFeeInfo.balanceAmount.toLocaleString("en-PH")}`
-                  ) : (
-                    <><CalendarDays size={14} /> Free cancellation up to {Math.max(0, Number(profile?.booking_cancellation_notice_hours ?? 24))} hours before</>
-                  )}
-                </span>
-              </div>
             </div>
             </BookingDateTimePage>
           )}

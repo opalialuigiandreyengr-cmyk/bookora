@@ -1754,7 +1754,7 @@ svg { stroke-width: 1.8; }
 .date-time-page .studio-story,
 .date-time-page .team-section,
 .date-time-page .reviews-section { display: none !important; }
-.date-time-page .date-time-layout { width: min(1000px, calc(100% - 32px)); min-height: calc(100dvh - 74px); padding-top: 15px; padding-bottom: 48px; }
+.date-time-page .date-time-layout { width: min(1000px, calc(100% - 32px)); min-height: calc(100dvh - 74px); padding-top: 15px; padding-bottom: 24px; }
 .date-time-page:has(.booking-summary-step-three) .date-time-layout { padding-bottom: 18px; }
 .date-time-page .booking-card { border: 0; background: transparent; box-shadow: none; }
 .date-time-page .booking-step { padding: 0; }
@@ -2389,6 +2389,14 @@ svg { stroke-width: 1.8; }
   color: #fff;
   font-size: 11px;
   font-weight: 800;
+}
+
+.booking-user-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
 }
 
 .booking-user-name {
