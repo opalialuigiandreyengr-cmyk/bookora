@@ -691,6 +691,15 @@ svg { stroke-width: 1.8; }
 .services-modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .services-modal-heading h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .services-modal-heading button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 20px; line-height: 1; }
+.service-editor-header { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; min-height: 42px; }
+.service-editor-header h2 { text-align: center; }
+.service-editor-nav-button { display: grid; place-items: center; width: 40px !important; height: 40px !important; border-radius: 10px !important; background: transparent !important; color: var(--foreground); }
+.service-editor-nav-button:hover, .service-editor-nav-button:focus-visible { background: var(--muted) !important; outline: 0; }
+.service-editor-menu-wrap { position: relative; display: flex; justify-content: flex-end; }
+.service-editor-menu { position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; display: grid; min-width: 150px; gap: 2px; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); box-shadow: 0 14px 32px oklch(0.2 0.03 255 / .16); }
+.service-editor-menu button { display: flex; align-items: center; gap: 8px; width: 100% !important; height: 34px !important; padding: 0 10px; border-radius: 6px !important; background: transparent !important; color: var(--foreground); font-size: 13px; text-align: left; }
+.service-editor-menu button:hover, .service-editor-menu button:focus-visible { background: var(--muted) !important; outline: 0; }
+.service-editor-menu button.danger { color: oklch(0.53 0.16 25); }
 .services-modal label { display: block; color: var(--foreground); font-size: 14px; font-weight: 500; }
 .services-modal-help { color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
 .services-modal input, .services-modal select, .services-modal textarea { width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--card); color: var(--foreground); font: inherit; font-size: 14px; }
@@ -1811,7 +1820,7 @@ svg { stroke-width: 1.8; }
   .services-modal-grid { grid-template-columns: 1fr; }
   .services-modal-grid.services-details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .services-service-modal .services-input-prefix { margin-top: 7px; }
-  .services-service-modal .services-modal-actions { position: sticky; z-index: 3; bottom: -20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(100%, 220px); justify-self: end; margin: 0 -16px -20px auto; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 0; background: transparent; box-shadow: none; }
+  .services-service-modal .services-modal-actions { position: sticky; z-index: 3; bottom: -20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: calc(100% + 32px); justify-self: stretch; margin: 0 -16px -20px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--card); box-shadow: 0 -8px 18px oklch(0.2 0.03 255 / .08); }
   .services-service-modal .services-modal-actions > button,
   .services-service-modal .services-modal-actions > [data-slot="button"] { width: 100% !important; min-width: 0 !important; height: 40px !important; min-height: 40px !important; padding: 0 !important; box-sizing: border-box; }
   .services-image-field { align-items: flex-start; }
