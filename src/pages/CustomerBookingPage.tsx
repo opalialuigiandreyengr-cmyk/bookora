@@ -309,6 +309,7 @@ export function CustomerBookingPage() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [policyAcknowledged, setPolicyAcknowledged] = useState(false)
+  const [serviceImagePreview, setServiceImagePreview] = useState<Service | null>(null)
   const [serviceIds, setServiceIds] = useState<string[]>(() => {
     try {
       const saved = window.localStorage.getItem(selectedServicesStorageKey)
@@ -1844,7 +1845,25 @@ export function CustomerBookingPage() {
                           onClick={() => toggleService(service.id)}
                         >
                           {service.image ? (
-                            <img className="service-image" src={service.image} alt="" />
+                            <span
+                              className="service-image-trigger"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`View ${service.name} image`}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setServiceImagePreview(service)
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  setServiceImagePreview(service)
+                                }
+                              }}
+                            >
+                              <img className="service-image" src={service.image} alt="" />
+                            </span>
                           ) : (
                             <span className="service-image service-image-placeholder">
                               <Sparkles size={16} />
@@ -2990,7 +3009,43 @@ export function CustomerBookingPage() {
           businessName={businessName}
         />
       )}
+      {serviceImagePreview && (
+        <ServiceImagePreviewModal
+          service={serviceImagePreview}
+          onClose={() => setServiceImagePreview(null)}
+        />
+      )}
     </main>
+  )
+}
+
+function ServiceImagePreviewModal({ service, onClose }: { service: Service; onClose: () => void }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="booking-service-image-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="booking-service-image-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="service-image-modal-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <h2 id="service-image-modal-title">{service.name}</h2>
+          <button type="button" onClick={onClose} aria-label="Close service image preview">
+            <X size={18} />
+          </button>
+        </header>
+        <img src={service.image || ""} alt={`${service.name} preview`} />
+      </section>
+    </div>
   )
 }
 
