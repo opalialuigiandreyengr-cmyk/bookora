@@ -1546,7 +1546,13 @@ svg { stroke-width: 1.8; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 580px) { .field-row { grid-template-columns: 1fr; gap: 16px; } }
 .details-peg-hint { display: block; margin-top: 6px; color: #8c7167; font-size: 12px; line-height: 1.45; }
-.payment-guide-image { display: block; width: min(240px, 100%); height: 180px; max-height: 180px; object-fit: contain; margin: 10px auto 0; border-radius: 10px; border: 1px solid #eaded8; }
+.payment-guide-image { display: block; width: min(100%, 360px); height: auto; max-height: none; object-fit: contain; margin: 10px auto 0; border-radius: 10px; border: 1px solid #eaded8; }
+.payment-guide-row { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #eaded8; border-radius: 10px; background: #fffcfb; }
+.payment-guide-thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 7px; border: 1px solid #eaded8; background: #fff; }
+.payment-guide-row > div { display: grid; min-width: 0; gap: 2px; }
+.payment-guide-row strong { color: #374151; font-size: 12px; }
+.payment-guide-row span { overflow: hidden; color: #8c7167; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.payment-guide-row button { min-height: 32px; padding: 0 10px; border: 1px solid #e5b0a9; border-radius: 8px; background: #fff7f4; color: #b25550; cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
 .payment-guide-note { display: block; margin: 7px auto 0; color: #8c7167; font-size: 11px; line-height: 1.4; text-align: center; }
 .details-form input:disabled { color: #6d7782; background: #f4f2f0; border-color: #e1ddd9; cursor: not-allowed; }
 
@@ -1556,6 +1562,13 @@ svg { stroke-width: 1.8; }
 .peg-field-header > span { display: inline-flex; align-items: center; gap: 6px; color: #374151; font-size: 13px; font-weight: 600; }
 .peg-field-header .optional { color: #9ca3af; font-size: 12px; font-weight: 400; }
 .peg-file-input { display: none; }
+.details-form label.peg-upload-row { display: grid !important; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 62px; padding: 10px 12px; border: 1.5px dashed #dfd4ce; border-radius: 12px; background: #fdfaf8; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+.details-form label.peg-upload-row:hover { border-color: #d85b53; background: #fff6f4; }
+.peg-upload-row .peg-dropzone-icon { width: 36px; height: 36px; flex-basis: 36px; border-radius: 10px; }
+.peg-upload-row .peg-dropzone-text { min-width: 0; text-align: left; }
+.peg-upload-row .peg-dropzone-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peg-upload-row .peg-dropzone-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peg-upload-action { padding: 7px 10px; border: 1px solid #e5b0a9; border-radius: 8px; background: #fff7f4; color: #b25550; font-size: 12px; font-weight: 750; }
 .details-form label.peg-dropzone { display: flex !important; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 9px; padding: 18px 16px; border: 1.5px dashed #dfd4ce; border-radius: 12px; background: #fdfaf8; cursor: pointer; transition: all .18s ease; }
 .details-form label.peg-dropzone:hover { border-color: #d85b53; background: #fff6f4; }
 .peg-dropzone-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px; background: #fae9e4; color: #c25b54; transition: transform .18s ease; }
