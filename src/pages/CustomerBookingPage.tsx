@@ -788,7 +788,7 @@ export function CustomerBookingPage() {
   ]
   const bookingPolicies = profile?.booking_policy
     ?.split(/\r?\n/)
-    .map((policy) => policy.trim())
+    .map((policy) => policy.trim().replace(/^(?:[•·●▪◦*.-]\s*)+/, "").trim())
     .filter(Boolean) || defaultBookingPolicies
   const schedule = profile?.business_hours ?? []
   const availabilityBreaks = profile?.availability_breaks ?? {}
@@ -1773,8 +1773,8 @@ export function CustomerBookingPage() {
                 <h2 id="booking-policy-title">Booking policy</h2>
               </div>
               <ul>
-                {bookingPolicies.map((policy) => (
-                  <li key={policy}>{policy}</li>
+                {bookingPolicies.map((policy, index) => (
+                  <li key={`${policy}-${index}`}>{policy}</li>
                 ))}
               </ul>
               <button className="booking-policy-confirm" type="button" onClick={() => setPolicyAcknowledged(true)}>
