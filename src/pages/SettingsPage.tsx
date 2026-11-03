@@ -67,6 +67,16 @@ const defaultHours: DaySchedule[] = days.map((day, i) => ({
   end: "17:00",
 }))
 
+const bookingSlugPattern = /^[a-z0-9-]+$/
+
+function getBookingSlugError(value: string) {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) return ""
+  return bookingSlugPattern.test(trimmedValue)
+    ? ""
+    : "Use lowercase letters, numbers, and hyphens only."
+}
+
 type BreakWindow = { start: string; end: string }
 type TimeOffRule = { id: string; title: string; startDate: string; endDate: string; startTime: string; endTime: string; allDay: boolean; repeat: "none" | "weekly" | "monthly" }
 
@@ -882,6 +892,8 @@ function Profile({
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [slugTouched, setSlugTouched] = useState(false)
+  const slugError = slugTouched ? getBookingSlugError(slug) : ""
 
   const handleBannerUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -1024,13 +1036,21 @@ function Profile({
             <span>Your Booking Page URL</span>
             <div className="booking-url-field">
               <input
+                id="booking-page-slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) => {
+                  setSlugTouched(true)
+                  setSlug(e.target.value)
+                }}
+                onBlur={() => setSlugTouched(true)}
                 placeholder={name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "your-business"}
                 aria-label="Booking page slug"
+                aria-invalid={Boolean(slugError)}
+                aria-describedby={slugError ? "booking-page-slug-error" : undefined}
               />
               <span aria-hidden="true">.bookora.com</span>
             </div>
+            {slugError && <small id="booking-page-slug-error" className="booking-url-error" role="alert">{slugError}</small>}
           </label>
           <label>
             <span>Industry</span>
@@ -1730,6 +1750,12 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
   }, [user.id])
 
   const handleSaveProfile = async () => {
+    const trimmedSlug = slug.trim()
+    if (trimmedSlug && !bookingSlugPattern.test(trimmedSlug)) {
+      showToast("Fix your booking page URL before saving", "error")
+      return
+    }
+
     setSaveStatus("saving")
     setStatusMessage("")
 
