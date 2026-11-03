@@ -329,7 +329,6 @@ export function CustomerBookingPage() {
   const [pegImageName, setPegImageName] = useState<string>("")
   const [paymentReceipt, setPaymentReceipt] = useState<string>("")
   const [paymentReceiptName, setPaymentReceiptName] = useState<string>("")
-  const [paymentGuidePreviewOpen, setPaymentGuidePreviewOpen] = useState(false)
   const [summaryDateVisible, setSummaryDateVisible] = useState(true)
   const [stepTransitionLoading, setStepTransitionLoading] = useState(false)
   const [submittingBooking, setSubmittingBooking] = useState(false)
@@ -2383,20 +2382,13 @@ export function CustomerBookingPage() {
                 {additionalInfo && <small className="details-peg-hint"><em>{additionalInfo}</em></small>}
 
                 {showPaymentReceiptField && profile?.payment_receipt_url && (
-                  <div className="payment-guide-row">
-                    <img src={profile.payment_receipt_url} alt="" className="payment-guide-thumb" />
-                    <div>
+                  <div className="payment-guide-inline">
+                    <div className="payment-guide-inline-heading">
                       <strong>Payment QR</strong>
-                      <span>Scan to pay, then attach your receipt.</span>
+                      <span>Scan to pay before attaching your receipt.</span>
                     </div>
-                    <button type="button" onClick={() => setPaymentGuidePreviewOpen(true)}>View</button>
+                    <img src={profile.payment_receipt_url} alt="Payment QR code and instructions" className="payment-guide-image" />
                   </div>
-                )}
-                {paymentGuidePreviewOpen && profile?.payment_receipt_url && (
-                  <PaymentGuidePreviewModal
-                    imageUrl={profile.payment_receipt_url}
-                    onClose={() => setPaymentGuidePreviewOpen(false)}
-                  />
                 )}
 
                 {bookingFeeInfo.enabled && (
@@ -2416,7 +2408,7 @@ export function CustomerBookingPage() {
                         <span>Service fee</span>
                         <strong>{totalPriceNum > 0 ? `₱${totalPriceNum.toLocaleString("en-PH")}` : selectedPriceDisplay || "₱0"}</strong>
                       </div>
-                      <div className="booking-fee-breakdown-item highlight">
+                      <div className="booking-fee-breakdown-item highlight booking-fee-deduction">
                         <span>
                           {bookingFeeInfo.isFullPayment
                             ? "Booking fee"
@@ -2451,7 +2443,7 @@ export function CustomerBookingPage() {
                 )}
 
                 {showPaymentReceiptField && (
-                  <div className="peg-attachment-field">
+                  <div className="peg-attachment-field payment-receipt-field">
                     <div className="peg-field-header"><span>Payment receipt</span></div>
                     {!paymentReceipt ? (
                     <label htmlFor="payment-receipt-input" className="peg-upload-row">
@@ -3056,36 +3048,6 @@ function ServiceImagePreviewModal({ service, onClose }: { service: Service; onCl
           </button>
         </header>
         <img src={service.image || ""} alt={`${service.name} preview`} />
-      </section>
-    </div>
-  )
-}
-
-function PaymentGuidePreviewModal({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose()
-    }
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [onClose])
-
-  return (
-    <div className="booking-service-image-modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className="booking-service-image-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="payment-guide-modal-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header>
-          <h2 id="payment-guide-modal-title">Payment QR</h2>
-          <button type="button" onClick={onClose} aria-label="Close payment QR preview">
-            <X size={18} />
-          </button>
-        </header>
-        <img src={imageUrl} alt="Payment QR code and instructions" />
       </section>
     </div>
   )
