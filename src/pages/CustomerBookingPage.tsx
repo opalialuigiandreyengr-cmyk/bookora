@@ -2382,6 +2382,23 @@ export function CustomerBookingPage() {
 
                 {additionalInfo && <small className="details-peg-hint"><em>{additionalInfo}</em></small>}
 
+                {showPaymentReceiptField && profile?.payment_receipt_url && (
+                  <div className="payment-guide-row">
+                    <img src={profile.payment_receipt_url} alt="" className="payment-guide-thumb" />
+                    <div>
+                      <strong>Payment QR</strong>
+                      <span>Scan to pay, then attach your receipt.</span>
+                    </div>
+                    <button type="button" onClick={() => setPaymentGuidePreviewOpen(true)}>View</button>
+                  </div>
+                )}
+                {paymentGuidePreviewOpen && profile?.payment_receipt_url && (
+                  <PaymentGuidePreviewModal
+                    imageUrl={profile.payment_receipt_url}
+                    onClose={() => setPaymentGuidePreviewOpen(false)}
+                  />
+                )}
+
                 {bookingFeeInfo.enabled && (
                   <div className="booking-fee-breakdown-card">
                     <div className="booking-fee-breakdown-header">
@@ -2464,22 +2481,6 @@ export function CustomerBookingPage() {
                           </label>
                         </div>
                       </div>
-                    )}
-                    {profile?.payment_receipt_url && (
-                      <div className="payment-guide-row">
-                        <img src={profile.payment_receipt_url} alt="" className="payment-guide-thumb" />
-                        <div>
-                          <strong>Payment QR</strong>
-                          <span>Scan to pay, then attach your receipt.</span>
-                        </div>
-                        <button type="button" onClick={() => setPaymentGuidePreviewOpen(true)}>View</button>
-                      </div>
-                    )}
-                    {paymentGuidePreviewOpen && profile?.payment_receipt_url && (
-                      <PaymentGuidePreviewModal
-                        imageUrl={profile.payment_receipt_url}
-                        onClose={() => setPaymentGuidePreviewOpen(false)}
-                      />
                     )}
                   </div>
                 )}
