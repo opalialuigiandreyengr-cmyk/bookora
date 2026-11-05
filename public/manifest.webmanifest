@@ -1,0 +1,29 @@
+{
+  "name": "Bookora – Appointments made simple",
+  "short_name": "Bookora",
+  "description": "Simple appointment booking for beauty professionals.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#fffaf8",
+  "theme_color": "#fffaf8",
+  "lang": "en-PH",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/bookora-logo.png",
+      "sizes": "1280x1280",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/bookora-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

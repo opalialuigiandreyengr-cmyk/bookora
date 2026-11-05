@@ -4,6 +4,12 @@ import App from "./App"
 import "./index.css"
 import { handleOAuthSubdomainBounce } from "./lib/domain"
 
+if ("serviceWorker" in navigator && window.location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined)
+  })
+}
+
 const isBouncing = handleOAuthSubdomainBounce()
 
 if (!isBouncing) {
@@ -13,4 +19,3 @@ if (!isBouncing) {
     </StrictMode>,
   )
 }
-
