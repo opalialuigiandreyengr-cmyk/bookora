@@ -30,6 +30,15 @@
   --text-body: 0.875rem;
 }
 
+/* Prevent the page behind any dialog or drawer from scrolling. Modal content
+   keeps its own overflow behavior, while the underlying calendar/workspace
+   stays fixed until the modal closes. */
+html:has([aria-modal="true"]),
+body:has([aria-modal="true"]) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
