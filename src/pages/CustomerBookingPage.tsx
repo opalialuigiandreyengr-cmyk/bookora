@@ -325,6 +325,7 @@ export function CustomerBookingPage() {
   const [time, setTime] = useState("")
   const [bookedTimes, setBookedTimes] = useState<BookedTime[]>([])
   const [bookingTimesLoading, setBookingTimesLoading] = useState(false)
+  const [availabilityNow, setAvailabilityNow] = useState(() => new Date())
   const [details, setDetails] = useState({ name: "", email: "", phone: "", address: "", note: "" })
   const [pegImage, setPegImage] = useState<string>("")
   const [pegImageName, setPegImageName] = useState<string>("")
@@ -891,7 +892,7 @@ export function CustomerBookingPage() {
   const appointmentTimeRange = time
     ? `${time} – ${formatSlotTime(slotLabelToMinutes(time) + Math.max(0, totalDurationMinutes || bookingSlotSize))}`
     : "Select a time"
-  const philippinesNow = new Intl.DateTimeFormat("en-US", { timeZone: philippinesTimeZone, weekday: "long", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date())
+  const philippinesNow = new Intl.DateTimeFormat("en-US", { timeZone: philippinesTimeZone, weekday: "long", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(availabilityNow)
   const todayName = philippinesNow.find((part) => part.type === "weekday")?.value || ""
   const todaySchedule = schedule.find((item) => item.day.toLowerCase() === todayName.toLowerCase())
   const currentMinutes = Number(philippinesNow.find((part) => part.type === "hour")?.value || 0) * 60 + Number(philippinesNow.find((part) => part.type === "minute")?.value || 0)
@@ -1206,6 +1207,14 @@ export function CustomerBookingPage() {
     loadBookedTimes().catch(() => undefined)
     return () => { active = false }
   }, [profile?.id, selectedDateKey])
+
+  // Keep today's date and time slots in sync while the booking page remains open.
+  // Without a refresh, slots that have already passed can remain selectable until
+  // another unrelated state update occurs.
+  useEffect(() => {
+    const refresh = window.setInterval(() => setAvailabilityNow(new Date()), 30_000)
+    return () => window.clearInterval(refresh)
+  }, [])
 
   useEffect(() => {
     if (time && !availableTimeSlots.includes(time)) setTime("")
