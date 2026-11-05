@@ -946,10 +946,15 @@ export function CustomerBookingPage() {
     if (closingMinutes <= openingMinutes) return []
     const requiredMinutes = Math.max(bookingSlotSize, totalDurationMinutes) + bookingBufferMinutes
     const earliestTime = dateKey === todayKey ? currentMinutes + minimumNoticeHours * 60 : openingMinutes
+    // `bookedTimes` is loaded for the currently selected date only. Do not use
+    // today's bookings while calculating availability for every other date in
+    // the calendar, otherwise a fully booked today makes future dates appear
+    // unavailable too.
+    const bookedTimesForDate = dateKey === selectedDateKey ? bookedTimes : []
     const slots: string[] = []
     for (let start = openingMinutes; start + requiredMinutes <= closingMinutes; start += bookingSlotSize) {
       if (start < earliestTime) continue
-      const hasConflict = bookedTimes.some((booked) => slotOverlapsBookedTime(start, requiredMinutes, booked))
+      const hasConflict = bookedTimesForDate.some((booked) => slotOverlapsBookedTime(start, requiredMinutes, booked))
       const hasBreakConflict = (availabilityBreaks[weekday] || []).some((breakWindow) => start < timeToMinutes(breakWindow.end) && start + requiredMinutes > timeToMinutes(breakWindow.start))
       const hasPartialTimeOffConflict = timeOffForDate.some((rule) => rule.allDay === false && rule.startTime && rule.endTime && start < timeToMinutes(rule.endTime) && start + requiredMinutes > timeToMinutes(rule.startTime))
       if (!hasConflict && !hasBreakConflict && !hasPartialTimeOffConflict) slots.push(formatSlotTime(start))
