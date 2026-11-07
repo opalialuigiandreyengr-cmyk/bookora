@@ -1,7 +1,13 @@
-node_modules/
-dist/
+/node_modules/
+/bookoraph-app/node_modules/
+!public/app/**
+/dist/
+/bookoraph-app/dist/
 .next/
 *.tsbuildinfo
 preview*.png
 *.local
 .vercel/
+.expo/
+bookoraph-app/.env
+bookoraph-app/Setmore.apk
