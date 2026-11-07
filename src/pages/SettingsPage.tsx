@@ -1815,39 +1815,19 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
 
     try {
       if (supabase && user.id && !user.id.startsWith("preview-")) {
-        // 2. Save into Supabase auth user_metadata
+        // 2. Save lightweight metadata into Supabase auth user_metadata (prevents bloated JWT headers / ERR_HTTP2_PROTOCOL_ERROR)
+        const isSafeShortUrl = (val: unknown) =>
+          typeof val === "string" && !val.startsWith("data:") && val.length < 1000
         const { data: authData, error: authErr } = await supabase.auth.updateUser({
           data: {
             business_name: profileData.business_name,
+            slug: profileData.slug,
             industry: profileData.industry,
             phone: profileData.phone,
-            business_hours: profileData.business_hours,
-            booking_policy: profileData.booking_policy,
-            booking_min_notice_hours: profileData.booking_min_notice_hours,
-            booking_max_days: profileData.booking_max_days,
-            booking_slot_size_minutes: profileData.booking_slot_size_minutes,
-            booking_cancellation_notice_hours: profileData.booking_cancellation_notice_hours,
-            booking_buffer_minutes: profileData.booking_buffer_minutes,
-            booking_show_phone: profileData.booking_show_phone,
-            booking_show_address: profileData.booking_show_address,
-            booking_show_notes: profileData.booking_show_notes,
-            booking_show_design_peg: profileData.booking_show_design_peg,
-            booking_show_payment_receipt: profileData.booking_show_payment_receipt,
-            booking_show_price: profileData.booking_show_price,
-            booking_show_duration: profileData.booking_show_duration,
-            booking_show_hours: profileData.booking_show_hours,
-            booking_show_staff: profileData.booking_show_staff,
-            booking_show_reviews: profileData.booking_show_reviews,
-            booking_allow_customer_login: profileData.booking_allow_customer_login,
-            booking_fee_enabled: profileData.booking_fee_enabled,
-            booking_fee_type: profileData.booking_fee_type,
-            booking_fee_amount: profileData.booking_fee_amount,
-            booking_fee_note: profileData.booking_fee_note,
-            booking_additional_info: profileData.booking_additional_info,
-            payment_receipt_url: profileData.payment_receipt_url,
-            business_profile: profileData,
-            banner_url: profileData.banner_url,
-            logo_url: profileData.logo_url,
+            banner_url: isSafeShortUrl(profileData.banner_url) ? profileData.banner_url : null,
+            logo_url: isSafeShortUrl(profileData.logo_url) ? profileData.logo_url : null,
+            payment_receipt_url: isSafeShortUrl(profileData.payment_receipt_url) ? profileData.payment_receipt_url : null,
+            business_profile: null,
           },
         })
         if (!authErr && authData?.user) {
