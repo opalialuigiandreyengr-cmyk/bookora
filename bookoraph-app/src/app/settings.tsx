@@ -421,10 +421,12 @@ export default function Settings() {
       Alert.alert('Upload unavailable', 'Please sign in again before uploading an image.');
       return;
     }
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Photo access needed', 'Allow photo access to choose your business image.');
-      return;
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Photo access needed', 'Allow photo access to choose your business image.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -463,10 +465,12 @@ export default function Settings() {
       Alert.alert('Upload unavailable', 'Please sign in again before uploading an image.');
       return;
     }
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Photo access needed', 'Allow photo access to choose your payment image.');
-      return;
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Photo access needed', 'Allow photo access to choose your payment image.');
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -710,8 +714,25 @@ export default function Settings() {
 
     if (typeof measuredTarget === 'number') {
       UIManager.measureInWindow(measuredTarget, openAtMeasuredPosition);
-    } else {
+    } else if (
+      measuredTarget &&
+      typeof (measuredTarget as { measureInWindow?: unknown }).measureInWindow === 'function'
+    ) {
       measuredTarget.measureInWindow(openAtMeasuredPosition);
+    } else if (
+      measuredTarget &&
+      typeof (measuredTarget as unknown as HTMLElement).getBoundingClientRect === 'function'
+    ) {
+      const rect = (measuredTarget as unknown as HTMLElement).getBoundingClientRect();
+      openAtMeasuredPosition(rect.left, rect.top, rect.width, rect.height);
+    } else {
+      const nativeEvt = event.nativeEvent as { pageX?: number; pageY?: number };
+      openAtMeasuredPosition(
+        nativeEvt.pageX ?? screenWidth / 2 - 60,
+        nativeEvt.pageY ?? screenHeight / 2,
+        100,
+        38
+      );
     }
   };
 

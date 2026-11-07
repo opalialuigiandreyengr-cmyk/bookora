@@ -15,6 +15,7 @@ import { Platform, Pressable, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
 import { Button, LoadingState } from '@/components/ui';
+import { WebAlertHost } from '@/components/web-alert-host';
 import { AppProvider, useApp } from '@/providers/app-provider';
 import { colors, space } from '@/theme';
 
@@ -114,6 +115,7 @@ export default function RootLayout() {
           <AppNavigator />
         </Suspense>
       </RouteErrorBoundary>
+      <WebAlertHost />
     </AppProvider>
   );
 }
