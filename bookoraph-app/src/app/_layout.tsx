@@ -122,6 +122,29 @@ function AppNavigator() {
   const { loading, session } = useApp();
 
   useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'bookora-no-focus-outline';
+      if (!document.getElementById(styleId)) {
+        const styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        styleEl.textContent = `
+          input, textarea, select, [contenteditable] {
+            outline: none !important;
+            outline-width: 0 !important;
+            box-shadow: none !important;
+          }
+          input:focus, input:focus-visible, textarea:focus, textarea:focus-visible, select:focus, select:focus-visible {
+            outline: none !important;
+            outline-width: 0 !important;
+            box-shadow: none !important;
+          }
+        `;
+        document.head.appendChild(styleEl);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (!session || Platform.OS !== 'web') return;
     const timer = setTimeout(() => {
       void import('./services').catch(() => undefined);
@@ -131,6 +154,7 @@ function AppNavigator() {
       void import('./notifications').catch(() => undefined);
       void import('./settings').catch(() => undefined);
       void import('./appointment/[id]').catch(() => undefined);
+      void import('./booking/[id]').catch(() => undefined);
     }, 150);
     return () => clearTimeout(timer);
   }, [session]);
@@ -167,6 +191,8 @@ function AppNavigator() {
         <Stack.Protected guard={Boolean(session)} redirectTo="/sign-in">
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="appointment/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="ointment/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="services" options={{ headerShown: false }} />
           <Stack.Screen name="staff" options={{ title: 'Staff & Team' }} />
           <Stack.Screen name="block-time" options={{ title: 'Block Time' }} />

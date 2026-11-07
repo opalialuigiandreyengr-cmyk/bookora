@@ -49,6 +49,17 @@
         background-color: #FFFFFF;
         z-index: 9999;
       }
+      /* Remove browser default focus outline box inside custom RNW TextInput wrappers */
+      input, textarea, select, [contenteditable] {
+        outline: none !important;
+        outline-width: 0 !important;
+        box-shadow: none !important;
+      }
+      input:focus, input:focus-visible, textarea:focus, textarea:focus-visible, select:focus, select:focus-visible {
+        outline: none !important;
+        outline-width: 0 !important;
+        box-shadow: none !important;
+      }
     </style>
   <link rel="icon" href="/app/favicon.ico"/></head>
 
@@ -57,6 +68,6 @@
     <noscript> You need to enable JavaScript to run this app. </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
-  <script src="/app/_expo/static/js/web/__expo-metro-runtime-9f1a7b6acd20011e290bc79f0164ae37.js" defer></script><script src="/app/_expo/static/js/web/__common-952329dfd698401b480f5be3f1d7ccb3.js" defer></script><script src="/app/_expo/static/js/web/entry-605fc141c2b2533d4375e344328fffbe.js" defer></script>
+  <script src="/app/_expo/static/js/web/__expo-metro-runtime-9f1a7b6acd20011e290bc79f0164ae37.js" defer></script><script src="/app/_expo/static/js/web/__common-b4632287ec27bd32e265eac06d388fd1.js" defer></script><script src="/app/_expo/static/js/web/entry-30c1343b12e09f6629972d6420f0f788.js" defer></script>
 </body>
 </html>

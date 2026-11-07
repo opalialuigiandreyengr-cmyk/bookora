@@ -134,7 +134,7 @@ export default function Calendar() {
   const goToday = () => setSelectedDate(today);
 
   const openAppointment = (item: Appointment) =>
-    router.push({ pathname: '/appointment/[id]', params: { id: item.id } });
+    router.push({ pathname: '/booking/[id]', params: { id: item.id } });
   const openNewAppointment = (date: Date, time = '10:00 AM') => {
     setSelectedDate(date);
     setNewAppointmentTime(time);

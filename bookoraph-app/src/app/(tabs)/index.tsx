@@ -678,7 +678,7 @@ export default function Dashboard() {
               <View key={item.id} style={styles.pendingRow}>
                 <Pressable
                   style={styles.pendingInfo}
-                  onPress={() => router.push({ pathname: '/appointment/[id]', params: { id: item.id } })}
+                  onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
                 >
                   <Text numberOfLines={1} style={styles.pendingClient}>
                     {item.customer_name}
@@ -720,7 +720,7 @@ export default function Dashboard() {
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() => router.push({ pathname: '/appointment/[id]', params: { id: item.id } })}
+                  onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
                   style={({ pressed }) => [styles.appointmentCard, pressed && styles.pressed]}
                 >
                   <View style={[styles.clientAvatar, { backgroundColor: tone.bg }]}>

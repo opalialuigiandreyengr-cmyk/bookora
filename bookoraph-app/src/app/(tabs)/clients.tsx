@@ -735,7 +735,7 @@ export default function Clients() {
                           key={appt.id}
                           onPress={() => {
                             setSelectedClient(null);
-                            router.push({ pathname: '/appointment/[id]', params: { id: appt.id } });
+                            router.push({ pathname: '/booking/[id]', params: { id: appt.id } });
                           }}
                           style={({ pressed }) => [styles.historyItem, pressed && styles.pressed]}
                         >
