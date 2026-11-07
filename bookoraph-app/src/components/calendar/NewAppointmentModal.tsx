@@ -38,6 +38,8 @@ import {
 
 interface NewAppointmentModalProps {
   visible: boolean;
+  mode?: 'create' | 'edit';
+  initialAppointment?: Appointment | null;
   defaultDate?: string;
   defaultTime?: string;
   services: Service[];
@@ -122,6 +124,8 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export function NewAppointmentModal({
   visible,
+  mode = 'create',
+  initialAppointment = null,
   defaultDate,
   defaultTime,
   services,
@@ -132,29 +136,43 @@ export function NewAppointmentModal({
 }: NewAppointmentModalProps) {
   const { clients, businessProfile, blockEvents } = useApp();
 
-  const initialDate = defaultDate || toDateKey(new Date());
-  const initialTime = defaultTime
-    ? formatMinutesToTime(parseTimeToMinutes(defaultTime))
-    : '10:00 AM';
+  const initialServiceParts = (initialAppointment?.service_names || '')
+    .split(/\s*\+\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const initialPrimaryService = initialServiceParts[0] || '';
+  const initialExtraServices = initialServiceParts.slice(1);
 
-  const [step, setStep] = useState<WizardStep>('service');
-  const [editingFromSummary, setEditingFromSummary] = useState(false);
+  const initialDate = initialAppointment?.appointment_date || defaultDate || toDateKey(new Date());
+  const initialTime = initialAppointment?.appointment_time
+    ? initialAppointment.appointment_time
+    : defaultTime
+      ? formatMinutesToTime(parseTimeToMinutes(defaultTime))
+      : '10:00 AM';
+  const initialPrice = initialAppointment?.total_price
+    ? String(initialAppointment.total_price).trim().startsWith('₱')
+      ? String(initialAppointment.total_price).trim()
+      : `₱${String(initialAppointment.total_price).replace(/[^0-9.-]/g, '') || '0'}`
+    : '';
+
+  const [step, setStep] = useState<WizardStep>(mode === 'edit' ? 'summary' : 'service');
+  const [editingFromSummary, setEditingFromSummary] = useState(mode === 'edit');
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [showNewGuestForm, setShowNewGuestForm] = useState(false);
   const [guestSearch, setGuestSearch] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [selectedService, setSelectedService] = useState('');
+  const [customerName, setCustomerName] = useState(initialAppointment?.customer_name || '');
+  const [customerPhone, setCustomerPhone] = useState(initialAppointment?.customer_phone || '');
+  const [customerEmail, setCustomerEmail] = useState(initialAppointment?.customer_email || '');
+  const [selectedService, setSelectedService] = useState(initialPrimaryService);
   const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [additionalServices, setAdditionalServices] = useState<string[]>([]);
+  const [additionalServices, setAdditionalServices] = useState<string[]>(initialExtraServices);
   const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState('');
-  const [durationInput, setDurationInput] = useState('60');
-  const [price, setPrice] = useState('');
-  const [status, setStatus] = useState<AppointmentStatus>('approved');
-  const [customerNote, setCustomerNote] = useState('');
+  const [time, setTime] = useState(initialAppointment?.appointment_time || '');
+  const [durationInput, setDurationInput] = useState(String(initialAppointment?.duration_minutes || 60));
+  const [price, setPrice] = useState(initialPrice);
+  const [status, setStatus] = useState<AppointmentStatus>(initialAppointment?.status || 'approved');
+  const [customerNote, setCustomerNote] = useState(initialAppointment?.customer_note || '');
   const [saving, setSaving] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(initialDate));
@@ -209,14 +227,9 @@ export function NewAppointmentModal({
       (s) =>
         (selectedServiceId && s.id === selectedServiceId) ||
         s.name.trim().toLowerCase() === selectedService.trim().toLowerCase()
-    ) ?? activeServices[0];
-  const normalizedPrimaryName = (
-    selectedService ||
-    primaryServiceObj?.name ||
-    ''
-  )
-    .trim()
-    .toLowerCase();
+    ) ?? (mode === 'edit' && selectedService.trim() ? undefined : activeServices[0]);
+  const primaryServiceName = selectedService.trim() || primaryServiceObj?.name || '';
+  const normalizedPrimaryName = primaryServiceName.trim().toLowerCase();
   const additionalServiceOptions = activeServices.filter((s) => {
     if (selectedServiceId && s.id === selectedServiceId) return false;
     if (primaryServiceObj?.id && s.id === primaryServiceObj.id) return false;
@@ -283,10 +296,15 @@ export function NewAppointmentModal({
         ? prev.filter((s) => s !== serviceName)
         : [...prev, serviceName];
       const baseDur = primaryServiceObj?.duration_minutes || 60;
-      const extraDur = activeServices
-        .filter((s) => next.includes(s.name))
-        .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+      const extraObjs = activeServices.filter((s) => next.includes(s.name));
+      const extraDur = extraObjs.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
       setDurationInput(String(baseDur + extraDur));
+      const parseAmount = (val: string | number) =>
+        Number(String(val).replace(/[^0-9.-]+/g, '')) || 0;
+      const baseAmount = parseAmount(primaryServiceObj?.price ?? price);
+      const extraAmount = extraObjs.reduce((sum, s) => sum + parseAmount(s.price), 0);
+      const nextTotal = baseAmount + extraAmount;
+      setPrice(`₱${nextTotal.toLocaleString('en-PH')}`);
       return next;
     });
   };
@@ -329,9 +347,15 @@ export function NewAppointmentModal({
     index < firstDay ? null : index - firstDay + 1
   );
   const resolvedTime = time || initialTime;
+  const appointmentsForConflictCheck = initialAppointment
+    ? existingAppointments.filter((item) => item.id !== initialAppointment.id)
+    : existingAppointments;
   const timeSlots = buildTimeSlots(date, businessProfile);
   const availableTimeSlots = timeSlots.filter(
     (slot) =>
+      (mode === 'edit' &&
+        date === initialAppointment?.appointment_date &&
+        slot === initialAppointment?.appointment_time) ||
       !validateAppointmentSchedule(
         {
           appointment_date: date,
@@ -342,16 +366,17 @@ export function NewAppointmentModal({
         },
         {
           businessProfile,
-          appointments: existingAppointments,
+          appointments: appointmentsForConflictCheck,
           blockEvents,
           services,
         }
       )
   );
   const displayPrice =
-    selectedAdditionalObjs.length > 0 && combinedPriceNumber > 0
+    price ||
+    (combinedPriceNumber > 0
       ? `₱${combinedPriceNumber.toLocaleString('en-PH')}`
-      : price || `₱${String(primaryServiceObj?.price ?? '0').replace(/[^0-9.-]/g, '')}`;
+      : `₱${String(primaryServiceObj?.price ?? '0').replace(/[^0-9.-]/g, '')}`);
 
   const handleBack = () => {
     if (step === 'guest' && showNewGuestForm && clients.length > 0) {
@@ -361,6 +386,14 @@ export function NewAppointmentModal({
     if (editingFromSummary && step !== 'summary') {
       setEditingFromSummary(false);
       transitionToStep('summary', 'back');
+      return;
+    }
+    if (mode === 'edit') {
+      if (step !== 'summary') {
+        transitionToStep('summary', 'back');
+      } else {
+        onClose();
+      }
       return;
     }
     if (step === 'status') {
@@ -377,7 +410,7 @@ export function NewAppointmentModal({
   };
 
   const handleSubmit = async () => {
-    if (!primaryServiceObj || !selectedService.trim()) {
+    if (!primaryServiceName) {
       Alert.alert('Service required', 'Choose a service before saving this appointment.');
       transitionToStep('service', 'back');
       return;
@@ -392,26 +425,33 @@ export function NewAppointmentModal({
       return;
     }
 
-    const serviceNames = [primaryServiceObj.name, ...selectedAdditionalObjs.map((service) => service.name)].join(' + ');
-    const scheduleError = validateAppointmentSchedule(
-      {
-        appointment_date: date,
-        appointment_time: resolvedTime,
-        duration_minutes: combinedDuration,
-        buffer_minutes: combinedBuffer,
-        service_names: serviceNames,
-      },
-      {
-        businessProfile,
-        appointments: existingAppointments,
-        blockEvents,
-        services,
+    const serviceNames = [primaryServiceName, ...selectedAdditionalObjs.map((service) => service.name)].join(' + ');
+    const scheduleChanged =
+      mode !== 'edit' ||
+      date !== initialAppointment?.appointment_date ||
+      resolvedTime !== initialAppointment?.appointment_time;
+
+    if (scheduleChanged) {
+      const scheduleError = validateAppointmentSchedule(
+        {
+          appointment_date: date,
+          appointment_time: resolvedTime,
+          duration_minutes: combinedDuration,
+          buffer_minutes: combinedBuffer,
+          service_names: serviceNames,
+        },
+        {
+          businessProfile,
+          appointments: appointmentsForConflictCheck,
+          blockEvents,
+          services,
+        }
+      );
+      if (scheduleError) {
+        Alert.alert('Choose another time', scheduleError);
+        transitionToStep('datetime', 'back');
+        return;
       }
-    );
-    if (scheduleError) {
-      Alert.alert('Choose another time', scheduleError);
-      transitionToStep('datetime', 'back');
-      return;
     }
 
     setSaving(true);
@@ -430,12 +470,14 @@ export function NewAppointmentModal({
         status,
       });
       if (ok) {
-        setCustomerName('');
-        setCustomerPhone('');
-        setCustomerEmail('');
-        setCustomerNote('');
-        setAdditionalServices([]);
-        setSelectedClientId('');
+        if (mode === 'create') {
+          setCustomerName('');
+          setCustomerPhone('');
+          setCustomerEmail('');
+          setCustomerNote('');
+          setAdditionalServices([]);
+          setSelectedClientId('');
+        }
         onClose();
       }
     } finally {
@@ -451,10 +493,14 @@ export function NewAppointmentModal({
       : step === 'datetime'
         ? 'Date & time'
         : step === 'guest'
-          ? 'Select guest'
+          ? showNewGuestForm
+            ? 'Guest details'
+            : 'Select guest'
           : step === 'status'
             ? 'Select label'
-            : 'New appointment';
+            : mode === 'edit'
+              ? 'Edit appointment'
+              : 'New appointment';
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleBack}>
@@ -729,14 +775,41 @@ export function NewAppointmentModal({
                         ]}
                       />
 
+                      {customerName.trim() ? (
+                        <Pressable
+                          onPress={() => {
+                            setShowNewGuestForm(true);
+                          }}
+                          style={({ pressed }) => [
+                            styles.editChoiceRow,
+                            styles.editChoiceRowSelected,
+                            { marginBottom: 6 },
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <View style={styles.editChoiceCopy}>
+                            <Text style={[styles.editChoiceTitle, { color: colors.coral }]}>
+                              Edit guest details ({customerName})
+                            </Text>
+                            <Text style={styles.editChoiceMeta}>
+                              {[customerPhone, customerEmail].filter(Boolean).join(' · ') || 'Update name, phone, or email'}
+                            </Text>
+                          </View>
+                          <Ionicons name="create-outline" size={18} color={colors.coral} />
+                        </Pressable>
+                      ) : null}
+
                       <Pressable
                         onPress={() => {
                           setSelectedClientId('new');
+                          setCustomerName('');
+                          setCustomerPhone('');
+                          setCustomerEmail('');
                           setShowNewGuestForm(true);
                         }}
                         style={({ pressed }) => [
                           styles.editChoiceRow,
-                          selectedClientId === 'new' && styles.editChoiceRowSelected,
+                          selectedClientId === 'new' && !customerName.trim() && styles.editChoiceRowSelected,
                           pressed && styles.pressed,
                         ]}
                       >
@@ -918,7 +991,7 @@ export function NewAppointmentModal({
                   <EditSectionRow
                     icon="cut-outline"
                     label="SERVICE"
-                    value={`${primaryServiceObj?.name || 'Select service'}  ·  ${combinedDuration} mins`}
+                    value={`${primaryServiceName || 'Select service'}  ·  ${combinedDuration} mins`}
                     detail={
                       selectedAdditionalObjs.length > 0
                         ? `+ ${selectedAdditionalObjs.map((s) => s.name).join(', ')}`
@@ -1102,7 +1175,9 @@ export function NewAppointmentModal({
                     {saving ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <Text style={styles.saveBtnText}>Save appointment</Text>
+                      <Text style={styles.saveBtnText}>
+                        {mode === 'edit' ? 'Save changes' : 'Save appointment'}
+                      </Text>
                     )}
                   </Pressable>
                 </View>

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,14 +18,15 @@ import { Text } from '@/components/app-text';
 import { openExternalLink } from '@/lib/external-links';
 import { supabase } from '@/lib/supabase';
 import { sendAppointmentUpdateEmail } from '@/lib/appointment-notifications';
+import { useApp } from '@/providers/app-provider';
 import { colors, radius } from '@/theme';
 import type { Appointment, AppointmentStatus, Client, Service } from '@/types';
+import { NewAppointmentModal } from './NewAppointmentModal';
 import {
   AVATAR_COLORS,
   getInitials,
   pickAppointmentColor,
   parseDateKey,
-  TIME_SLOTS,
 } from './types';
 
 interface AppointmentOverviewSheetProps {
@@ -91,10 +92,8 @@ export function AppointmentOverviewSheet({
   const [addOns, setAddOns] = useState<{ id: number; name: string; amount: string }[]>([]);
 
   // Edit appointment modal
+  const { appointments, businessName } = useApp();
   const [editOpen, setEditOpen] = useState(false);
-  const [editSection, setEditSection] = useState<'service' | 'schedule' | 'guest' | 'status' | null>(null);
-  const [editDraft, setEditDraft] = useState<Partial<Appointment>>({});
-  const [editSaving, setEditSaving] = useState(false);
 
   // Load attachments
   useEffect(() => {
@@ -301,38 +300,7 @@ export function AppointmentOverviewSheet({
   };
 
   const openEditModal = () => {
-    setEditDraft({
-      customer_name: appointment.customer_name,
-      customer_email: appointment.customer_email || '',
-      customer_phone: appointment.customer_phone || '',
-      customer_note: appointment.customer_note || '',
-      service_names: appointment.service_names,
-      appointment_date: appointment.appointment_date,
-      appointment_time: appointment.appointment_time,
-      duration_minutes: appointment.duration_minutes,
-      total_price: appointment.total_price || '₱0',
-      status: appointment.status,
-    });
-    setEditSection(null);
     setEditOpen(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (editSaving) return;
-    if (!editDraft.customer_name?.trim() || !editDraft.service_names?.trim()) {
-      Alert.alert('Missing details', 'Client name and service are required.');
-      return;
-    }
-    setEditSaving(true);
-    try {
-      const err = await onUpdateAppointment(appointment.id, editDraft);
-      if (err) Alert.alert('Error', err);
-      else {
-        setEditOpen(false);
-      }
-    } finally {
-      setEditSaving(false);
-    }
   };
 
   const copyBookingId = () => {
@@ -1153,269 +1121,36 @@ export function AppointmentOverviewSheet({
         </Modal>
       )}
 
-      {/* Edit Appointment Sheet Modal */}
-      {editOpen && (
-        <Modal visible transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.editModalBackdrop}
-          >
-            <View nativeID="bookora-sheet" style={styles.editSheetContainer}>
-              <View style={styles.headerNav}>
-                <Pressable
-                  onPress={() => setEditOpen(false)}
-                  style={({ pressed }) => [styles.headerBackBtn, pressed && styles.pressed]}
-                >
-                  <Ionicons name="chevron-back" size={22} color={colors.ink} />
-                </Pressable>
-                <Text style={styles.headerTitleText}>Edit appointment</Text>
-                <View style={{ width: 36 }} />
-              </View>
-
-              <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.editBodyContent} keyboardShouldPersistTaps="handled">
-                {editSection ? (
-                  <EditSectionPage
-                    section={editSection}
-                    services={services}
-                    editDraft={editDraft}
-                    setEditDraft={setEditDraft}
-                    focusedField={focusedField}
-                    setFocusedField={setFocusedField}
-                    onBack={() => setEditSection(null)}
-                  />
-                ) : (
-                <>
-                {/* Service Selection */}
-                <EditSectionRow
-                  icon="cut-outline"
-                  label="SERVICE"
-                  value={`${editDraft.service_names || 'Select service'}  ·  ${editDraft.duration_minutes || 0} mins`}
-                  expanded={editSection === 'service'}
-                  onPress={() => setEditSection(editSection === 'service' ? null : 'service')}
-                />
-                {editSection === 'service' && (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Service</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {services.map((service) => {
-                      const isSelected = editDraft.service_names === service.name;
-                      return (
-                        <Pressable
-                          key={service.name}
-                          onPress={() =>
-                            setEditDraft((d) => ({
-                              ...d,
-                              service_names: service.name,
-                              duration_minutes: service.duration_minutes,
-                              total_price: String(service.price),
-                            }))
-                          }
-                          style={[styles.serviceChip, isSelected && styles.serviceChipSelected]}
-                        >
-                          <Text style={[styles.serviceChipTitle, isSelected && styles.serviceChipTitleSelected]}>
-                            {service.name}
-                          </Text>
-                          <Text style={[styles.serviceChipMeta, isSelected && styles.serviceChipMetaSelected]}>
-                            {service.duration_minutes} mins · ₱{String(service.price).replace(/[^0-9.-]/g, '')}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-                )}
-
-                {/* Date & Time */}
-                <EditSectionRow
-                  icon="time-outline"
-                  label="DATE & TIME"
-                  value={`${editDraft.appointment_date || 'Choose date'}  ·  ${editDraft.appointment_time || 'Choose time'}`}
-                  expanded={editSection === 'schedule'}
-                  onPress={() => setEditSection(editSection === 'schedule' ? null : 'schedule')}
-                />
-                {editSection === 'schedule' && (
-                <View style={styles.twoColumnRow}>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>Date (YYYY-MM-DD)</Text>
-                    <TextInput
-                      onFocus={() => setFocusedField('editDate')}
-                      onBlur={() => setFocusedField(null)}
-                      value={editDraft.appointment_date}
-                      onChangeText={(text) => setEditDraft((d) => ({ ...d, appointment_date: text }))}
-                      style={[styles.textInput, focusedField === 'editDate' && styles.inputFocused]}
-                    />
-                  </View>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>Start Time</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                      {TIME_SLOTS.map((slot) => (
-                        <Pressable
-                          key={slot}
-                          onPress={() => setEditDraft((d) => ({ ...d, appointment_time: slot }))}
-                          style={[styles.timeChipSmall, editDraft.appointment_time === slot && styles.timeChipSmallActive]}
-                        >
-                          <Text
-                            style={[
-                              styles.timeChipSmallText,
-                              editDraft.appointment_time === slot && styles.timeChipSmallTextActive,
-                            ]}
-                          >
-                            {slot}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-                </View>
-                )}
-
-                {/* Guest Details */}
-                <EditSectionRow
-                  icon="person-outline"
-                  label="GUEST"
-                  value={editDraft.customer_name || 'Add guest'}
-                  detail={editDraft.customer_email || 'No email provided'}
-                  expanded={editSection === 'guest'}
-                  onPress={() => setEditSection(editSection === 'guest' ? null : 'guest')}
-                />
-                {editSection === 'guest' && (
-                <>
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Client name</Text>
-                  <TextInput
-                    onFocus={() => setFocusedField('editName')}
-                    onBlur={() => setFocusedField(null)}
-                    value={editDraft.customer_name}
-                    onChangeText={(text) => setEditDraft((d) => ({ ...d, customer_name: text }))}
-                    style={[styles.textInput, focusedField === 'editName' && styles.inputFocused]}
-                  />
-                </View>
-
-                <View style={styles.twoColumnRow}>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>Phone</Text>
-                    <TextInput
-                      onFocus={() => setFocusedField('editPhone')}
-                      onBlur={() => setFocusedField(null)}
-                      value={editDraft.customer_phone}
-                      onChangeText={(text) => setEditDraft((d) => ({ ...d, customer_phone: text }))}
-                      keyboardType="phone-pad"
-                      style={[styles.textInput, focusedField === 'editPhone' && styles.inputFocused]}
-                    />
-                  </View>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>Email</Text>
-                    <TextInput
-                      onFocus={() => setFocusedField('editEmail')}
-                      onBlur={() => setFocusedField(null)}
-                      value={editDraft.customer_email}
-                      onChangeText={(text) => setEditDraft((d) => ({ ...d, customer_email: text }))}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      style={[styles.textInput, focusedField === 'editEmail' && styles.inputFocused]}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.twoColumnRow}>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>Duration (mins)</Text>
-                    <TextInput
-                      onFocus={() => setFocusedField('editDuration')}
-                      onBlur={() => setFocusedField(null)}
-                      value={String(editDraft.duration_minutes ?? 60)}
-                      onChangeText={(text) => setEditDraft((d) => ({ ...d, duration_minutes: Number(text) || 60 }))}
-                      keyboardType="number-pad"
-                      style={[styles.textInput, focusedField === 'editDuration' && styles.inputFocused]}
-                    />
-                  </View>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={styles.fieldLabel}>Price</Text>
-                    <TextInput
-                      onFocus={() => setFocusedField('editPrice')}
-                      onBlur={() => setFocusedField(null)}
-                      value={editDraft.total_price}
-                      onChangeText={(text) => setEditDraft((d) => ({ ...d, total_price: text }))}
-                      style={[styles.textInput, focusedField === 'editPrice' && styles.inputFocused]}
-                    />
-                  </View>
-                </View>
-                </>
-                )}
-
-                {/* Status Selection */}
-                <EditSectionRow
-                  icon="pricetag-outline"
-                  label="LABEL / STATUS"
-                  value={editDraft.status === 'no_show' ? 'No-show' : (editDraft.status || 'Pending').replace('_', ' ')}
-                  expanded={editSection === 'status'}
-                  onPress={() => setEditSection(editSection === 'status' ? null : 'status')}
-                />
-                {editSection === 'status' && (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Label / status</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {(['pending', 'approved', 'completed', 'cancelled', 'no_show'] as const).map((st) => {
-                      const isSelected = editDraft.status === st;
-                      const labelMap: Record<AppointmentStatus, string> = {
-                        pending: 'Pending',
-                        approved: 'Approved',
-                        completed: 'Completed',
-                        cancelled: 'Cancelled',
-                        no_show: 'No-show',
-                      };
-                      return (
-                        <Pressable
-                          key={st}
-                          onPress={() => setEditDraft((d) => ({ ...d, status: st }))}
-                          style={[styles.methodChip, isSelected && styles.methodChipSelected]}
-                        >
-                          <Text style={[styles.methodChipText, isSelected && styles.methodChipTextSelected]}>
-                            {labelMap[st]}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-                )}
-
-                {/* Note */}
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Client note</Text>
-                  <TextInput
-                    onFocus={() => setFocusedField('editNote')}
-                    onBlur={() => setFocusedField(null)}
-                    value={editDraft.customer_note}
-                    onChangeText={(text) => setEditDraft((d) => ({ ...d, customer_note: text }))}
-                    placeholder="Add a note"
-                    placeholderTextColor={colors.muted}
-                    multiline
-                    numberOfLines={3}
-                    style={[styles.textInput, styles.noteTextArea, focusedField === 'editNote' && styles.inputFocused]}
-                  />
-                </View>
-                </>
-                )}
-              </ScrollView>
-
-              <View style={styles.footerRowPadding}>
-                <Pressable
-                  disabled={editSaving}
-                  onPress={handleSaveEdit}
-                  style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
-                >
-                  {editSaving ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save changes</Text>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      )}
+      {/* Edit Appointment Sheet Modal (Full step-by-step modal matching NewAppointmentModal) */}
+      <NewAppointmentModal
+        key={`edit-${appointment.id}-${editOpen}`}
+        visible={editOpen}
+        mode="edit"
+        initialAppointment={appointment}
+        services={services}
+        existingAppointments={appointments}
+        staffName={businessName}
+        onClose={() => setEditOpen(false)}
+        onCreate={async (draft) => {
+          const err = await onUpdateAppointment(appointment.id, {
+            customer_name: draft.customer_name,
+            customer_email: draft.customer_email,
+            customer_phone: draft.customer_phone,
+            customer_note: draft.customer_note,
+            service_names: draft.service_names,
+            total_price: draft.total_price,
+            appointment_date: draft.appointment_date,
+            appointment_time: draft.appointment_time,
+            duration_minutes: draft.duration_minutes,
+            status: draft.status,
+          });
+          if (err) {
+            Alert.alert('Error', err);
+            return false;
+          }
+          return true;
+        }}
+      />
 
       {/* Attachment Viewer */}
       {selectedAttachment && (
@@ -1435,151 +1170,6 @@ export function AppointmentOverviewSheet({
         </Modal>
       )}
     </>
-  );
-}
-
-function EditSectionRow({
-  icon,
-  label,
-  value,
-  detail,
-  expanded,
-  onPress,
-}: {
-  icon: 'cut-outline' | 'time-outline' | 'person-outline' | 'pricetag-outline';
-  label: string;
-  value: string;
-  detail?: string;
-  expanded: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.editSectionRow, pressed && styles.pressed]}>
-      <View style={styles.editSectionIcon}>
-        <Ionicons name={icon} size={15} color={colors.coral} />
-      </View>
-      <View style={styles.editSectionCopy}>
-        <Text style={styles.editSectionLabel}>{label}</Text>
-        <Text style={styles.editSectionValue} numberOfLines={1}>{value}</Text>
-        {detail ? <Text style={styles.editSectionDetail} numberOfLines={1}>{detail}</Text> : null}
-      </View>
-      <Ionicons name={expanded ? 'chevron-up' : 'chevron-forward'} size={17} color={colors.muted} />
-    </Pressable>
-  );
-}
-
-function EditSectionPage({
-  section,
-  services,
-  editDraft,
-  setEditDraft,
-  focusedField,
-  setFocusedField,
-  onBack,
-}: {
-  section: 'service' | 'schedule' | 'guest' | 'status';
-  services: Service[];
-  editDraft: Partial<Appointment>;
-  setEditDraft: Dispatch<SetStateAction<Partial<Appointment>>>;
-  focusedField: string | null;
-  setFocusedField: (field: string | null) => void;
-  onBack: () => void;
-}) {
-  const titles = { service: 'Select service', schedule: 'Date & time', guest: 'Guest details', status: 'Select status' };
-  const title = titles[section];
-
-  return (
-    <View style={styles.editPage}>
-      <View style={styles.editPageHeader}>
-        <Pressable onPress={onBack} style={({ pressed }) => [styles.headerBackBtn, pressed && styles.pressed]}>
-          <Ionicons name="chevron-back" size={22} color={colors.ink} />
-        </Pressable>
-        <Text style={styles.editPageTitle}>{title}</Text>
-        <View style={{ width: 36 }} />
-      </View>
-
-      {section === 'service' && (
-        <View style={styles.editPageContent}>
-          {services.map((service) => {
-            const selected = editDraft.service_names === service.name;
-            return (
-              <Pressable
-                key={service.name}
-                onPress={() => {
-                  setEditDraft((draft) => ({ ...draft, service_names: service.name, duration_minutes: service.duration_minutes, total_price: String(service.price) }));
-                  onBack();
-                }}
-                style={[styles.editChoiceRow, selected && styles.editChoiceRowSelected]}
-              >
-                <View style={styles.editChoiceCopy}>
-                  <Text style={styles.editChoiceTitle}>{service.name}</Text>
-                  <Text style={styles.editChoiceMeta}>{service.duration_minutes} mins · ₱{String(service.price).replace(/[^0-9.-]/g, '')}</Text>
-                </View>
-                {selected ? <Ionicons name="checkmark-circle" size={20} color={colors.coral} /> : <Ionicons name="chevron-forward" size={18} color={colors.muted} />}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      {section === 'schedule' && (
-        <View style={styles.editPageContent}>
-          <Text style={styles.fieldLabel}>Date (YYYY-MM-DD)</Text>
-          <TextInput
-            value={editDraft.appointment_date}
-            onChangeText={(value) => setEditDraft((draft) => ({ ...draft, appointment_date: value }))}
-            onFocus={() => setFocusedField('editDate')}
-            onBlur={() => setFocusedField(null)}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.muted}
-            style={[styles.textInput, focusedField === 'editDate' && styles.inputFocused]}
-          />
-          <Text style={styles.fieldLabel}>Start time</Text>
-          <View style={styles.editChoiceGrid}>
-            {TIME_SLOTS.map((slot) => (
-              <Pressable key={slot} onPress={() => setEditDraft((draft) => ({ ...draft, appointment_time: slot }))} style={[styles.timeChipSmall, editDraft.appointment_time === slot && styles.timeChipSmallActive]}>
-                <Text style={[styles.timeChipSmallText, editDraft.appointment_time === slot && styles.timeChipSmallTextActive]}>{slot}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.twoColumnRow}>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Duration</Text>
-              <TextInput value={String(editDraft.duration_minutes ?? 60)} onChangeText={(value) => setEditDraft((draft) => ({ ...draft, duration_minutes: Number(value) || 60 }))} keyboardType="number-pad" style={styles.textInput} />
-            </View>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Price</Text>
-              <TextInput value={editDraft.total_price} onChangeText={(value) => setEditDraft((draft) => ({ ...draft, total_price: value }))} keyboardType="decimal-pad" style={styles.textInput} />
-            </View>
-          </View>
-        </View>
-      )}
-
-      {section === 'guest' && (
-        <View style={styles.editPageContent}>
-          <Text style={styles.fieldLabel}>Client name</Text>
-          <TextInput value={editDraft.customer_name} onChangeText={(value) => setEditDraft((draft) => ({ ...draft, customer_name: value }))} style={styles.textInput} />
-          <Text style={styles.fieldLabel}>Phone</Text>
-          <TextInput value={editDraft.customer_phone} onChangeText={(value) => setEditDraft((draft) => ({ ...draft, customer_phone: value }))} keyboardType="phone-pad" style={styles.textInput} />
-          <Text style={styles.fieldLabel}>Email</Text>
-          <TextInput value={editDraft.customer_email} onChangeText={(value) => setEditDraft((draft) => ({ ...draft, customer_email: value }))} keyboardType="email-address" autoCapitalize="none" style={styles.textInput} />
-        </View>
-      )}
-
-      {section === 'status' && (
-        <View style={styles.editPageContent}>
-          {(['pending', 'approved', 'completed', 'cancelled', 'no_show'] as AppointmentStatus[]).map((status) => {
-            const selected = editDraft.status === status;
-            return (
-              <Pressable key={status} onPress={() => { setEditDraft((draft) => ({ ...draft, status })); onBack(); }} style={[styles.editChoiceRow, selected && styles.editChoiceRowSelected]}>
-                <Text style={styles.editChoiceTitle}>{status === 'no_show' ? 'No-show' : status.replace('_', ' ')}</Text>
-                {selected ? <Ionicons name="checkmark-circle" size={20} color={colors.coral} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </View>
   );
 }
 
