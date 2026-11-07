@@ -3099,6 +3099,10 @@ function CustomerAuthModal({
         provider: "google",
         options: {
           redirectTo: cleanRedirectUrl,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       })
 

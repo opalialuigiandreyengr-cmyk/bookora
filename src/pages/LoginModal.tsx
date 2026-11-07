@@ -140,6 +140,10 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
         provider,
         options: {
           redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       })
       if (error) {
