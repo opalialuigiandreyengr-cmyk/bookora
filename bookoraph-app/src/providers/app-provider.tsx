@@ -185,7 +185,14 @@ export type NewAppointment = {
   meeting_url?: string;
   recurrence_rule?: 'none' | 'weekly' | 'biweekly';
   recurrence_group_id?: string | null;
+  peg_image_path?: string | null;
+  payment_receipt_path?: string | null;
   status?: AppointmentStatus;
+};
+
+export type AppointmentCreateResult = {
+  appointment: Appointment | null;
+  error: string | null;
 };
 
 export type NewService = {
@@ -255,7 +262,7 @@ type AppContextValue = {
   updatePaymentStatus: (id: string, status: Payment['status']) => Promise<string | null>;
   retryPayment: (id: string) => Promise<string | null>;
   // Appointments
-  addAppointment: (appointment: NewAppointment) => Promise<string | null>;
+  addAppointment: (appointment: NewAppointment) => Promise<AppointmentCreateResult>;
   updateAppointmentStatus: (id: string, status: AppointmentStatus, noShowReason?: string) => Promise<string | null>;
   bulkUpdateAppointmentStatus: (ids: string[], status: AppointmentStatus) => Promise<string | null>;
   updateAppointment: (id: string, updates: Partial<Appointment>) => Promise<string | null>;
@@ -957,17 +964,23 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   // --- Appointments ---
   const addAppointment = async (draft: NewAppointment) => {
-    if (!supabase || !businessId) return 'You must be signed in to add an appointment.';
-    if (!services.length) return 'Add a service before creating an appointment.';
+    if (!supabase || !businessId) {
+      return { appointment: null, error: 'You must be signed in to add an appointment.' };
+    }
+    if (!services.length) {
+      return { appointment: null, error: 'Add a service before creating an appointment.' };
+    }
     const selectedServices = resolveAppointmentServices(draft.service_names, services);
-    if (!selectedServices.length) return 'Choose a service from your current service list.';
+    if (!selectedServices.length) {
+      return { appointment: null, error: 'Choose a service from your current service list.' };
+    }
     const scheduleError = validateAppointmentSchedule(draft, {
       businessProfile,
       appointments,
       blockEvents,
       services,
     });
-    if (scheduleError) return scheduleError;
+    if (scheduleError) return { appointment: null, error: scheduleError };
     const { data, error: saveError } = await supabase
       .from('appointments')
       .insert({
@@ -981,9 +994,10 @@ export function AppProvider({ children }: PropsWithChildren) {
       })
       .select('*')
       .single();
-    if (saveError) return saveError.message;
-    setAppointments((current) => hydrateAppointmentsWithPayments([...current, data as Appointment], payments));
-    return null;
+    if (saveError) return { appointment: null, error: saveError.message };
+    const appointment = data as Appointment;
+    setAppointments((current) => hydrateAppointmentsWithPayments([...current, appointment], payments));
+    return { appointment, error: null };
   };
 
   const updateAppointmentStatus = async (id: string, status: AppointmentStatus, noShowReason = '') => {

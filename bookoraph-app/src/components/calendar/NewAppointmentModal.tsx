@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +26,7 @@ import {
   getDateBookingError,
   validateAppointmentSchedule,
 } from '@/lib/appointment-scheduling';
+import { supabase } from '@/lib/supabase';
 import { useApp } from '@/providers/app-provider';
 import { colors } from '@/theme';
 import type { Appointment, AppointmentStatus, Client, Service } from '@/types';
@@ -59,8 +62,34 @@ interface NewAppointmentModalProps {
     buffer_minutes?: number;
     staff_member_id?: string | null;
     status?: AppointmentStatus;
+    peg_image_path?: string | null;
+    payment_receipt_path?: string | null;
+    payment?: {
+      amount: number;
+      method: 'cash' | 'card' | 'bank_transfer' | 'e_wallet' | 'other';
+      note: string;
+    };
   }) => Promise<boolean>;
 }
+
+type PendingAttachment = {
+  uri: string;
+  mimeType: string;
+  fileName: string;
+};
+
+type AttachmentKind = 'design' | 'receipt';
+
+const PAYMENT_METHODS: {
+  value: 'cash' | 'card' | 'bank_transfer' | 'e_wallet' | 'other';
+  label: string;
+}[] = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'e_wallet', label: 'E-wallet' },
+  { value: 'card', label: 'Card' },
+  { value: 'bank_transfer', label: 'Bank' },
+  { value: 'other', label: 'Other' },
+];
 
 type WizardStep = 'service' | 'datetime' | 'guest' | 'status' | 'summary';
 
@@ -122,6 +151,14 @@ const STATUS_OPTIONS: {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+function attachmentKey(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36);
+}
+
 export function NewAppointmentModal({
   visible,
   mode = 'create',
@@ -134,7 +171,8 @@ export function NewAppointmentModal({
   onClose,
   onCreate,
 }: NewAppointmentModalProps) {
-  const { clients, businessProfile, blockEvents } = useApp();
+  const { clients, businessProfile, blockEvents, session } = useApp();
+  const uploadInstanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
   const initialServiceParts = (initialAppointment?.service_names || '')
     .split(/\s*\+\s*/)
@@ -173,6 +211,16 @@ export function NewAppointmentModal({
   const [price, setPrice] = useState(initialPrice);
   const [status, setStatus] = useState<AppointmentStatus>(initialAppointment?.status || 'approved');
   const [customerNote, setCustomerNote] = useState(initialAppointment?.customer_note || '');
+  const [designPath, setDesignPath] = useState<string | null>(initialAppointment?.peg_image_path || null);
+  const [receiptPath, setReceiptPath] = useState<string | null>(initialAppointment?.payment_receipt_path || null);
+  const [designPreview, setDesignPreview] = useState('');
+  const [receiptPreview, setReceiptPreview] = useState('');
+  const [pendingDesign, setPendingDesign] = useState<PendingAttachment | null>(null);
+  const [pendingReceipt, setPendingReceipt] = useState<PendingAttachment | null>(null);
+  const [pickingAttachment, setPickingAttachment] = useState<AttachmentKind | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'e_wallet' | 'other'>('cash');
+  const [paymentNote, setPaymentNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(initialDate));
@@ -194,6 +242,102 @@ export function NewAppointmentModal({
       }).start();
     }
   }, [sheetTranslateY, stepOpacity, stepTranslateX, visible]);
+
+  useEffect(() => {
+    let active = true;
+    const resolveAttachment = async (path: string | null) => {
+      if (!path) return '';
+      if (/^(https?:\/\/|data:image\/)/i.test(path)) return path;
+      if (!supabase) return '';
+      const result = await supabase.storage.from('booking-attachments').createSignedUrl(path, 3600);
+      return result.data?.signedUrl || '';
+    };
+    const loadPreviews = async () => {
+      const [design, receipt] = await Promise.all([
+        resolveAttachment(initialAppointment?.peg_image_path || null),
+        resolveAttachment(initialAppointment?.payment_receipt_path || null),
+      ]);
+      if (active) {
+        setDesignPreview(design);
+        setReceiptPreview(receipt);
+      }
+    };
+    if (visible && mode === 'edit') void loadPreviews();
+    return () => {
+      active = false;
+    };
+  }, [initialAppointment?.payment_receipt_path, initialAppointment?.peg_image_path, mode, visible]);
+
+  const pickAttachment = async (kind: AttachmentKind) => {
+    if (pickingAttachment || saving) return;
+    setPickingAttachment(kind);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Photo access needed', 'Allow photo access to attach a design or payment receipt.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.82,
+      });
+      const asset = result.assets?.[0];
+      if (result.canceled || !asset) return;
+      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+        Alert.alert('Image is too large', 'Choose an image smaller than 5 MB.');
+        return;
+      }
+      const attachment: PendingAttachment = {
+        uri: asset.uri,
+        mimeType: asset.mimeType || 'image/jpeg',
+        fileName: asset.fileName || `${kind}.jpg`,
+      };
+      if (kind === 'design') {
+        setPendingDesign(attachment);
+        setDesignPreview(asset.uri);
+      } else {
+        setPendingReceipt(attachment);
+        setReceiptPreview(asset.uri);
+      }
+    } catch (error) {
+      Alert.alert('Could not open photos', error instanceof Error ? error.message : 'Try again.');
+    } finally {
+      setPickingAttachment(null);
+    }
+  };
+
+  const clearAttachment = (kind: AttachmentKind) => {
+    if (kind === 'design') {
+      setPendingDesign(null);
+      setDesignPath(null);
+      setDesignPreview('');
+    } else {
+      setPendingReceipt(null);
+      setReceiptPath(null);
+      setReceiptPreview('');
+    }
+  };
+
+  const uploadAttachment = async (attachment: PendingAttachment, kind: AttachmentKind) => {
+    if (!supabase || !session?.user.id) throw new Error('Please sign in again before uploading.');
+    const mimeType = attachment.mimeType.toLowerCase();
+    const extension = mimeType.includes('png')
+      ? 'png'
+      : mimeType.includes('webp')
+        ? 'webp'
+        : 'jpg';
+    const unique = `${uploadInstanceId}-${attachmentKey(attachment.uri)}`;
+    const path = `${session.user.id}/owner-${kind}-${unique}.${extension}`;
+    const response = await fetch(attachment.uri);
+    const bytes = await response.arrayBuffer();
+    const result = await supabase.storage.from('booking-attachments').upload(path, bytes, {
+      contentType: attachment.mimeType,
+      upsert: false,
+    });
+    if (result.error) throw result.error;
+    return path;
+  };
 
   const transitionToStep = useCallback(
     (nextStep: WizardStep, direction: 'next' | 'back') => {
@@ -425,6 +569,19 @@ export function NewAppointmentModal({
       return;
     }
 
+    const parsedPaymentAmount = Number(paymentAmount.replace(/[^0-9.-]+/g, '')) || 0;
+    const appointmentPrice = Number(displayPrice.replace(/[^0-9.-]+/g, '')) || 0;
+    const availableBalance = mode === 'edit'
+      ? Math.max(0, initialAppointment?.payment_balance ?? appointmentPrice)
+      : appointmentPrice;
+    if (parsedPaymentAmount < 0 || parsedPaymentAmount > availableBalance) {
+      Alert.alert(
+        'Check payment amount',
+        `Enter an amount from ₱0.00 to ₱${availableBalance.toFixed(2)}.`
+      );
+      return;
+    }
+
     const serviceNames = [primaryServiceName, ...selectedAdditionalObjs.map((service) => service.name)].join(' + ');
     const scheduleChanged =
       mode !== 'edit' ||
@@ -455,7 +612,18 @@ export function NewAppointmentModal({
     }
 
     setSaving(true);
+    const uploadedPaths: string[] = [];
     try {
+      let nextDesignPath = designPath;
+      let nextReceiptPath = receiptPath;
+      if (pendingDesign) {
+        nextDesignPath = await uploadAttachment(pendingDesign, 'design');
+        uploadedPaths.push(nextDesignPath);
+      }
+      if (pendingReceipt) {
+        nextReceiptPath = await uploadAttachment(pendingReceipt, 'receipt');
+        uploadedPaths.push(nextReceiptPath);
+      }
       const ok = await onCreate({
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim() || 'walkin@client.local',
@@ -468,8 +636,28 @@ export function NewAppointmentModal({
         duration_minutes: combinedDuration,
         buffer_minutes: combinedBuffer,
         status,
+        peg_image_path: nextDesignPath,
+        payment_receipt_path: nextReceiptPath,
+        payment: parsedPaymentAmount > 0
+          ? {
+              amount: Math.round(parsedPaymentAmount * 100) / 100,
+              method: paymentMethod,
+              note: paymentNote.trim() || `Payment recorded while ${mode === 'edit' ? 'editing' : 'creating'} appointment`,
+            }
+          : undefined,
       });
       if (ok) {
+        const replacedPaths = [
+          initialAppointment?.peg_image_path && initialAppointment.peg_image_path !== nextDesignPath
+            ? initialAppointment.peg_image_path
+            : null,
+          initialAppointment?.payment_receipt_path && initialAppointment.payment_receipt_path !== nextReceiptPath
+            ? initialAppointment.payment_receipt_path
+            : null,
+        ].filter((path): path is string => Boolean(path && !/^(https?:\/\/|data:image\/)/i.test(path)));
+        if (replacedPaths.length && supabase) {
+          void supabase.storage.from('booking-attachments').remove(replacedPaths);
+        }
         if (mode === 'create') {
           setCustomerName('');
           setCustomerPhone('');
@@ -479,7 +667,14 @@ export function NewAppointmentModal({
           setSelectedClientId('');
         }
         onClose();
+      } else if (uploadedPaths.length && supabase) {
+        await supabase.storage.from('booking-attachments').remove(uploadedPaths);
       }
+    } catch (error) {
+      if (uploadedPaths.length && supabase) {
+        await supabase.storage.from('booking-attachments').remove(uploadedPaths);
+      }
+      Alert.alert('Could not save attachments', error instanceof Error ? error.message : 'Try again.');
     } finally {
       setSaving(false);
     }
@@ -1159,6 +1354,100 @@ export function NewAppointmentModal({
                         ]}
                       />
                     </View>
+
+                    <View style={styles.formSection}>
+                      <View style={styles.formSectionHeader}>
+                        <View>
+                          <Text style={styles.formSectionTitle}>Client attachments</Text>
+                          <Text style={styles.formSectionHelp}>Optional design reference and proof of payment.</Text>
+                        </View>
+                        <Ionicons name="attach-outline" size={18} color={colors.coral} />
+                      </View>
+                      <View style={styles.attachmentRow}>
+                        <AttachmentPicker
+                          label="Design peg"
+                          icon="color-palette-outline"
+                          previewUri={designPreview}
+                          busy={pickingAttachment === 'design'}
+                          disabled={saving || Boolean(pickingAttachment)}
+                          onPick={() => void pickAttachment('design')}
+                          onClear={() => clearAttachment('design')}
+                        />
+                        <AttachmentPicker
+                          label="Payment receipt"
+                          icon="receipt-outline"
+                          previewUri={receiptPreview}
+                          busy={pickingAttachment === 'receipt'}
+                          disabled={saving || Boolean(pickingAttachment)}
+                          onPick={() => void pickAttachment('receipt')}
+                          onClear={() => clearAttachment('receipt')}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.formSection}>
+                      <View style={styles.formSectionHeader}>
+                        <View>
+                          <Text style={styles.formSectionTitle}>Payment</Text>
+                          <Text style={styles.formSectionHelp}>Optional. Record money already received.</Text>
+                        </View>
+                        <Ionicons name="wallet-outline" size={18} color={colors.coral} />
+                      </View>
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Amount received</Text>
+                        <View style={styles.currencyInputWrap}>
+                          <Text style={styles.currencyPrefix}>₱</Text>
+                          <TextInput
+                            accessibilityLabel="Payment amount received"
+                            onFocus={() => setFocusedField('paymentAmount')}
+                            onBlur={() => setFocusedField(null)}
+                            value={paymentAmount}
+                            onChangeText={setPaymentAmount}
+                            placeholder="0.00"
+                            placeholderTextColor={colors.muted}
+                            keyboardType="decimal-pad"
+                            style={styles.currencyInput}
+                          />
+                        </View>
+                        <Text style={styles.fieldHelp}>Leave at zero if no payment was collected.</Text>
+                      </View>
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Payment method</Text>
+                        <View style={styles.paymentMethodRow}>
+                          {PAYMENT_METHODS.map((method) => {
+                            const selected = paymentMethod === method.value;
+                            return (
+                              <Pressable
+                                key={method.value}
+                                accessibilityRole="radio"
+                                accessibilityState={{ selected }}
+                                accessibilityLabel={`Payment method ${method.label}`}
+                                onPress={() => setPaymentMethod(method.value)}
+                                style={({ pressed }) => [
+                                  styles.paymentMethodChip,
+                                  selected && styles.paymentMethodChipSelected,
+                                  pressed && styles.pressed,
+                                ]}
+                              >
+                                <Text style={[styles.paymentMethodText, selected && styles.paymentMethodTextSelected]}>
+                                  {method.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Payment note <Text style={styles.optionalLabel}>(Optional)</Text></Text>
+                        <TextInput
+                          value={paymentNote}
+                          onChangeText={setPaymentNote}
+                          placeholder="e.g. GCash reference 1234"
+                          placeholderTextColor={colors.muted}
+                          style={styles.textInput}
+                        />
+                      </View>
+                    </View>
                   </View>
                 </KeyboardAwareScrollView>
 
@@ -1187,6 +1476,63 @@ export function NewAppointmentModal({
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function AttachmentPicker({
+  label,
+  icon,
+  previewUri,
+  busy,
+  disabled,
+  onPick,
+  onClear,
+}: {
+  label: string;
+  icon: 'color-palette-outline' | 'receipt-outline';
+  previewUri: string;
+  busy: boolean;
+  disabled: boolean;
+  onPick: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <View style={styles.attachmentCard}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${previewUri ? 'Change' : 'Add'} ${label}`}
+        disabled={disabled}
+        onPress={onPick}
+        style={({ pressed }) => [styles.attachmentPreview, pressed && styles.pressed]}
+      >
+        {previewUri ? (
+          <Image source={{ uri: previewUri }} style={styles.attachmentImage} contentFit="cover" />
+        ) : (
+          <View style={styles.attachmentPlaceholder}>
+            {busy ? (
+              <ActivityIndicator size="small" color={colors.coral} />
+            ) : (
+              <Ionicons name={icon} size={24} color={colors.coral} />
+            )}
+            <Text style={styles.attachmentAddText}>{busy ? 'Opening…' : 'Add image'}</Text>
+          </View>
+        )}
+      </Pressable>
+      <View style={styles.attachmentCardFooter}>
+        <Text style={styles.attachmentCardLabel} numberOfLines={1}>{label}</Text>
+        {previewUri ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${label}`}
+            disabled={disabled}
+            onPress={onClear}
+            hitSlop={8}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.danger} />
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
   );
 }
 
@@ -1524,6 +1870,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  fieldHelp: {
+    fontSize: 10.5,
+    lineHeight: 15,
+    color: colors.muted,
+  },
+  optionalLabel: {
+    color: colors.muted,
+    fontWeight: '500',
+  },
   textInput: {
     minHeight: 42,
     borderWidth: 1,
@@ -1624,6 +1979,128 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: colors.muted,
+  },
+  formSection: {
+    marginTop: 4,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1EEEA',
+    gap: 12,
+  },
+  formSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  formSectionTitle: {
+    color: colors.ink,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  formSectionHelp: {
+    color: colors.muted,
+    fontSize: 10.5,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  attachmentCard: {
+    flex: 1,
+    minWidth: 0,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  attachmentPreview: {
+    height: 104,
+    backgroundColor: '#FAF7F4',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  attachmentPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  attachmentAddText: {
+    color: colors.coral,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  attachmentCardFooter: {
+    minHeight: 38,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  attachmentCardLabel: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  currencyInputWrap: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+  },
+  currencyPrefix: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  currencyInput: {
+    flex: 1,
+    minHeight: 42,
+    color: colors.ink,
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
+  },
+  paymentMethodRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  paymentMethodChip: {
+    minHeight: 38,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 9,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentMethodChipSelected: {
+    borderColor: colors.coral,
+    backgroundColor: '#FFF7F6',
+  },
+  paymentMethodText: {
+    color: colors.ink,
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  paymentMethodTextSelected: {
+    color: colors.coral,
+    fontWeight: '700',
   },
   footerRowPadding: {
     flexDirection: 'row',

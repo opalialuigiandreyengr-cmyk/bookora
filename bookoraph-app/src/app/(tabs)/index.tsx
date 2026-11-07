@@ -35,6 +35,7 @@ export default function Dashboard() {
     session,
     publicBookingUrl,
     addAppointment,
+    addPayment,
     updateAppointmentStatus,
     refreshing,
     refresh,
@@ -836,10 +837,26 @@ export default function Dashboard() {
         staffName={businessName}
         onClose={() => setShowNewAppointment(false)}
         onCreate={async (payload) => {
-          const err = await addAppointment({ ...payload, status: payload.status || 'approved' });
-          if (err) {
-            Alert.alert('Could not create appointment', err);
+          const { payment, ...appointmentDraft } = payload;
+          const result = await addAppointment({ ...appointmentDraft, status: payload.status || 'approved' });
+          if (result.error || !result.appointment) {
+            Alert.alert('Could not create appointment', result.error || 'The appointment was not saved.');
             return false;
+          }
+          if (payment && payment.amount > 0) {
+            const paymentError = await addPayment({
+              appointment_id: result.appointment.id,
+              client_name: result.appointment.customer_name,
+              client_email: result.appointment.customer_email,
+              amount: payment.amount,
+              transaction_type: 'payment',
+              method: payment.method,
+              status: 'paid',
+              note: payment.note,
+            });
+            if (paymentError) {
+              Alert.alert('Appointment saved', `The appointment was added, but the payment was not recorded: ${paymentError}`);
+            }
           }
           return true;
         }}

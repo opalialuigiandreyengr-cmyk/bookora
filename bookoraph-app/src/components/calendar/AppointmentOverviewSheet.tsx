@@ -92,7 +92,7 @@ export function AppointmentOverviewSheet({
   const [addOns, setAddOns] = useState<{ id: number; name: string; amount: string }[]>([]);
 
   // Edit appointment modal
-  const { appointments, businessName } = useApp();
+  const { appointments, businessName, addPayment } = useApp();
   const [editOpen, setEditOpen] = useState(false);
 
   // Load attachments
@@ -1142,11 +1142,29 @@ export function AppointmentOverviewSheet({
             appointment_date: draft.appointment_date,
             appointment_time: draft.appointment_time,
             duration_minutes: draft.duration_minutes,
+            buffer_minutes: draft.buffer_minutes,
             status: draft.status,
+            peg_image_path: draft.peg_image_path,
+            payment_receipt_path: draft.payment_receipt_path,
           });
           if (err) {
             Alert.alert('Error', err);
             return false;
+          }
+          if (draft.payment && draft.payment.amount > 0) {
+            const paymentError = await addPayment({
+              appointment_id: appointment.id,
+              client_name: draft.customer_name,
+              client_email: draft.customer_email,
+              amount: draft.payment.amount,
+              transaction_type: 'payment',
+              method: draft.payment.method,
+              status: 'paid',
+              note: draft.payment.note,
+            });
+            if (paymentError) {
+              Alert.alert('Appointment saved', `The appointment was updated, but the payment was not recorded: ${paymentError}`);
+            }
           }
           return true;
         }}

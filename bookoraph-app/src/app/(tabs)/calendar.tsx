@@ -91,6 +91,7 @@ export default function Calendar() {
     refreshing,
     refresh,
     addAppointment,
+    addPayment,
     services,
     businessName,
   } = useApp();
@@ -262,10 +263,26 @@ export default function Calendar() {
         staffName={businessName}
         onClose={() => setNewAppointmentOpen(false)}
         onCreate={async (draft) => {
-          const error = await addAppointment(draft);
-          if (error) {
-            Alert.alert('Could not add appointment', error);
+          const { payment, ...appointmentDraft } = draft;
+          const result = await addAppointment(appointmentDraft);
+          if (result.error || !result.appointment) {
+            Alert.alert('Could not add appointment', result.error || 'The appointment was not saved.');
             return false;
+          }
+          if (payment && payment.amount > 0) {
+            const paymentError = await addPayment({
+              appointment_id: result.appointment.id,
+              client_name: result.appointment.customer_name,
+              client_email: result.appointment.customer_email,
+              amount: payment.amount,
+              transaction_type: 'payment',
+              method: payment.method,
+              status: 'paid',
+              note: payment.note,
+            });
+            if (paymentError) {
+              Alert.alert('Appointment saved', `The appointment was added, but the payment was not recorded: ${paymentError}`);
+            }
           }
           setSelectedDate(parseDate(draft.appointment_date));
           return true;
