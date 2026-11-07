@@ -47,14 +47,39 @@ function FeatureModal({ feature, onClose }: { feature: typeof features[number]; 
   const [Icon, title, copy] = feature
 
   useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow
+    const prevHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.overflow = "hidden"
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose()
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    return () => {
+      document.body.style.overflow = prevBodyOverflow
+      document.documentElement.style.overflow = prevHtmlOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [onClose])
 
   return <div className="feature-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><section className="feature-modal" role="dialog" aria-modal="true" aria-labelledby="feature-modal-title"><button className="feature-modal-close" type="button" aria-label="Close feature details" onClick={onClose}><X /></button><span className="feature-modal-icon"><Icon /></span><p className="eyebrow">Bookora feature</p><h2 id="feature-modal-title">{title}</h2><p>{copy}</p><p>Keep this part of your business organized in one calm workspace, so you can spend less time on admin and more time with clients.</p><Button asChild><a href="/signup" onClick={onClose}>Get started free <ArrowRight /></a></Button></section></div>
+}
+
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
+    </svg>
+  )
+}
+
+function AndroidIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.523 15.341a.885.885 0 0 1-.884-.885c0-.488.396-.884.884-.884.488 0 .885.396.885.884 0 .488-.397.885-.885.885m-11.046 0a.885.885 0 0 1-.885-.885c0-.488.397-.884.885-.884.488 0 .884.396.884.884 0 .488-.396.885-.884.885m11.405-6.02 1.997-3.459a.416.416 0 0 0-.152-.567.416.416 0 0 0-.568.152L17.11 8.95c-1.466-.67-3.148-1.044-5.11-1.044-1.962 0-3.644.374-5.11 1.044L4.841 5.447a.416.416 0 0 0-.568-.152.416.416 0 0 0-.152.567l1.997 3.459C2.688 11.186.443 14.658 0 18.761h24c-.443-4.103-2.688-7.575-6.118-9.44" />
+    </svg>
+  )
 }
 
 function detectInitialPlatform(): "ios" | "android" {
@@ -68,246 +93,173 @@ function DownloadAppModal({ onClose }: { onClose: () => void }) {
   const [platform, setPlatform] = useState<"ios" | "android">(detectInitialPlatform)
 
   useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow
+    const prevHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.overflow = "hidden"
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose()
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    return () => {
+      document.body.style.overflow = prevBodyOverflow
+      document.documentElement.style.overflow = prevHtmlOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [onClose])
 
   return (
     <div
-      className="feature-modal-backdrop"
+      className="download-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose()
       }}
     >
       <section
-        className="feature-modal"
+        className="download-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="download-app-modal-title"
-        style={{ maxWidth: "520px", width: "100%" }}
       >
-        <button
-          className="feature-modal-close"
-          type="button"
-          aria-label="Close download modal"
-          onClick={onClose}
-        >
-          <X />
-        </button>
-        <span className="feature-modal-icon">
-          <Smartphone />
-        </span>
-        <p className="eyebrow">Bookora PH Mobile App</p>
-        <h2 id="download-app-modal-title">Get the Bookora App</h2>
-        <p style={{ marginBottom: "1rem" }}>
-          Manage your bookings, calendar, clients, and staff right from your phone using the Bookora PH mobile app.
+        <div className="download-modal-header">
+          <span className="download-modal-icon">
+            <Smartphone />
+          </span>
+          <div className="download-modal-title-group">
+            <p className="download-modal-eyebrow">Bookora PH Mobile App</p>
+            <h2 id="download-app-modal-title" className="download-modal-title">
+              Get the Bookora App
+            </h2>
+          </div>
+          <button
+            className="download-modal-close"
+            type="button"
+            aria-label="Close download modal"
+            onClick={onClose}
+          >
+            <X />
+          </button>
+        </div>
+
+        <p className="download-modal-subtitle">
+          Manage your bookings, calendar, clients, and staff right from your phone.
         </p>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "0.5rem",
-            background: "#f6efeb",
-            padding: "0.35rem",
-            borderRadius: "12px",
-            marginBottom: "1.25rem",
-          }}
-        >
+        <div className="download-modal-tabs" role="tablist" aria-label="Choose mobile platform">
           <button
             type="button"
+            role="tab"
+            aria-selected={platform === "ios"}
+            className={`download-modal-tab${platform === "ios" ? " active" : ""}`}
             onClick={() => setPlatform("ios")}
-            style={{
-              padding: "0.6rem 0.75rem",
-              borderRadius: "9px",
-              border: "none",
-              fontWeight: 700,
-              fontSize: "0.9rem",
-              cursor: "pointer",
-              background: platform === "ios" ? "#ffffff" : "transparent",
-              color: platform === "ios" ? "#1e1b18" : "#6e655f",
-              boxShadow: platform === "ios" ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
-              transition: "all 0.15s ease",
-            }}
           >
-            iPhone / iPad (iOS)
+            <AppleIcon />
+            <span>iOS</span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={platform === "android"}
+            className={`download-modal-tab${platform === "android" ? " active" : ""}`}
             onClick={() => setPlatform("android")}
-            style={{
-              padding: "0.6rem 0.75rem",
-              borderRadius: "9px",
-              border: "none",
-              fontWeight: 700,
-              fontSize: "0.9rem",
-              cursor: "pointer",
-              background: platform === "android" ? "#ffffff" : "transparent",
-              color: platform === "android" ? "#1e1b18" : "#6e655f",
-              boxShadow: platform === "android" ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
-              transition: "all 0.15s ease",
-            }}
           >
-            Android (APK)
+            <AndroidIcon />
+            <span>Android (APK)</span>
           </button>
         </div>
 
         {platform === "ios" ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", textAlign: "left" }}>
-            <div
-              style={{
-                background: "#fffaf8",
-                border: "1px solid #eadcd5",
-                borderRadius: "14px",
-                padding: "1rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}
-            >
-              <strong style={{ fontSize: "0.95rem", color: "#1e1b18" }}>
-                How to install on iOS (Safari PWA):
-              </strong>
-
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                <span
-                  style={{
-                    minWidth: "26px",
-                    height: "26px",
-                    borderRadius: "999px",
-                    background: "#1e1b18",
-                    color: "#fff",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  1
-                </span>
-                <div style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
-                  Open the <strong>Bookora Mobile App</strong> in <strong>Safari</strong> by tapping{" "}
-                  <strong>&ldquo;Launch iOS App&rdquo;</strong> below.
-                </div>
+          <div>
+            <div className="download-modal-card">
+              <div className="download-modal-card-head">
+                <strong>Install on iPhone &amp; iPad</strong>
+                <span className="download-modal-badge">Safari PWA</span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                <span
-                  style={{
-                    minWidth: "26px",
-                    height: "26px",
-                    borderRadius: "999px",
-                    background: "#1e1b18",
-                    color: "#fff",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  2
-                </span>
-                <div style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
-                  Tap the <strong>Share</strong> button{" "}
-                  <Share style={{ display: "inline", width: "15px", height: "15px", verticalAlign: "-2px" }} /> at the
-                  bottom of Safari&apos;s toolbar.
-                </div>
-              </div>
+              <ol className="download-steps">
+                <li className="download-step">
+                  <span className="download-step-num">1</span>
+                  <div className="download-step-body">
+                    Tap <strong>Launch iOS App</strong> below in <strong>Safari</strong>.
+                  </div>
+                </li>
 
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                <span
-                  style={{
-                    minWidth: "26px",
-                    height: "26px",
-                    borderRadius: "999px",
-                    background: "#1e1b18",
-                    color: "#fff",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  3
-                </span>
-                <div style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
-                  Scroll down and tap <strong>&ldquo;Add to Home Screen&rdquo;</strong>{" "}
-                  <PlusSquare style={{ display: "inline", width: "15px", height: "15px", verticalAlign: "-2px" }} />.
-                </div>
-              </div>
+                <li className="download-step">
+                  <span className="download-step-num">2</span>
+                  <div className="download-step-body">
+                    Tap{" "}
+                    <span className="download-inline-chip">
+                      <Share /> Share
+                    </span>{" "}
+                    on Safari&apos;s bottom toolbar.
+                  </div>
+                </li>
 
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                <span
-                  style={{
-                    minWidth: "26px",
-                    height: "26px",
-                    borderRadius: "999px",
-                    background: "#1e1b18",
-                    color: "#fff",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  4
-                </span>
-                <div style={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
-                  Tap <strong>&ldquo;Add&rdquo;</strong> in the top-right corner. Open <strong>Bookora PH</strong> from
-                  your Home Screen anytime!
-                </div>
-              </div>
+                <li className="download-step">
+                  <span className="download-step-num">3</span>
+                  <div className="download-step-body">
+                    Select{" "}
+                    <span className="download-inline-chip">
+                      <PlusSquare /> Add to Home Screen
+                    </span>
+                    .
+                  </div>
+                </li>
+
+                <li className="download-step">
+                  <span className="download-step-num">4</span>
+                  <div className="download-step-body">
+                    Tap <strong>Add</strong> in the top-right to pin <strong>Bookora PH</strong>.
+                  </div>
+                </li>
+              </ol>
             </div>
 
-            <Button asChild size="lg" style={{ width: "100%" }}>
-              <a href="/app/">
-                Launch iOS App &amp; Install <ExternalLink />
-              </a>
-            </Button>
+            <div className="download-modal-actions">
+              <Button asChild size="lg">
+                <a href="/app/">
+                  Launch iOS App &amp; Install <ExternalLink />
+                </a>
+              </Button>
+            </div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", textAlign: "left" }}>
-            <div
-              style={{
-                background: "#fffaf8",
-                border: "1px solid #eadcd5",
-                borderRadius: "14px",
-                padding: "1rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              <strong style={{ fontSize: "0.95rem", color: "#1e1b18" }}>
-                Bookora PH for Android (APK)
-              </strong>
-              <p style={{ fontSize: "0.9rem", margin: 0, lineHeight: 1.5, color: "#574f4a" }}>
+          <div>
+            <div className="download-modal-card">
+              <div className="download-modal-card-head">
+                <strong>Bookora PH for Android</strong>
+                <span className="download-modal-badge">Direct APK</span>
+              </div>
+              <p
+                style={{
+                  fontSize: "0.82rem",
+                  margin: 0,
+                  lineHeight: 1.5,
+                  color: "var(--muted-foreground)",
+                }}
+              >
                 Download the official Android APK package to install the native Bookora PH app directly on your Android phone or tablet.
               </p>
             </div>
 
-            <Button
-              size="lg"
-              type="button"
-              disabled
-              style={{ width: "100%", opacity: 0.65, cursor: "not-allowed" }}
-            >
-              <Download /> Download Android APK (Coming Soon)
-            </Button>
+            <div className="download-modal-actions">
+              <Button
+                size="lg"
+                type="button"
+                disabled
+                style={{ opacity: 0.65, cursor: "not-allowed" }}
+              >
+                <Download /> Download Android APK (Coming Soon)
+              </Button>
 
-            <Button variant="outline" size="lg" asChild style={{ width: "100%" }}>
-              <a href="/app/">
-                Open Mobile Web App Instead <ExternalLink />
-              </a>
-            </Button>
+              <Button variant="outline" size="lg" asChild>
+                <a href="/app/">
+                  Open Mobile Web App Instead <ExternalLink />
+                </a>
+              </Button>
+            </div>
           </div>
         )}
       </section>
