@@ -360,11 +360,12 @@ export default function Services() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/staff')}
-            style={({ pressed }) => [styles.teamChip, pressed && styles.pressed]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            style={[styles.teamChip, styles.teamChipDisabled]}
           >
-            <Ionicons name="people-outline" size={14} color={colors.ink} />
-            <Text style={styles.teamChipText}>Team</Text>
+            <Ionicons name="people-outline" size={14} color={colors.muted} />
+            <Text style={styles.teamChipTextDisabled}>Team · Soon</Text>
           </Pressable>
         </View>
 
@@ -1210,8 +1211,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
     backgroundColor: '#FFFFFF',
   },
   backChevronBtn: {
@@ -1299,9 +1298,18 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: '#FFFFFF',
   },
+  teamChipDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F8F9FA',
+  },
   teamChipText: {
     color: colors.ink,
     fontSize: 13,
+    fontWeight: '600',
+  },
+  teamChipTextDisabled: {
+    color: colors.muted,
+    fontSize: 12,
     fontWeight: '600',
   },
   // Responsive Category Grid

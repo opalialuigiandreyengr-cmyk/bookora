@@ -15,6 +15,7 @@ type MenuItem = {
   icon: IconName;
   route: Href;
   badge?: string | number;
+  comingSoon?: boolean;
 };
 
 export default function SettingsHub() {
@@ -22,7 +23,6 @@ export default function SettingsHub() {
     businessProfile,
     publicBookingUrl,
     services,
-    staff,
     signOut,
   } = useApp();
 
@@ -68,7 +68,7 @@ export default function SettingsHub() {
           title: 'Team',
           icon: 'people-outline',
           route: '/staff',
-          badge: staff.length || undefined,
+          comingSoon: true,
         },
       ],
     },
@@ -79,11 +79,13 @@ export default function SettingsHub() {
           title: 'Reports',
           icon: 'bar-chart-outline',
           route: '/reports',
+          comingSoon: true,
         },
         {
           title: 'Integrations',
           icon: 'git-network-outline',
           route: '/integrations',
+          comingSoon: true,
         },
       ],
     },
@@ -169,21 +171,48 @@ export default function SettingsHub() {
                 <Pressable
                   key={item.title}
                   accessibilityRole="button"
-                  accessibilityLabel={item.title}
-                  onPress={() => router.push(item.route)}
-                  style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
+                  accessibilityLabel={item.comingSoon ? `${item.title}, Coming soon` : item.title}
+                  accessibilityState={{ disabled: Boolean(item.comingSoon) }}
+                  disabled={Boolean(item.comingSoon)}
+                  onPress={() => {
+                    if (!item.comingSoon) router.push(item.route);
+                  }}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    item.comingSoon && styles.menuRowDisabled,
+                    !item.comingSoon && pressed && styles.rowPressed,
+                  ]}
                 >
                   <View style={styles.menuRowLeft}>
-                    <Ionicons name={item.icon} size={19} color={colors.ink} />
-                    <Text style={styles.menuRowTitle}>{item.title}</Text>
+                    <Ionicons
+                      name={item.icon}
+                      size={19}
+                      color={item.comingSoon ? colors.muted : colors.ink}
+                    />
+                    <Text
+                      style={[
+                        styles.menuRowTitle,
+                        item.comingSoon && styles.menuRowTitleDisabled,
+                      ]}
+                    >
+                      {item.title}
+                    </Text>
                   </View>
                   <View style={styles.menuRowRight}>
-                    {item.badge !== undefined ? (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.badge}</Text>
+                    {item.comingSoon ? (
+                      <View style={styles.comingSoonBadge}>
+                        <Text style={styles.comingSoonBadgeText}>Coming soon</Text>
                       </View>
-                    ) : null}
-                    <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                    ) : (
+                      <>
+                        {item.badge !== undefined ? (
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{item.badge}</Text>
+                          </View>
+                        ) : null}
+                        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                      </>
+                    )}
                   </View>
                 </Pressable>
               ))}
@@ -278,6 +307,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 10,
   },
+  menuRowDisabled: {
+    opacity: 0.62,
+  },
   menuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -289,10 +321,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  menuRowTitleDisabled: {
+    color: colors.muted,
+  },
   menuRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  comingSoonBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  comingSoonBadgeText: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '600',
   },
   badge: {
     paddingHorizontal: 8,
