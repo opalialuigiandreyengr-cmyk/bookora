@@ -274,7 +274,7 @@ export default function StaffScreen() {
 
       <Modal
         visible={Boolean(selected)}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setSelected(null)}
       >

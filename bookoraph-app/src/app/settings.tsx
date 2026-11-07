@@ -212,7 +212,15 @@ export default function Settings() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
-  const [settingsViewProgress] = useState(() => new Animated.Value(1));
+  const [settingsViewProgress] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    const nextSection = MENU_ITEMS.some((item) => item.id === section)
+      ? (section as SettingsSectionId)
+      : null;
+    setActiveSection(nextSection);
+    settingsViewProgress.setValue(0);
+  }, [section, settingsViewProgress]);
 
   useEffect(() => {
     let mounted = true;
@@ -231,11 +239,9 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    if (activeSection === null) return;
-
     const animation = Animated.timing(settingsViewProgress, {
       toValue: 1,
-      duration: reduceMotionEnabled ? 120 : 220,
+      duration: reduceMotionEnabled ? 120 : 250,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -1254,9 +1260,9 @@ export default function Settings() {
             opacity: settingsViewProgress,
             transform: [
               {
-                translateX: settingsViewProgress.interpolate({
+                translateY: settingsViewProgress.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [reduceMotionEnabled ? 0 : 18, 0],
+                  outputRange: [reduceMotionEnabled ? 0 : 24, 0],
                 }),
               },
             ],

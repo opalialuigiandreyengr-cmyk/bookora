@@ -265,7 +265,7 @@ export default function MembershipsScreen() {
       {/* New Plan Modal */}
       <Modal
         visible={planModalOpen}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setPlanModalOpen(false)}
       >
@@ -337,7 +337,7 @@ export default function MembershipsScreen() {
       {/* Enroll Client Modal */}
       <Modal
         visible={enrollModalOpen}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setEnrollModalOpen(false)}
       >

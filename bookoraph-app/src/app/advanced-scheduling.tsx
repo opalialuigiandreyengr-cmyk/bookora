@@ -268,7 +268,7 @@ export default function AdvancedSchedulingScreen() {
 
       <Modal
         visible={classModalOpen}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setClassModalOpen(false)}
       >

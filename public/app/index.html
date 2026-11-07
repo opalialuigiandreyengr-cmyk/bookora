@@ -60,6 +60,28 @@
         outline-width: 0 !important;
         box-shadow: none !important;
       }
+      /* Smooth PWA slide-up transitions for modals & sheets */
+      @keyframes bookoraBackdropFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes bookoraSheetSlideUp {
+        from {
+          opacity: 0;
+          transform: translate3d(0, 32px, 0);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+      div[aria-modal="true"][role="dialog"] {
+        animation: bookoraBackdropFade 200ms ease-out;
+      }
+      div[aria-modal="true"][role="dialog"] > div > div > :last-child {
+        animation: bookoraSheetSlideUp 260ms cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: transform, opacity;
+      }
     </style>
   <link rel="icon" href="/app/favicon.ico"/></head>
 
@@ -68,6 +90,6 @@
     <noscript> You need to enable JavaScript to run this app. </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
-  <script src="/app/_expo/static/js/web/__expo-metro-runtime-9f1a7b6acd20011e290bc79f0164ae37.js" defer></script><script src="/app/_expo/static/js/web/__common-1d831ce9dcad2f93ee08340ffcf1a256.js" defer></script><script src="/app/_expo/static/js/web/entry-0e90c40e356d23776290775d15ffb5ac.js" defer></script>
+  <script src="/app/_expo/static/js/web/entry-a055112040cfd5480c4b94294d3ffaf2.js" defer></script>
 </body>
 </html>

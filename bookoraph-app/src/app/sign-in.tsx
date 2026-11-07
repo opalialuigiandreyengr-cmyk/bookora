@@ -19,15 +19,13 @@ import { GoogleIcon } from '@/components/google-icon';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
 
-type FocusedField = 'business' | 'name' | 'email' | 'password' | null;
+type FocusedField = 'email' | 'password' | null;
 type AuthMode = 'signin' | 'signup' | 'reset';
 
 export default function SignIn() {
-  const { session, configured, signIn, signUp, signInWithGoogle, resetPassword } = useApp();
+  const { session, loading, needsOnboarding, configured, signIn, signUp, signInWithGoogle, resetPassword } = useApp();
   const passwordRef = useRef<ElementRef<typeof TextInput>>(null);
   const [mode, setMode] = useState<AuthMode>('signin');
-  const [businessName, setBusinessName] = useState('');
-  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +34,9 @@ export default function SignIn() {
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
-  if (session) return <Redirect href="/(tabs)" />;
+  if (session && !loading) {
+    return <Redirect href={needsOnboarding ? '/onboarding' : '/(tabs)'} />;
+  }
 
   const normalizedEmail = email.trim();
 
@@ -55,15 +55,20 @@ export default function SignIn() {
       const error = await signUp({
         email: normalizedEmail,
         password,
-        fullName: fullName.trim() || 'Business Owner',
-        businessName: businessName.trim() || 'My Studio',
       });
-      setSubmitting(false);
       if (error) {
+        setSubmitting(false);
         setMessage({ type: 'error', text: error });
         return;
       }
-      setMessage({ type: 'success', text: 'Account created! Check your inbox if email verification is enabled, or sign in now.' });
+      // Attempt immediate sign-in if session wasn't automatically established
+      const signInErr = await signIn(normalizedEmail, password);
+      setSubmitting(false);
+      if (!signInErr) {
+        router.replace('/onboarding');
+        return;
+      }
+      setMessage({ type: 'success', text: 'Account created! Check your inbox to confirm your email, then sign in to finish onboarding.' });
       return;
     }
     const error = await signIn(normalizedEmail, password);
@@ -72,7 +77,7 @@ export default function SignIn() {
       setMessage({ type: 'error', text: error === 'Invalid login credentials' ? 'That email or password does not match your Bookora account.' : error });
       return;
     }
-    router.replace('/(tabs)');
+    router.replace('/');
   };
 
   const sendReset = async () => {
@@ -157,44 +162,6 @@ export default function SignIn() {
             ) : null}
             {!configured ? <StatusMessage type="error" text="Supabase is not configured for this build. Restart Expo after adding the public variables." /> : null}
             {message ? <StatusMessage type={message.type} text={message.text} /> : null}
-
-            {mode === 'signup' ? (
-              <>
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Business / Studio name</Text>
-                  <View style={[styles.inputShell, focused === 'business' && styles.inputShellFocused]}>
-                    <Ionicons name="storefront-outline" size={18} color={focused === 'business' ? colors.coral : colors.muted} />
-                    <TextInput
-                      accessibilityLabel="Business name"
-                      onBlur={() => setFocused(null)}
-                      onChangeText={setBusinessName}
-                      onFocus={() => setFocused('business')}
-                      placeholder="e.g. Kuko Nail Lounge"
-                      placeholderTextColor="#96918B"
-                      style={styles.input}
-                      value={businessName}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Your full name</Text>
-                  <View style={[styles.inputShell, focused === 'name' && styles.inputShellFocused]}>
-                    <Ionicons name="person-outline" size={18} color={focused === 'name' ? colors.coral : colors.muted} />
-                    <TextInput
-                      accessibilityLabel="Full name"
-                      onBlur={() => setFocused(null)}
-                      onChangeText={setFullName}
-                      onFocus={() => setFocused('name')}
-                      placeholder="Camille Reyes"
-                      placeholderTextColor="#96918B"
-                      style={styles.input}
-                      value={fullName}
-                    />
-                  </View>
-                </View>
-              </>
-            ) : null}
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Email address</Text>
@@ -307,17 +274,17 @@ const styles = StyleSheet.create({
   title: { color: colors.ink, fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.8 },
   introText: { maxWidth: 350, color: colors.muted, fontSize: 13, lineHeight: 19 },
   formPanel: { gap: space.lg },
-  authSwitch: { flexDirection: 'row', borderRadius: 11, backgroundColor: '#F3F1ED', padding: 3 },
-  authSwitchItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
-  authSwitchItemActive: { backgroundColor: colors.surface, shadowColor: '#17212B', shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  authSwitch: { flexDirection: 'row', borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, padding: 4, gap: 4 },
+  authSwitchItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'transparent' },
+  authSwitchItemActive: { backgroundColor: '#FFFFFF', borderColor: colors.coral, shadowColor: '#17212B', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   authSwitchText: { color: colors.muted, fontSize: 12.5, lineHeight: 17, fontWeight: '700' },
   authSwitchTextActive: { color: colors.ink },
   fieldGroup: { gap: 8 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
   label: { color: colors.ink, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   forgotText: { color: colors.coral, fontSize: 12, lineHeight: 18, fontWeight: '600' },
-  inputShell: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 12, backgroundColor: '#FAF8F5', paddingHorizontal: 14 },
-  inputShellFocused: { borderColor: colors.coral, backgroundColor: colors.surface },
+  inputShell: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 12, backgroundColor: '#FFFFFF', paddingHorizontal: 14 },
+  inputShellFocused: { borderColor: colors.coral, backgroundColor: '#FFFFFF' },
   inputShellError: { borderColor: colors.danger },
   input: { flex: 1, minHeight: 52, color: colors.ink, fontFamily: 'SpaceGrotesk_400Regular', fontSize: 15, paddingVertical: 0, outlineStyle: 'none' as unknown as undefined },
   eyeButton: { minWidth: 36, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },

@@ -124,7 +124,7 @@ export default function BlockTimeScreen() {
 
       <Modal
         visible={open}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setOpen(false)}
       >

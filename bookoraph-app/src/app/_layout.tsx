@@ -10,8 +10,8 @@ import {
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Component, type PropsWithChildren, Suspense, useEffect } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Component, type PropsWithChildren, Suspense, useEffect, useState } from 'react';
+import { Animated, Easing, Platform, Pressable, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
 import { Button, LoadingState } from '@/components/ui';
@@ -20,6 +20,57 @@ import { AppProvider, useApp } from '@/providers/app-provider';
 import { colors, space } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
+
+export function SuspenseFallback() {
+  return <LoadingState />;
+}
+
+const STATIC_ROOT_ROUTES = new Set(['index', 'sign-in', '(tabs)']);
+
+function SlideUpScreenWrapper({
+  routeName,
+  children,
+}: PropsWithChildren<{ routeName: string }>) {
+  const shouldAnimate = !STATIC_ROOT_ROUTES.has(routeName);
+  const [progress] = useState(() => new Animated.Value(shouldAnimate ? 0 : 1));
+
+  useEffect(() => {
+    if (!shouldAnimate) return;
+    progress.setValue(0);
+    const anim = Animated.timing(progress, {
+      toValue: 1,
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [progress, shouldAnimate]);
+
+  if (!shouldAnimate) {
+    return <>{children}</>;
+  }
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        opacity: progress,
+        transform: [
+          {
+            translateY: progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [26, 0],
+            }),
+          },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
 
 class RouteErrorBoundary extends Component<
   PropsWithChildren,
@@ -140,6 +191,27 @@ function AppNavigator() {
             outline-width: 0 !important;
             box-shadow: none !important;
           }
+          @keyframes bookoraBackdropFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes bookoraSheetSlideUp {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 32px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+          div[aria-modal="true"][role="dialog"] {
+            animation: bookoraBackdropFade 200ms ease-out;
+          }
+          div[aria-modal="true"][role="dialog"] > div > div > :last-child {
+            animation: bookoraSheetSlideUp 260ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform, opacity;
+          }
         `;
         document.head.appendChild(styleEl);
       }
@@ -149,15 +221,24 @@ function AppNavigator() {
   useEffect(() => {
     if (!session || Platform.OS !== 'web') return;
     const timer = setTimeout(() => {
+      void import('./(tabs)/calendar').catch(() => undefined);
+      void import('./(tabs)/clients').catch(() => undefined);
+      void import('./(tabs)/payments').catch(() => undefined);
+      void import('./(tabs)/more').catch(() => undefined);
+      void import('./onboarding').catch(() => undefined);
       void import('./services').catch(() => undefined);
       void import('./staff').catch(() => undefined);
       void import('./reports').catch(() => undefined);
       void import('./integrations').catch(() => undefined);
       void import('./notifications').catch(() => undefined);
       void import('./settings').catch(() => undefined);
+      void import('./block-time').catch(() => undefined);
+      void import('./packages').catch(() => undefined);
+      void import('./memberships').catch(() => undefined);
+      void import('./advanced-scheduling').catch(() => undefined);
       void import('./appointment/[id]').catch(() => undefined);
       void import('./booking/[id]').catch(() => undefined);
-    }, 150);
+    }, 100);
     return () => clearTimeout(timer);
   }, [session]);
 
@@ -165,7 +246,13 @@ function AppNavigator() {
 
   return (
     <Stack
+        screenLayout={({ route, children }) => (
+          <SlideUpScreenWrapper routeName={route.name}>
+            {children}
+          </SlideUpScreenWrapper>
+        )}
         screenOptions={{
+          animation: 'slide_from_bottom',
           headerShadowVisible: false,
           headerStyle: { backgroundColor: '#FFFFFF' },
           headerTintColor: colors.ink,
@@ -191,6 +278,7 @@ function AppNavigator() {
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
         <Stack.Protected guard={Boolean(session)} redirectTo="/sign-in">
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="appointment/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />

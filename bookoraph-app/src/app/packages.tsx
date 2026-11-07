@@ -191,7 +191,7 @@ export default function PackagesScreen() {
 
       <Modal
         visible={modalOpen}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setModalOpen(false)}
       >

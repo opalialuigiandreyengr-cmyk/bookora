@@ -408,7 +408,7 @@ export default function IntegrationsScreen() {
       {/* Add Webhook Modal */}
       <Modal
         visible={webhookModalOpen}
-        animationType="fade"
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setWebhookModalOpen(false)}
       >

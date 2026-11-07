@@ -230,9 +230,17 @@ type AppContextValue = {
   businessProfile: BusinessProfile;
   businessName: string;
   publicBookingUrl: string;
+  needsOnboarding: boolean;
   refresh: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<string | null>;
-  signUp: (payload: { email: string; password: string; fullName: string; businessName: string }) => Promise<string | null>;
+  signUp: (payload: { email: string; password: string }) => Promise<string | null>;
+  completeOnboarding: (payload: {
+    brandName: string;
+    industry: string;
+    phone: string;
+    timeZone: string;
+    currency: string;
+  }) => Promise<string | null>;
   signInWithGoogle: () => Promise<OAuthSignInResult>;
   resetPassword: (email: string) => Promise<string | null>;
   changePassword: (newPassword: string) => Promise<string | null>;
@@ -371,6 +379,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [webhookEndpoints, setWebhookEndpoints] = useState<WebhookEndpoint[]>([]);
   const [webhookDeliveries, setWebhookDeliveries] = useState<WebhookDelivery[]>([]);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(() => createDefaultBusinessProfile(null));
+  const [hasBusinessProfileRow, setHasBusinessProfileRow] = useState(false);
   const loadedBusinessId = useRef<string | null>(null);
   const loadRequestId = useRef(0);
 
@@ -395,6 +404,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     setWebhookEndpoints([]);
     setWebhookDeliveries([]);
     setBusinessProfile(createDefaultBusinessProfile(activeSession));
+    setHasBusinessProfileRow(false);
   }, []);
 
   const load = useCallback(async (activeSession: Session | null) => {
@@ -504,6 +514,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
       if (!profileRes.error && profileRes.data) {
         const d = profileRes.data as Record<string, unknown>;
+        setHasBusinessProfileRow(Boolean(d.business_name));
         setBusinessProfile((prev) => ({
           ...prev,
           business_name: String(d.business_name ?? prev.business_name),
@@ -651,22 +662,67 @@ export function AppProvider({ children }: PropsWithChildren) {
     return signInError?.message ?? null;
   };
 
-  const signUp = async (payload: { email: string; password: string; fullName: string; businessName: string }) => {
+  const signUp = async (payload: { email: string; password: string }) => {
     if (!supabase) return 'Supabase is not configured on this build.';
-    const slug = payload.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const { error: signUpError } = await supabase.auth.signUp({
       email: payload.email.trim(),
       password: payload.password,
       options: {
         data: {
-          full_name: payload.fullName.trim(),
-          business_name: payload.businessName.trim(),
-          slug,
-          onboarding_complete: true,
+          account_type: 'business',
+          role: 'business',
         },
       },
     });
     return signUpError?.message ?? null;
+  };
+
+  const completeOnboarding = async (payload: {
+    brandName: string;
+    industry: string;
+    phone: string;
+    timeZone: string;
+    currency: string;
+  }) => {
+    if (!supabase || !businessId) return 'You must be signed in to complete onboarding.';
+    const cleanName = payload.brandName.trim() || 'Your business';
+    const cleanSlug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const industryLabelMap: Record<string, string> = {
+      'nail-salon': 'Nail salon',
+      'hair-salon': 'Hair salon',
+      barbershop: 'Barbershop',
+      'facial-spa': 'Facial & spa',
+      'makeup-studio': 'Makeup studio',
+      'beauty-clinic': 'Beauty clinic',
+    };
+    const industryLabel = industryLabelMap[payload.industry] || payload.industry || 'Nail salon';
+
+    const { data: userRes, error: authError } = await supabase.auth.updateUser({
+      data: {
+        business_name: cleanName,
+        slug: cleanSlug,
+        industry: payload.industry,
+        phone: payload.phone.trim(),
+        time_zone: payload.timeZone,
+        currency: payload.currency,
+        onboarding_complete: true,
+      },
+    });
+    if (authError) return authError.message;
+
+    if (userRes.user && session) {
+      setSession({ ...session, user: userRes.user });
+    }
+
+    const saveErr = await saveBusinessProfile({
+      business_name: cleanName,
+      slug: cleanSlug,
+      industry: industryLabel,
+      phone: payload.phone.trim(),
+    });
+    if (saveErr) return saveErr;
+    setHasBusinessProfileRow(true);
+    return null;
   };
 
   const signInWithGoogle = async () => {
@@ -1621,6 +1677,12 @@ export function AppProvider({ children }: PropsWithChildren) {
   const businessName = businessProfile.business_name || String(session?.user.user_metadata?.business_name ?? session?.user.email?.split('@')[0] ?? 'Your business');
   const activeSlug = businessProfile.slug || businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'bookora';
   const publicBookingUrl = `https://${activeSlug}.bookoraph.com/`;
+  const needsOnboarding = Boolean(
+    session &&
+      !loading &&
+      !session.user.user_metadata?.onboarding_complete &&
+      !hasBusinessProfileRow
+  );
 
   const value: AppContextValue = {
     session,
@@ -1650,9 +1712,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     businessProfile,
     businessName,
     publicBookingUrl,
+    needsOnboarding,
     refresh,
     signIn,
     signUp,
+    completeOnboarding,
     signInWithGoogle,
     resetPassword,
     changePassword,
