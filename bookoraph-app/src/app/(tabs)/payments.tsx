@@ -430,7 +430,7 @@ export default function Payments() {
       >
         <View style={styles.sheetBackdrop}>
           <Pressable style={styles.backdropDismiss} onPress={() => setSelectedReceipt(null)} />
-          <View style={styles.sheetContainer}>
+          <View nativeID="bookora-sheet" style={styles.sheetContainer}>
             <View style={styles.headerNav}>
               <Pressable
                 accessibilityLabel="Back"
@@ -559,7 +559,7 @@ export default function Payments() {
           style={styles.sheetBackdrop}
         >
           <Pressable style={styles.backdropDismiss} onPress={() => setFormOpen(false)} />
-          <View style={styles.sheetContainer}>
+          <View nativeID="bookora-sheet" style={styles.sheetContainer}>
             <View style={styles.headerNav}>
               <Pressable
                 accessibilityLabel="Back"

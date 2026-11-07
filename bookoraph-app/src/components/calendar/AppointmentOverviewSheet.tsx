@@ -963,7 +963,7 @@ export function AppointmentOverviewSheet({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.editModalBackdrop}
           >
-            <View style={styles.paymentModalBox}>
+            <View nativeID="bookora-sheet" style={styles.paymentModalBox}>
               <View style={styles.paymentModalHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.paymentModalTitle}>Complete appointment</Text>
@@ -1160,7 +1160,7 @@ export function AppointmentOverviewSheet({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.editModalBackdrop}
           >
-            <View style={styles.editSheetContainer}>
+            <View nativeID="bookora-sheet" style={styles.editSheetContainer}>
               <View style={styles.headerNav}>
                 <Pressable
                   onPress={() => setEditOpen(false)}

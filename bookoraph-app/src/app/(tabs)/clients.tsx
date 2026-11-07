@@ -486,12 +486,11 @@ export default function Clients() {
           style={[
             styles.clientSheet,
             {
-              opacity: clientSheetProgress,
               transform: [
                 {
                   translateY: clientSheetProgress.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [reduceMotionEnabled ? 0 : 72, 0],
+                    outputRange: [reduceMotionEnabled ? 0 : 380, 0],
                   }),
                 },
               ],

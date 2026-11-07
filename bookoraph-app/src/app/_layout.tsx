@@ -10,8 +10,8 @@ import {
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Component, type PropsWithChildren, Suspense, useEffect, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, View } from 'react-native';
+import { Component, type PropsWithChildren, Suspense, useEffect } from 'react';
+import { Platform, Pressable, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
 import { Button, LoadingState } from '@/components/ui';
@@ -23,53 +23,6 @@ void SplashScreen.preventAutoHideAsync();
 
 export function SuspenseFallback() {
   return <LoadingState />;
-}
-
-const STATIC_ROOT_ROUTES = new Set(['index', 'sign-in', '(tabs)']);
-
-function SlideUpScreenWrapper({
-  routeName,
-  children,
-}: PropsWithChildren<{ routeName: string }>) {
-  const shouldAnimate = !STATIC_ROOT_ROUTES.has(routeName);
-  const [progress] = useState(() => new Animated.Value(shouldAnimate ? 0 : 1));
-
-  useEffect(() => {
-    if (!shouldAnimate) return;
-    progress.setValue(0);
-    const anim = Animated.timing(progress, {
-      toValue: 1,
-      duration: 250,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    anim.start();
-    return () => anim.stop();
-  }, [progress, shouldAnimate]);
-
-  if (!shouldAnimate) {
-    return <>{children}</>;
-  }
-
-  return (
-    <Animated.View
-      style={{
-        flex: 1,
-        backgroundColor: '#FFFFFF',
-        opacity: progress,
-        transform: [
-          {
-            translateY: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [26, 0],
-            }),
-          },
-        ],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
 }
 
 class RouteErrorBoundary extends Component<
@@ -191,26 +144,17 @@ function AppNavigator() {
             outline-width: 0 !important;
             box-shadow: none !important;
           }
-          @keyframes bookoraBackdropFade {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
           @keyframes bookoraSheetSlideUp {
             from {
-              opacity: 0;
-              transform: translate3d(0, 32px, 0);
+              transform: translate3d(0, 100%, 0);
             }
             to {
-              opacity: 1;
               transform: translate3d(0, 0, 0);
             }
           }
-          div[aria-modal="true"][role="dialog"] {
-            animation: bookoraBackdropFade 200ms ease-out;
-          }
-          div[aria-modal="true"][role="dialog"] > div > div > :last-child {
-            animation: bookoraSheetSlideUp 260ms cubic-bezier(0.22, 1, 0.36, 1);
-            will-change: transform, opacity;
+          #bookora-sheet, [id="bookora-sheet"] {
+            animation: bookoraSheetSlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1);
+            will-change: transform;
           }
         `;
         document.head.appendChild(styleEl);
@@ -246,11 +190,6 @@ function AppNavigator() {
 
   return (
     <Stack
-        screenLayout={({ route, children }) => (
-          <SlideUpScreenWrapper routeName={route.name}>
-            {children}
-          </SlideUpScreenWrapper>
-        )}
         screenOptions={{
           animation: 'slide_from_bottom',
           headerShadowVisible: false,

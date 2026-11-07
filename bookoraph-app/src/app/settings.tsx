@@ -212,15 +212,14 @@ export default function Settings() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
-  const [settingsViewProgress] = useState(() => new Animated.Value(0));
+  const [settingsViewProgress] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const nextSection = MENU_ITEMS.some((item) => item.id === section)
       ? (section as SettingsSectionId)
       : null;
     setActiveSection(nextSection);
-    settingsViewProgress.setValue(0);
-  }, [section, settingsViewProgress]);
+  }, [section]);
 
   useEffect(() => {
     let mounted = true;
@@ -239,9 +238,11 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
+    if (activeSection === null) return;
+
     const animation = Animated.timing(settingsViewProgress, {
       toValue: 1,
-      duration: reduceMotionEnabled ? 120 : 250,
+      duration: reduceMotionEnabled ? 120 : 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -2562,7 +2563,7 @@ export default function Settings() {
             style={styles.backdropOverlay}
             onPress={() => setPasswordModalOpen(false)}
           />
-          <View style={styles.passwordSheetContainer}>
+          <View nativeID="bookora-sheet" style={styles.passwordSheetContainer}>
             <View style={styles.sheetHandle} />
             <View style={styles.headerNav}>
               <Pressable

@@ -603,7 +603,7 @@ export default function Services() {
             onPress={() => setActionSheetService(null)}
           />
           {actionSheetService ? (
-            <View style={styles.actionSheetContainer}>
+            <View nativeID="bookora-sheet" style={styles.actionSheetContainer}>
               <View style={styles.sheetHandle} />
               <View style={styles.actionSheetHeader}>
                 <View style={styles.actionSheetTitleWrap}>
@@ -743,7 +743,7 @@ export default function Services() {
             onPress={() => setActionSheetCategory(null)}
           />
           {actionSheetCategory ? (
-            <View style={styles.actionSheetContainer}>
+            <View nativeID="bookora-sheet" style={styles.actionSheetContainer}>
               <View style={styles.sheetHandle} />
               <View style={styles.actionSheetHeader}>
                 <View style={styles.actionSheetTitleWrap}>
@@ -818,7 +818,7 @@ export default function Services() {
             style={styles.backdropOverlay}
             onPress={() => setServiceModalOpen(false)}
           />
-          <View style={styles.editorSheetContainer}>
+          <View nativeID="bookora-sheet" style={styles.editorSheetContainer}>
             <View style={styles.sheetHandle} />
             <View style={styles.headerNav}>
               <Pressable
@@ -1128,7 +1128,7 @@ export default function Services() {
             style={styles.backdropOverlay}
             onPress={() => setCategoryModalOpen(false)}
           />
-          <View style={styles.categorySheetContainer}>
+          <View nativeID="bookora-sheet" style={styles.categorySheetContainer}>
             <View style={styles.sheetHandle} />
             <View style={styles.headerNav}>
               <Pressable
