@@ -12,97 +12,78 @@ declare
     v_test_email constant text := 'opalialuigiandrey.engr@gmail.com';
     v_test_slug constant text := 'nailspo';
     v_real_id constant uuid := '2b6d8f52-44e7-42fd-a2e3-0a8d5a6d6ec8';
-    v_tbl text;
+    r record;
 begin
     -- Safety guard: never allow target ID to match the protected real business ID
     if v_test_id = v_real_id then
         raise exception 'Safety abort: test ID matches protected real business ID!';
     end if;
 
-    -- 1. Delete storage bucket images (brand-assets, service-assets, booking-attachments)
-    -- belonging to the test business folder or uploaded by the test account
+    -- 1. Unlink storage.objects ownership from test user so auth.users deletion succeeds
     if to_regclass('storage.objects') is not null then
-        -- Delete any appointment attachment files referenced by test appointments
-        if to_regclass('public.appointments') is not null then
-            delete from storage.objects
-            where bucket_id = 'booking-attachments'
-              and name in (
-                  select peg_image_path from public.appointments
-                  where business_id = v_test_id and peg_image_path is not null
-                  union
-                  select payment_receipt_path from public.appointments
-                  where business_id = v_test_id and payment_receipt_path is not null
-              );
-        end if;
-
-        -- Delete all files inside the test business folder across all buckets
-        delete from storage.objects
-        where (name like v_test_id::text || '/%' or owner = v_test_id or owner_id = v_test_id::text)
-          and coalesce((storage.foldername(name))[1], '') <> v_real_id::text;
+        begin
+            update storage.objects
+            set owner = null, owner_id = null
+            where (owner = v_test_id or owner_id = v_test_id::text)
+              and coalesce(owner::text, '') <> v_real_id::text;
+        exception when others then
+            null;
+        end;
     end if;
 
-    -- 2. Delete webhook deliveries and rate limits linked to test business
-    if to_regclass('public.integration_webhook_deliveries') is not null
-       and to_regclass('public.integration_webhook_endpoints') is not null then
-        delete from public.integration_webhook_deliveries
-        where endpoint_id in (
-            select id from public.integration_webhook_endpoints where business_id = v_test_id
-        );
-    end if;
-
-    if to_regclass('public.api_rate_limits') is not null
-       and to_regclass('public.api_tokens') is not null then
-        delete from public.api_rate_limits
-        where token_id in (
-            select id from public.api_tokens where business_id = v_test_id
-        );
-    end if;
-
-    -- 3. Delete all child records in public tables where business_id = v_test_id
-    foreach v_tbl in array array[
-        'payment_transactions',
-        'appointments',
-        'client_memberships',
-        'membership_plans',
-        'clients',
-        'class_sessions',
-        'staff_service_assignments',
-        'staff_members',
-        'service_packages',
-        'services',
-        'service_categories',
-        'block_time_events',
-        'scheduling_settings',
-        'notification_events',
-        'notification_settings',
-        'report_schedules',
-        'integration_webhook_endpoints',
-        'integration_webhook_events',
-        'integration_connections',
-        'api_tokens',
-        'calendar_feed_tokens',
-        'business_reviews'
-    ]
+    -- 2. Dynamically delete records for v_test_id from every public table that has a business_id column
+    -- (Child join tables like staff_service_assignments cascade automatically)
+    for r in
+        select c.table_name
+        from information_schema.columns c
+        join information_schema.tables t
+          on t.table_schema = c.table_schema
+         and t.table_name = c.table_name
+        where c.table_schema = 'public'
+          and c.column_name = 'business_id'
+          and t.table_type = 'BASE TABLE'
+        order by
+            case c.table_name
+                when 'payment_transactions' then 1
+                when 'appointments' then 2
+                when 'client_memberships' then 3
+                when 'clients' then 4
+                when 'class_sessions' then 5
+                when 'staff_members' then 6
+                when 'service_packages' then 7
+                when 'services' then 8
+                when 'service_categories' then 9
+                else 10
+            end
     loop
-        if to_regclass('public.' || v_tbl) is not null then
-            execute format('delete from public.%I where business_id = $1 and business_id <> $2', v_tbl)
-            using v_test_id, v_real_id;
-        end if;
+        execute format('delete from public.%I where business_id = $1 and business_id <> $2', r.table_name)
+        using v_test_id, v_real_id;
     end loop;
 
-    -- 4. Delete security logs for test user if table exists
-    if to_regclass('public.user_security_logs') is not null then
-        delete from public.user_security_logs where user_id = v_test_id;
-    end if;
+    -- 3. Dynamically delete records for v_test_id from any public table with a user_id column (except staff_members)
+    for r in
+        select c.table_name
+        from information_schema.columns c
+        join information_schema.tables t
+          on t.table_schema = c.table_schema
+         and t.table_name = c.table_name
+        where c.table_schema = 'public'
+          and c.column_name = 'user_id'
+          and c.table_name <> 'business_profiles'
+          and t.table_type = 'BASE TABLE'
+    loop
+        execute format('delete from public.%I where user_id = $1 and user_id <> $2', r.table_name)
+        using v_test_id, v_real_id;
+    end loop;
 
-    -- 5. Delete the test business profile (nailspo)
+    -- 4. Delete the test business profile (nailspo)
     if to_regclass('public.business_profiles') is not null then
         delete from public.business_profiles
         where id = v_test_id
           and id <> v_real_id;
     end if;
 
-    -- 6. Delete test client auth users that belong ONLY to 'nailspo'
+    -- 5. Delete test client auth users that belong ONLY to 'nailspo'
     -- (Never delete any user that owns a business_profile or matches the real business)
     delete from auth.users
     where id <> v_real_id
@@ -112,13 +93,13 @@ begin
           select 1 from public.business_profiles bp where bp.id = auth.users.id
       );
 
-    -- 7. Delete the test business owner auth user (opalialuigiandrey.engr@gmail.com)
+    -- 6. Delete the test business owner auth user (opalialuigiandrey.engr@gmail.com)
     delete from auth.users
     where (id = v_test_id or lower(email) = lower(v_test_email))
       and id <> v_real_id
       and lower(coalesce(email, '')) <> 'nails.quim@gmail.com';
 
-    -- 8. Prevent ERR_HTTP2_PROTOCOL_ERROR on all remaining accounts:
+    -- 7. Prevent ERR_HTTP2_PROTOCOL_ERROR on all remaining accounts:
     -- Strip duplicate 'business_profile' object or base64 data URLs from auth.users JWT metadata
     -- (Full business profile data remains safely stored in public.business_profiles)
     update auth.users
