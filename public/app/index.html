@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
-    <meta name="theme-color" content="#fffaf8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
+    <meta name="theme-color" content="#F8F6F2" />
     <meta name="application-name" content="Bookora PH" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -15,20 +15,39 @@
     <title>Bookora PH</title>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
-      /* These styles make the body full-height */
+      /* Lock outer document on iOS PWA to prevent rubber-band scrolling and WebKit's progressive status-bar blur */
       html,
       body {
         height: 100%;
-      }
-      /* These styles disable body scrolling if you are using <ScrollView> */
-      body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #F8F6F2;
         overflow: hidden;
+        overscroll-behavior: none;
+        position: fixed;
+        inset: 0;
+        -webkit-overflow-scrolling: touch;
       }
       /* These styles make the root element full-height */
       #root {
         display: flex;
+        flex-direction: column;
         height: 100%;
+        width: 100%;
         flex: 1;
+        background-color: #F8F6F2;
+        overflow: hidden;
+      }
+      /* Prevent iOS 18+/26 WebKit from attaching its progressive blur pocket to top-level ScrollViews */
+      #root::before {
+        content: "";
+        display: block;
+        width: 100%;
+        height: 2px;
+        flex: 0 0 2px;
+        background-color: #F8F6F2;
+        z-index: 9999;
       }
     </style>
   <link rel="icon" href="/app/favicon.ico"/></head>

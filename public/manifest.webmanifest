@@ -8,8 +8,8 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait-primary",
-  "background_color": "#fffaf8",
-  "theme_color": "#fffaf8",
+  "background_color": "#F8F6F2",
+  "theme_color": "#F8F6F2",
   "lang": "en-PH",
   "categories": ["business", "productivity"],
   "icons": [
