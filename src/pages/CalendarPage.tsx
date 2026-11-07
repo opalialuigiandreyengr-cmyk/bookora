@@ -110,6 +110,7 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
   // - Preview / no Supabase config: use local sample appointments.
   const isLive = Boolean(supabase && user.id !== "preview-user-123")
   const [loadError, setLoadError] = useState("")
+  const effectiveBusinessIdRef = useRef<string>(user.id)
 
   const mapAppointmentRow = (row: Record<string, unknown>): CalendarAppointment => {
     const rawStatus = String(row.status || "approved").toLowerCase()
@@ -164,9 +165,14 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
   const fetchLiveAppointments = async (silent = false) => {
     if (!supabase || !isLive) return
     if (!silent) setLoading(true)
+    const effectiveId = effectiveBusinessIdRef.current || user.id
+    const businessFilter = effectiveId !== user.id
+      ? `business_id.eq.${user.id},business_id.eq.${effectiveId}`
+      : `business_id.eq.${user.id}`
+
     const [appointmentResult, paymentResult] = await Promise.all([
-      supabase.from("appointments").select("*").eq("business_id", user.id).order("appointment_date", { ascending: true }),
-      supabase.from("payment_transactions").select("appointment_id, amount, status, transaction_type").eq("business_id", user.id),
+      supabase.from("appointments").select("*").or(businessFilter).order("appointment_date", { ascending: true }),
+      supabase.from("payment_transactions").select("appointment_id, amount, status, transaction_type").or(businessFilter),
     ])
     const { data, error } = appointmentResult
 
@@ -201,10 +207,13 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
       if (isLive && supabase) {
         const profileRes = await supabase
           .from("business_profiles")
-          .select("booking_slot_size_minutes, booking_fee_enabled, booking_fee_type, booking_fee_amount")
-          .eq("id", user.id)
+          .select("id, booking_slot_size_minutes, booking_fee_enabled, booking_fee_type, booking_fee_amount")
+          .or(`id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
           .maybeSingle()
-        if (active && !profileRes.error) {
+        if (active && profileRes.data?.id) {
+          effectiveBusinessIdRef.current = profileRes.data.id
+        }
+        if (active && !profileRes.error && profileRes.data) {
           setBookingSlotSize(Math.max(5, Number(profileRes.data?.booking_slot_size_minutes) || 30))
           setBookingFee({
             enabled: Boolean(profileRes.data?.booking_fee_enabled),
@@ -718,6 +727,40 @@ export function CalendarPage({ user, staffMode = false }: { user: User; onSignOu
             </Button>
           </div>
         </section>
+
+        {loadError && (
+          <div
+            role="alert"
+            style={{
+              margin: "12px 24px",
+              padding: "12px 16px",
+              background: "#fef2f2",
+              color: "#991b1b",
+              borderRadius: "8px",
+              border: "1px solid #fecaca",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "14px",
+            }}
+          >
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => void fetchLiveAppointments()}
+              style={{
+                textDecoration: "underline",
+                background: "none",
+                border: "none",
+                color: "#991b1b",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Calendar Workspace Body */}
         <div className={`cal-workspace ${sidePanelOpen ? "" : "panel-hidden"}`}>

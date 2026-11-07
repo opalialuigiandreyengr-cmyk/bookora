@@ -1,5 +1,12 @@
 -- Phase 2 hardening: protect appointment writes and prevent overlapping bookings.
 
+-- The base schema may already contain these constraints. Recreate them so
+-- this migration remains safe when the schema was initialized before the
+-- migration history was restored.
+alter table public.appointments drop constraint if exists appointments_status_check;
+alter table public.appointments drop constraint if exists appointments_duration_positive_check;
+alter table public.appointments drop constraint if exists appointments_date_time_required_check;
+
 alter table public.appointments
     add constraint appointments_status_check
     check (status in ('pending', 'approved', 'completed', 'cancelled')) not valid;

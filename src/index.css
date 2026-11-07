@@ -428,6 +428,7 @@ svg { stroke-width: 1.8; }
     justify-content: center;
   }
 }
+
 .price-plan { position: relative; min-width: 0; display: flex; flex-direction: column; padding: 30px; border: 1px solid color-mix(in oklch, var(--border) 80%, transparent); border-radius: 20px; background: var(--card); }
 .price-plan.recommended { border-color: color-mix(in oklch, var(--primary) 55%, var(--border)); box-shadow: 0 20px 48px oklch(0.42 0.05 22 / .12); }
 .plan-badge { width: fit-content; margin: -14px 0 18px; padding: 6px 10px; border-radius: 999px; background: var(--secondary); color: oklch(0.42 0.12 18); font-size: .6875rem; font-weight: 800; }
@@ -13547,4 +13548,37 @@ textarea:focus-visible {
     margin-top: auto;
     padding: 14px 0 env(safe-area-inset-bottom);
   }
+}
+
+/* Payments mobile ledger: cards are easier to scan than a wide table on a phone. */
+.payments-mobile-list { display: none; }
+
+@media (max-width: 680px) {
+  .payments-page-shell .payments-compact-heading { display: block; padding-right: 46px; }
+  .payments-page-shell .payments-compact-heading h1 { margin: 3px 0 5px; color: var(--foreground); font-size: 24px; letter-spacing: -.04em; }
+  .payments-page-shell .payments-compact-heading p:not(.dashboard-kicker) { margin: 0; max-width: 34ch; color: var(--muted-foreground); font-size: 13px; line-height: 1.45; }
+  .payments-page-shell .payments-compact-heading .dashboard-kicker { margin: 0; color: var(--primary); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .payments-page-shell .payments-primary-action { min-width: 44px; min-height: 44px; height: 44px; border-radius: 12px; }
+  .payments-summary > div { min-height: 74px; padding: 13px 12px; border-color: color-mix(in oklch, var(--border) 82%, var(--primary)); background: color-mix(in oklch, var(--muted) 36%, var(--card)); }
+  .payments-summary > div:first-child { background: color-mix(in oklch, var(--primary) 8%, var(--card)); border-color: color-mix(in oklch, var(--primary) 26%, var(--border)); }
+  .payments-summary strong { font-size: 17px; }
+  .payments-table-wrap { display: none; }
+  .payments-mobile-list { display: grid; gap: 10px; }
+  .payment-mobile-card { display: grid; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 5px 16px color-mix(in oklch, #18212b 7%, transparent); }
+  .payment-mobile-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .payment-mobile-client { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .payment-mobile-client > div { min-width: 0; }
+  .payment-mobile-avatar { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in oklch, var(--primary) 14%, var(--card)); color: var(--primary); font-size: 11px; font-weight: 850; }
+  .payment-mobile-client strong, .payment-mobile-client small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .payment-mobile-client strong { color: var(--foreground); font-size: 14px; }
+  .payment-mobile-client small { margin-top: 3px; color: var(--muted-foreground); font-size: 11px; }
+  .payment-mobile-card .payment-status { flex: 0 0 auto; padding: 5px 8px; font-size: 10px; }
+  .payment-mobile-amount { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 1px; }
+  .payment-mobile-amount span { color: var(--muted-foreground); font-size: 11px; text-transform: capitalize; }
+  .payment-mobile-amount strong { color: var(--foreground); font-size: 19px; letter-spacing: -.03em; white-space: nowrap; }
+  .payment-mobile-meta { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
+  .payment-mobile-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .payment-mobile-meta time { flex: 0 0 auto; }
+  .payment-mobile-receipt { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 1px solid color-mix(in oklch, var(--primary) 24%, var(--border)); border-radius: 9px; background: color-mix(in oklch, var(--primary) 5%, var(--card)); color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; }
+  .payment-mobile-receipt:active { background: color-mix(in oklch, var(--primary) 12%, var(--card)); }
 }

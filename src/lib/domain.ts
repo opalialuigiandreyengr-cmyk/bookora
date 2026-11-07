@@ -46,12 +46,12 @@ export function handleOAuthSubdomainBounce(): boolean {
     hostname === "www.bookora.com"
 
   if (!isRootDomain) return false
+  if (window.location.pathname.startsWith("/dashboard")) return false
 
   const returnUrl = getCrossSubdomainCookie("bookora_client_return")
   const hasAuthPayload =
     window.location.hash.includes("access_token") ||
-    window.location.search.includes("code=") ||
-    window.location.search.includes("error=")
+    window.location.search.includes("code=")
 
   if (returnUrl && hasAuthPayload) {
     clearCrossSubdomainCookie("bookora_client_return")

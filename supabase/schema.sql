@@ -1381,11 +1381,27 @@ as $$
 $$;
 revoke all on function public.get_my_staff_context() from public;
 grant execute on function public.get_my_staff_context() to authenticated;
+grant select, insert, update, delete on table public.appointments to authenticated;
+grant select, insert on table public.appointments to anon;
+revoke update, delete on table public.appointments from anon;
+
 drop policy if exists "Business owners can view own appointments" on public.appointments;
-create policy "Business owners and staff can view appointments" on public.appointments for select to authenticated using (public.current_staff_role(business_id) in ('owner', 'manager') or (public.current_staff_role(business_id) in ('staff', 'limited') and staff_member_id = public.current_staff_member_id(business_id)));
+drop policy if exists "Business owners and staff can view appointments" on public.appointments;
+drop policy if exists "Allow appointment selects" on public.appointments;
+create policy "Business owners and staff can view appointments" on public.appointments for select to authenticated using (public.current_staff_role(business_id) in ('owner', 'manager') or (public.current_staff_role(business_id) in ('staff', 'limited') and staff_member_id = public.current_staff_member_id(business_id)) or (coalesce(auth.jwt() ->> 'email', '') <> '' and lower(trim(customer_email)) = lower(trim(auth.jwt() ->> 'email'))));
+
+drop policy if exists "Public can insert appointments" on public.appointments;
+drop policy if exists "Allow appointment inserts" on public.appointments;
+create policy "Allow appointment inserts" on public.appointments for insert to anon, authenticated with check (business_id is not null and (auth.uid() = business_id or public.current_staff_role(business_id) in ('owner', 'manager', 'staff') or exists (select 1 from public.business_profiles profile where profile.id = business_id)));
+
 drop policy if exists "Business owners can update own appointments" on public.appointments;
+drop policy if exists "Business owners and staff can update appointments" on public.appointments;
+drop policy if exists "Allow appointment updates" on public.appointments;
 create policy "Business owners and staff can update appointments" on public.appointments for update to authenticated using (public.current_staff_role(business_id) in ('owner', 'manager') or (public.current_staff_role(business_id) in ('staff', 'limited') and staff_member_id = public.current_staff_member_id(business_id))) with check (public.current_staff_role(business_id) in ('owner', 'manager') or (public.current_staff_role(business_id) in ('staff', 'limited') and staff_member_id = public.current_staff_member_id(business_id)));
+
 drop policy if exists "Business owners can delete own appointments" on public.appointments;
+drop policy if exists "Owners and managers can delete appointments" on public.appointments;
+drop policy if exists "Allow appointment deletes" on public.appointments;
 create policy "Owners and managers can delete appointments" on public.appointments for delete to authenticated using (public.current_staff_role(business_id) in ('owner', 'manager'));
 drop policy if exists "Business owners can view clients" on public.clients;
 create policy "Business owners and managers can view clients" on public.clients for select to authenticated using (public.current_staff_role(business_id) in ('owner', 'manager'));

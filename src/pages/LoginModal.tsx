@@ -132,6 +132,8 @@ export function LoginModal({ onClose, onSwitchToSignup }: LoginModalProps) {
     setLoadingProvider(provider)
     setStatus("loading")
     setMessage("")
+    clearCrossSubdomainCookie("bookora_client_return")
+    clearCrossSubdomainCookie("bookora_client_slug")
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({

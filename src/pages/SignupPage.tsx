@@ -110,6 +110,8 @@ export function AuthCard({
     setLoadingProvider("google")
     setStatus("loading")
     setMessage("")
+    clearCrossSubdomainCookie("bookora_client_return")
+    clearCrossSubdomainCookie("bookora_client_slug")
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({

@@ -1,6 +1,8 @@
 -- Phase 9: optional per-service weekly availability overrides.
 alter table public.services add column if not exists service_hours jsonb;
 
+drop function if exists public.get_public_booking_services(text, uuid);
+
 create or replace function public.get_public_booking_services(p_slug text, p_direct_service_id uuid default null)
 returns table (id uuid, name text, description text, duration_minutes integer, price text, category_id uuid, image_url text, show_on_booking_page boolean, deposit_type text, deposit_amount numeric, service_hours jsonb)
 language sql security definer set search_path=public
