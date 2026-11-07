@@ -163,12 +163,18 @@ function AppContent() {
     const client = supabase
     const loadStaffContext = async () => {
       setStaffContextLoading(true)
-      await client.rpc("claim_staff_membership")
-      const result = await client.rpc("get_my_staff_context")
-      if (!active) return
-      const context = Array.isArray(result.data) ? result.data[0] : null
-      setStaffContext(context?.business_id && context?.staff_member_id ? { business_id: String(context.business_id), staff_member_id: String(context.staff_member_id), role: String(context.role || "staff") } : null)
-      setStaffContextLoading(false)
+      try {
+        await client.rpc("claim_staff_membership")
+        const result = await client.rpc("get_my_staff_context")
+        if (!active) return
+        const context = Array.isArray(result?.data) ? result.data[0] : null
+        setStaffContext(context?.business_id && context?.staff_member_id ? { business_id: String(context.business_id), staff_member_id: String(context.staff_member_id), role: String(context.role || "staff") } : null)
+      } catch {
+        if (!active) return
+        setStaffContext(null)
+      } finally {
+        if (active) setStaffContextLoading(false)
+      }
     }
     void loadStaffContext()
     return () => { active = false }
