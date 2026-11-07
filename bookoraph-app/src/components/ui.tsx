@@ -1,7 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { type ComponentProps, type PropsWithChildren, type ReactNode, useState } from 'react';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
+import { type ComponentProps, type PropsWithChildren, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -310,11 +315,112 @@ export function EmptyState({
   );
 }
 
-export function LoadingState() {
+export function LoadingState({
+  message = 'Loading…',
+  onRetry,
+}: {
+  message?: string;
+  onRetry?: () => void;
+} = {}) {
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const [isOffline, setIsOffline] = useState(() =>
+    Platform.OS === 'web' && typeof navigator !== 'undefined' ? !navigator.onLine : false,
+  );
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 1050,
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spinAnim]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+    }, 8000);
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleOnline = () => setIsOffline(false);
+      const handleOffline = () => setIsOffline(true);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const rotate = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  if (isOffline || timedOut) {
+    return (
+      <View style={styles.loading}>
+        <View style={styles.emptyIcon}>
+          <Ionicons name={isOffline ? 'cloud-offline-outline' : 'alert-circle-outline'} size={26} color={colors.coral} />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {isOffline ? 'You appear to be offline' : 'Page is taking too long to respond'}
+        </Text>
+        <Text style={styles.emptyMessage}>
+          {isOffline
+            ? 'Please check your internet connection and try again.'
+            : 'The page could not finish loading. Check your connection or retry.'}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: space.sm }}>
+          <Button
+            label="Try Again"
+            icon="refresh"
+            compact
+            onPress={() => {
+              setTimedOut(false);
+              if (onRetry) {
+                onRetry();
+              } else if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                window.location.reload();
+              }
+            }}
+          />
+          {router.canGoBack() ? (
+            <Button
+              label="Go Back"
+              icon="arrow-back"
+              secondary
+              compact
+              onPress={() => router.back()}
+            />
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.loading}>
-      <ActivityIndicator color={colors.coral} />
-      <Text style={styles.emptyMessage}>Loading your workspace…</Text>
+      <View style={styles.logoSpinnerWrap}>
+        <Animated.View style={[styles.logoSpinnerRing, { transform: [{ rotate }] }]} />
+        <View style={styles.logoSpinnerInner}>
+          <Image
+            source={require('../../assets/images/bookora-logo.png')}
+            style={styles.logoSpinnerImg}
+            contentFit="contain"
+          />
+        </View>
+      </View>
+      <Text style={styles.emptyMessage}>{message}</Text>
     </View>
   );
 }
@@ -418,5 +524,34 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 52, height: 52, borderRadius: 18, backgroundColor: colors.coralSoft, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { color: colors.ink, fontSize: 17, fontWeight: '700' },
   emptyMessage: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  loading: { flex: 1, justifyContent: 'center', padding: space.xxl, alignItems: 'center', gap: space.md, backgroundColor: colors.surface },
+  loading: { flex: 1, justifyContent: 'center', padding: space.xxl, alignItems: 'center', gap: space.md, backgroundColor: '#FFFFFF' },
+  logoSpinnerWrap: {
+    width: 68,
+    height: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoSpinnerRing: {
+    position: 'absolute',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2.5,
+    borderColor: '#FDE9E5',
+    borderTopColor: colors.coral,
+    borderRightColor: colors.coral,
+  },
+  logoSpinnerInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 11,
+  },
+  logoSpinnerImg: {
+    width: 30,
+    height: 30,
+  },
 });

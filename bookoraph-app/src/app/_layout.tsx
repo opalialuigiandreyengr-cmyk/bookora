@@ -10,14 +10,89 @@ import {
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { Pressable } from 'react-native';
+import { Component, type PropsWithChildren, Suspense, useEffect } from 'react';
+import { Platform, Pressable, View } from 'react-native';
 
-import { LoadingState } from '@/components/ui';
+import { Text } from '@/components/app-text';
+import { Button, LoadingState } from '@/components/ui';
 import { AppProvider, useApp } from '@/providers/app-provider';
-import { colors } from '@/theme';
+import { colors, space } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
+
+class RouteErrorBoundary extends Component<
+  PropsWithChildren,
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#FFFFFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: space.xxl,
+            gap: space.md,
+          }}
+        >
+          <View
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 18,
+              backgroundColor: colors.coralSoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="cloud-offline-outline" size={26} color={colors.coral} />
+          </View>
+          <Text style={{ color: colors.ink, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>
+            Unable to load this page
+          </Text>
+          <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center' }}>
+            Please check your internet connection and try again.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: space.xs }}>
+            <Button
+              label="Try Again"
+              icon="refresh"
+              compact
+              onPress={() => {
+                this.setState({ hasError: false });
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.location.reload();
+                }
+              }}
+            />
+            {router.canGoBack() ? (
+              <Button
+                label="Go Back"
+                icon="arrow-back"
+                secondary
+                compact
+                onPress={() => {
+                  this.setState({ hasError: false });
+                  router.back();
+                }}
+              />
+            ) : null}
+          </View>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -34,7 +109,11 @@ export default function RootLayout() {
   return (
     <AppProvider>
       <StatusBar style="dark" />
-      <AppNavigator />
+      <RouteErrorBoundary>
+        <Suspense fallback={<LoadingState />}>
+          <AppNavigator />
+        </Suspense>
+      </RouteErrorBoundary>
     </AppProvider>
   );
 }
@@ -42,7 +121,21 @@ export default function RootLayout() {
 function AppNavigator() {
   const { loading, session } = useApp();
 
-  if (loading) return <LoadingState />;
+  useEffect(() => {
+    if (!session || Platform.OS !== 'web') return;
+    const timer = setTimeout(() => {
+      void import('./services').catch(() => undefined);
+      void import('./staff').catch(() => undefined);
+      void import('./reports').catch(() => undefined);
+      void import('./integrations').catch(() => undefined);
+      void import('./notifications').catch(() => undefined);
+      void import('./settings').catch(() => undefined);
+      void import('./appointment/[id]').catch(() => undefined);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [session]);
+
+  if (loading) return <LoadingState message="Loading your workspace…" />;
 
   return (
     <Stack

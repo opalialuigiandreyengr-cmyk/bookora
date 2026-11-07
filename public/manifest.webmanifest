@@ -8,11 +8,17 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait-primary",
-  "background_color": "#F8F6F2",
-  "theme_color": "#F8F6F2",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "lang": "en-PH",
   "categories": ["business", "productivity"],
   "icons": [
+    {
+      "src": "/assets/apple-touch-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/assets/bookora-logo.png",
       "sizes": "1280x1280",
@@ -23,7 +29,7 @@
       "src": "/assets/bookora-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
