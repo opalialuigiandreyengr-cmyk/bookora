@@ -357,11 +357,6 @@ export default function Clients() {
       >
         <View style={styles.headerLine}>
           <Text style={styles.title}>Clients</Text>
-          <View style={styles.headerActions}>
-            {clients.length > 0 ? (
-              <IconButton name="share-outline" label="Export clients CSV" onPress={() => void exportClientsCsv()} />
-            ) : null}
-          </View>
         </View>
 
         {/* Duplicate Merge Banner */}

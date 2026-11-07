@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { type ElementRef, useEffect, useMemo, useRef, useState } from 'react';
+import { type ElementRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -282,6 +282,7 @@ export default function Calendar() {
       ) : (
         <TimeGrid
           preset={preset}
+          selectedDate={selectedDate}
           dates={visibleDates}
           times={gridTimes}
           appointments={activeAppointments}
@@ -388,52 +389,97 @@ function DateStrip({
   selectedDate: Date;
   onSelect: (date: Date) => void;
 }) {
+  const stripScrollRef = useRef<ElementRef<typeof ScrollView>>(null);
   const { width: screenWidth } = useWindowDimensions();
-  const dates =
-    preset === 'day'
-      ? Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(selectedDate), index))
-      : preset === '3-day'
-      ? [selectedDate, addDays(selectedDate, 1), addDays(selectedDate, 2)]
-      : Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(selectedDate), index));
-  const columnWidth = Math.max(1, (screenWidth - TIME_GUTTER) / dates.length);
+  const pageWidth = Math.max(1, screenWidth - TIME_GUTTER);
+  const stripSpan = preset === '3-day' ? 3 : 7;
+  const anchorDate = preset === '3-day' ? selectedDate : startOfWeek(selectedDate);
+  const anchorKey = dateKey(anchorDate);
+  const columnWidth = Math.max(1, pageWidth / stripSpan);
   const stacked = preset === 'day' || preset === 'week' || preset === 'agenda';
   const weekdayFormat = preset === 'day' ? 'narrow' : 'short';
   const borderless = preset === 'day';
+  const todayKey = dateKey(todayInManila());
+  const selectedKey = dateKey(selectedDate);
+
+  const pages = useMemo(
+    () =>
+      [-1, 0, 1].map((pageOffset) => {
+        const start = addDays(anchorDate, pageOffset * stripSpan);
+        return Array.from({ length: stripSpan }, (_, index) => addDays(start, index));
+      }),
+    [anchorKey, stripSpan]
+  );
+
+  useLayoutEffect(() => {
+    stripScrollRef.current?.scrollTo({ x: pageWidth, animated: false });
+  }, [anchorKey, pageWidth, preset]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      stripScrollRef.current?.scrollTo({ x: pageWidth, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [anchorKey, pageWidth, preset]);
+
+  const onStripSettled = (offsetX: number) => {
+    const pageIndex = Math.round(offsetX / pageWidth);
+    const pageOffset = pageIndex - 1;
+    if (pageOffset === 0) return;
+    onSelect(addDays(selectedDate, pageOffset * stripSpan));
+  };
 
   return (
     <View style={styles.stickyDateStrip}>
       <View style={[styles.stickyDateGutter, borderless && styles.borderlessDateGutter, { width: TIME_GUTTER }]}>
         <Text style={styles.gmt}>GMT+8</Text>
       </View>
-      <View style={styles.stickyDateColumns}>
-        {dates.map((day) => {
-          const active = dateKey(day) === dateKey(selectedDate);
-          return (
-            <Pressable
-              key={dateKey(day)}
-              onPress={() => onSelect(day)}
-              style={[
-                styles.stickyDateColumn,
-                borderless && styles.borderlessDateColumn,
-                { width: columnWidth },
-                dateKey(day) === dateKey(todayInManila()) && styles.todayColumn,
-              ]}
-            >
-              <View
-                style={[
-                  styles.columnHeaderMeta,
-                  stacked && styles.columnHeaderMetaStacked,
-                  active && styles.selectedDatePill,
-                ]}
-              >
-                <Text style={[styles.columnDate, active && styles.selectedDateText]}>{day.getDate()}</Text>
-                <Text style={[styles.columnWeekday, active && styles.selectedDateText]}>
-                  {new Intl.DateTimeFormat('en-PH', { weekday: weekdayFormat }).format(day)}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
+      <View style={[styles.stickyDateViewport, { width: pageWidth }]}>
+        <ScrollView
+          ref={stripScrollRef}
+          horizontal
+          pagingEnabled
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          scrollEventThrottle={16}
+          style={{ width: pageWidth }}
+          onMomentumScrollEnd={(event) => onStripSettled(event.nativeEvent.contentOffset.x)}
+        >
+          {pages.map((pageDates, pageIndex) => (
+            <View key={`${dateKey(pageDates[0])}-${pageIndex}`} style={[styles.stickyDateColumns, { width: pageWidth }]}>
+              {pageDates.map((day) => {
+                const key = dateKey(day);
+                const active = key === selectedKey;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => onSelect(day)}
+                    style={[
+                      styles.stickyDateColumn,
+                      borderless && styles.borderlessDateColumn,
+                      { width: columnWidth },
+                      key === todayKey && styles.todayColumn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.columnHeaderMeta,
+                        stacked && styles.columnHeaderMetaStacked,
+                        active && styles.selectedDatePill,
+                      ]}
+                    >
+                      <Text style={[styles.columnDate, active && styles.selectedDateText]}>{day.getDate()}</Text>
+                      <Text style={[styles.columnWeekday, active && styles.selectedDateText]}>
+                        {new Intl.DateTimeFormat('en-PH', { weekday: weekdayFormat }).format(day)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
       </View>
     </View>
   );
@@ -554,6 +600,7 @@ function AgendaView({
 
 function TimeGrid({
   preset,
+  selectedDate,
   dates,
   times,
   appointments,
@@ -562,6 +609,7 @@ function TimeGrid({
   onAddAt,
 }: {
   preset: Preset;
+  selectedDate: Date;
   dates: Date[];
   times: number[];
   appointments: Appointment[];
@@ -570,32 +618,47 @@ function TimeGrid({
   onAddAt: (date: Date, time: string) => void;
 }) {
   const scrollRef = useRef<ElementRef<typeof ScrollView>>(null);
-  const dayScrollRef = useRef<ElementRef<typeof ScrollView>>(null);
   const { width: screenWidth } = useWindowDimensions();
   const span = preset === 'day' ? 1 : preset === '3-day' ? 3 : 7;
-  const dayColumnWidth = Math.max(1, screenWidth - TIME_GUTTER);
-  const columnWidth =
-    preset === 'day' ? dayColumnWidth : Math.max(1, (screenWidth - TIME_GUTTER) / (preset === '3-day' ? 3 : 7));
-  const canvasWidth = columnWidth * span * 3;
-  const datesInCanvas = Array.from({ length: span * 3 }, (_, index) => addDays(dates[0], index - span));
-  const firstDateKey = dateKey(dates[0]);
-  const appointmentsByDate = appointments.reduce<Record<string, Appointment[]>>((groups, item) => {
-    (groups[item.appointment_date] ??= []).push(item);
-    return groups;
-  }, {});
+  const pageWidth = Math.max(1, screenWidth - TIME_GUTTER);
+  const columnWidth = Math.max(1, pageWidth / span);
+  const anchorDate = dates[0];
+  const anchorKey = dateKey(anchorDate);
+
+  const pages = useMemo(
+    () =>
+      [-1, 0, 1].map((pageOffset) => {
+        const start = addDays(anchorDate, pageOffset * span);
+        return Array.from({ length: span }, (_, index) => addDays(start, index));
+      }),
+    [anchorKey, span]
+  );
+
+  const appointmentsByDate = useMemo(
+    () =>
+      appointments.reduce<Record<string, Appointment[]>>((groups, item) => {
+        (groups[item.appointment_date] ??= []).push(item);
+        return groups;
+      }, {}),
+    [appointments]
+  );
+
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ x: pageWidth, animated: false });
+  }, [anchorKey, pageWidth, preset, span]);
 
   useEffect(() => {
-    requestAnimationFrame(() => {
-      if (preset === 'day') dayScrollRef.current?.scrollTo({ x: dayColumnWidth, animated: false });
-      else scrollRef.current?.scrollTo({ x: columnWidth * span, animated: false });
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ x: pageWidth, animated: false });
     });
-  }, [firstDateKey, columnWidth, dayColumnWidth, preset, span]);
+    return () => cancelAnimationFrame(frame);
+  }, [anchorKey, pageWidth, preset, span]);
 
   const onPageSettled = (offsetX: number) => {
-    const dateOffset = Math.round(offsetX / columnWidth) - span;
-    if (dateOffset === 0) return;
-    scrollRef.current?.scrollTo({ x: columnWidth * span, animated: false });
-    onSwipeDate(addDays(dates[0], dateOffset));
+    const pageIndex = Math.round(offsetX / pageWidth);
+    const pageOffset = pageIndex - 1;
+    if (pageOffset === 0) return;
+    onSwipeDate(addDays(selectedDate, pageOffset * span));
   };
 
   const renderAppointmentItem = (item: Appointment, colWidth: number) => {
@@ -633,58 +696,6 @@ function TimeGrid({
     );
   };
 
-  if (preset === 'day') {
-    const dayPages = [-1, 0, 1].map((offset) => addDays(dates[0], offset));
-    const onDaySettled = (offsetX: number) => {
-      const pageIndex = Math.round(offsetX / dayColumnWidth);
-      if (pageIndex === 1) return;
-      dayScrollRef.current?.scrollTo({ x: dayColumnWidth, animated: false });
-      onSwipeDate(dayPages[pageIndex] ?? dates[0]);
-    };
-
-    return (
-      <View style={styles.timeGridShell}>
-        <View style={styles.fixedTimeGutter}>
-          {times.map((time) => (
-            <View key={time} style={styles.timeLabel}>
-              <Text style={styles.timeLabelText}>{formatTime(time)}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={styles.dayCanvas}>
-          <ScrollView
-            ref={dayScrollRef}
-            horizontal
-            snapToInterval={dayColumnWidth}
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            decelerationRate="fast"
-            disableIntervalMomentum
-            onMomentumScrollEnd={(event) => onDaySettled(event.nativeEvent.contentOffset.x)}
-          >
-            <View style={styles.timeColumns}>
-              {dayPages.map((day) => {
-                const pageKey = dateKey(day);
-                const pageAppointments = appointmentsByDate[pageKey] ?? [];
-                return (
-                  <View
-                    key={pageKey}
-                    style={[styles.timeColumn, { width: dayColumnWidth, height: times.length * SLOT_HEIGHT }]}
-                  >
-                    {times.map((time) => (
-                      <Pressable key={time} onPress={() => onAddAt(day, formatTime(time))} style={styles.timeSlot} />
-                    ))}
-                    {pageAppointments.map((item) => renderAppointmentItem(item, dayColumnWidth))}
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.timeGridShell}>
       <View style={styles.fixedTimeGutter}>
@@ -694,36 +705,39 @@ function TimeGrid({
           </View>
         ))}
       </View>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        nestedScrollEnabled
-        removeClippedSubviews
-        scrollEventThrottle={16}
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="normal"
-        onMomentumScrollEnd={(event) => onPageSettled(event.nativeEvent.contentOffset.x)}
-      >
-        <View style={[styles.timeCanvas, { width: canvasWidth }]}>
-          <View style={styles.timeColumns}>
-            {datesInCanvas.map((day) => {
-              const dayKey = dateKey(day);
-              const dayAppointments = appointmentsByDate[dayKey] ?? [];
-              return (
-                <View
-                  key={dayKey}
-                  style={[styles.timeColumn, { width: columnWidth, height: times.length * SLOT_HEIGHT }]}
-                >
-                  {times.map((time) => (
-                    <Pressable key={time} onPress={() => onAddAt(day, formatTime(time))} style={styles.timeSlot} />
-                  ))}
-                  {dayAppointments.map((item) => renderAppointmentItem(item, columnWidth))}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      </ScrollView>
+      <View style={[styles.dayCanvas, { width: pageWidth }]}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          scrollEventThrottle={16}
+          style={{ width: pageWidth }}
+          onMomentumScrollEnd={(event) => onPageSettled(event.nativeEvent.contentOffset.x)}
+        >
+          {pages.map((pageDates, pageIndex) => (
+            <View key={`${dateKey(pageDates[0])}-${pageIndex}`} style={[styles.timeColumns, { width: pageWidth }]}>
+              {pageDates.map((day) => {
+                const dayKey = dateKey(day);
+                const dayAppointments = appointmentsByDate[dayKey] ?? [];
+                return (
+                  <View
+                    key={dayKey}
+                    style={[styles.timeColumn, { width: columnWidth, height: times.length * SLOT_HEIGHT }]}
+                  >
+                    {times.map((time) => (
+                      <Pressable key={time} onPress={() => onAddAt(day, formatTime(time))} style={styles.timeSlot} />
+                    ))}
+                    {dayAppointments.map((item) => renderAppointmentItem(item, columnWidth))}
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -875,7 +889,8 @@ const styles = StyleSheet.create({
     marginHorizontal: -space.md,
   },
   stickyDateGutter: { alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: '#E4E4E4' },
-  stickyDateColumns: { flex: 1, flexDirection: 'row' },
+  stickyDateViewport: { flex: 1, overflow: 'hidden' },
+  stickyDateColumns: { height: 46, flexDirection: 'row' },
   stickyDateColumn: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -980,7 +995,7 @@ const styles = StyleSheet.create({
   fixedTimeGutter: { width: TIME_GUTTER, backgroundColor: '#FFFFFF', zIndex: 2 },
   gmt: { color: colors.muted, fontSize: 9, fontWeight: '600' },
   timeCanvas: { backgroundColor: colors.surface },
-  dayCanvas: { flex: 1, backgroundColor: colors.surface },
+  dayCanvas: { flex: 1, overflow: 'hidden', backgroundColor: colors.surface },
   timeColumns: { flexDirection: 'row' },
   timeLabel: {
     height: SLOT_HEIGHT,
