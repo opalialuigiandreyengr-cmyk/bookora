@@ -11,8 +11,9 @@ import {
   Share,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/app-text';
 import {
@@ -24,7 +25,6 @@ import {
   Metric,
   NativeListGroup,
   NativeListRow,
-  PageHeader,
   Screen,
   SearchField,
   SegmentedControl,
@@ -51,12 +51,13 @@ import {
   type SubscriptionPlanRow,
   type UserSecurityLogRow,
 } from '@/lib/admin';
+import { openExternalLink } from '@/lib/external-links';
 import { supabase } from '@/lib/supabase';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
 
-type MainTab = 'overview' | 'clients' | 'audit' | 'admins';
-type DrawerTab = 'credentials' | 'profile' | 'plan' | 'logs';
+type MainTab = 'overview' | 'clients' | 'audit' | 'settings';
+type InspectTab = 'credentials' | 'profile' | 'plan' | 'logs';
 
 const formatCurrency = (amount: number | null | undefined) =>
   `₱${Number(amount ?? 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
@@ -72,10 +73,10 @@ async function copyOrShare(label: string, value: string) {
   if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(value);
-      Alert.alert('Copied', `${label} copied to clipboard.`);
+      Alert.alert('Copied', `${label} copied.`);
       return;
     } catch {
-      // Fallback to share below
+      // Fallback to share
     }
   }
   try {
@@ -87,6 +88,7 @@ async function copyOrShare(label: string, value: string) {
 
 export default function AdminScreen() {
   const { session, loading, adminContext, needsOnboarding, signOut } = useApp();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<MainTab>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -104,14 +106,14 @@ export default function AdminScreen() {
   const [planFilter, setPlanFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState<'business' | 'all' | 'staff' | 'client'>('business');
 
-  // Client Detail Modal
+  // Inspect Client Sheet
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [clientDetail, setClientDetail] = useState<AdminClientDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [drawerTab, setDrawerTab] = useState<DrawerTab>('credentials');
+  const [inspectTab, setInspectTab] = useState<InspectTab>('credentials');
+  const [showRawMeta, setShowRawMeta] = useState(false);
   const [editPlan, setEditPlan] = useState('starter');
   const [editStatus, setEditStatus] = useState('active');
-  const [editProvider, setEditProvider] = useState('manual');
   const [editNotes, setEditNotes] = useState('');
   const [savingSub, setSavingSub] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
@@ -143,14 +145,14 @@ export default function AdminScreen() {
     try {
       const [nextStats, logsRes, planRows] = await Promise.all([
         fetchAdminOverviewStats(),
-        fetchAdminAuditLogs({ limit: 8, offset: 0 }),
+        fetchAdminAuditLogs({ limit: 6, offset: 0 }),
         fetchSubscriptionPlans(true),
       ]);
       setStats(nextStats);
       setRecentLogs(logsRes.rows);
       setPlans(planRows);
     } catch (err) {
-      Alert.alert('Admin Overview Error', err instanceof Error ? err.message : 'Unable to load admin stats.');
+      Alert.alert('Unable to load overview', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setOverviewLoading(false);
     }
@@ -170,7 +172,7 @@ export default function AdminScreen() {
       setClients(rows);
       setClientsTotal(totalCount);
     } catch (err) {
-      Alert.alert('Clients Error', err instanceof Error ? err.message : 'Unable to load Bookora clients.');
+      Alert.alert('Unable to load clients', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setClientsLoading(false);
     }
@@ -197,7 +199,7 @@ export default function AdminScreen() {
         setSecurityLogs(rows);
       }
     } catch (err) {
-      Alert.alert('Audit Log Error', err instanceof Error ? err.message : 'Unable to load audit logs.');
+      Alert.alert('Unable to load logs', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setAuditLoading(false);
     }
@@ -209,7 +211,7 @@ export default function AdminScreen() {
       const rows = await fetchPlatformAdmins();
       setPlatformAdmins(rows);
     } catch (err) {
-      Alert.alert('Admins Error', err instanceof Error ? err.message : 'Unable to load platform admins.');
+      Alert.alert('Unable to load admins', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setAdminsLoading(false);
     }
@@ -240,24 +242,26 @@ export default function AdminScreen() {
   }, [adminContext.is_admin, loadAudit, tab]);
 
   useEffect(() => {
-    if (!adminContext.is_admin || tab !== 'admins') return;
+    if (!adminContext.is_admin || tab !== 'settings') return;
     const timer = setTimeout(() => {
       void loadAdmins();
     }, 0);
     return () => clearTimeout(timer);
   }, [adminContext.is_admin, loadAdmins, tab]);
 
-  if (loading) return <LoadingState message="Loading admin console…" />;
+  if (loading) return <LoadingState message="Loading…" />;
   if (!session) return <Redirect href="/sign-in" />;
   if (!adminContext.is_admin) {
     return (
-      <Screen>
-        <PageHeader eyebrow="Restricted" title="Admin Access Required" description="This account is not listed in public.platform_admins." />
+      <Screen backgroundColor="#FFFFFF">
+        <View style={styles.headerLine}>
+          <Text style={styles.screenTitle}>Restricted</Text>
+        </View>
         <EmptyState
           icon="shield-outline"
-          title="No Platform Admin Role"
-          message="Add your verified email to public.platform_admins in Supabase SQL Editor, then reopen the app."
-          actionLabel={needsOnboarding ? 'Go to Onboarding' : 'Open Workspace'}
+          title="Admin access required"
+          message="Your account is not listed in public.platform_admins."
+          actionLabel={needsOnboarding ? 'Continue setup' : 'Open app'}
           onAction={() => router.replace(needsOnboarding ? '/onboarding' : '/(tabs)')}
         />
       </Screen>
@@ -269,13 +273,14 @@ export default function AdminScreen() {
     await loadOverview();
     if (tab === 'clients') await loadClients();
     if (tab === 'audit') await loadAudit();
-    if (tab === 'admins') await loadAdmins();
+    if (tab === 'settings') await loadAdmins();
     setRefreshing(false);
   };
 
   const openClient = async (userId: string) => {
     setSelectedUserId(userId);
-    setDrawerTab('credentials');
+    setInspectTab('credentials');
+    setShowRawMeta(false);
     setDetailLoading(true);
     setSuspendReason('');
     try {
@@ -283,10 +288,9 @@ export default function AdminScreen() {
       setClientDetail(detail);
       setEditPlan(detail.subscription.plan_code || 'starter');
       setEditStatus(detail.subscription.status || 'active');
-      setEditProvider(detail.subscription.billing_provider || 'manual');
       setEditNotes(detail.subscription.notes || '');
     } catch (err) {
-      Alert.alert('Client Load Failed', err instanceof Error ? err.message : 'Unable to inspect client.');
+      Alert.alert('Load failed', err instanceof Error ? err.message : 'Unable to load client.');
       setSelectedUserId(null);
     } finally {
       setDetailLoading(false);
@@ -307,15 +311,15 @@ export default function AdminScreen() {
         businessId: selectedUserId,
         planCode: editPlan,
         status: editStatus,
-        billingProvider: editProvider,
+        billingProvider: 'manual',
         billingCycle: 'monthly',
         periodEnd: null,
         notes: editNotes,
       });
-      Alert.alert('Subscription Updated', 'Plan saved and recorded in audit logs.');
+      Alert.alert('Saved', 'Subscription updated.');
       await Promise.all([refreshDetail(), loadClients(), loadOverview()]);
     } catch (err) {
-      Alert.alert('Update Failed', err instanceof Error ? err.message : 'Unable to update subscription.');
+      Alert.alert('Update failed', err instanceof Error ? err.message : 'Unable to update subscription.');
     } finally {
       setSavingSub(false);
     }
@@ -327,11 +331,11 @@ export default function AdminScreen() {
     setSuspending(true);
     try {
       await toggleUserSuspension(selectedUserId, nextSuspend, suspendReason);
-      Alert.alert(nextSuspend ? 'Account Suspended' : 'Account Restored', 'Action recorded in audit logs.');
+      Alert.alert(nextSuspend ? 'Account suspended' : 'Account restored');
       setSuspendReason('');
       await Promise.all([refreshDetail(), loadClients(), loadOverview()]);
     } catch (err) {
-      Alert.alert('Action Failed', err instanceof Error ? err.message : 'Unable to update suspension status.');
+      Alert.alert('Action failed', err instanceof Error ? err.message : 'Unable to update status.');
     } finally {
       setSuspending(false);
     }
@@ -350,12 +354,12 @@ export default function AdminScreen() {
         targetUserId: clientDetail.credentials.user_id,
         targetBusinessId: clientDetail.credentials.user_id,
         targetEmail: clientDetail.credentials.email,
-        summary: `Triggered password reset email for ${clientDetail.credentials.email} from mobile admin`,
+        summary: `Triggered password reset email for ${clientDetail.credentials.email}`,
       });
-      Alert.alert('Reset Sent', `Password reset email sent to ${clientDetail.credentials.email}.`);
+      Alert.alert('Reset sent', `Email sent to ${clientDetail.credentials.email}.`);
       await refreshDetail();
     } catch (err) {
-      Alert.alert('Reset Failed', err instanceof Error ? err.message : 'Unable to send reset email.');
+      Alert.alert('Reset failed', err instanceof Error ? err.message : 'Unable to send reset email.');
     } finally {
       setSendingReset(false);
     }
@@ -371,358 +375,405 @@ export default function AdminScreen() {
         isActive: true,
         notes: newAdminNotes.trim(),
       });
-      Alert.alert('Admin Saved', `Access granted to ${newAdminEmail.trim()}.`);
+      Alert.alert('Admin saved', `Access granted to ${newAdminEmail.trim()}.`);
       setNewAdminEmail('');
       setNewAdminNotes('');
       await loadAdmins();
     } catch (err) {
-      Alert.alert('Failed', err instanceof Error ? err.message : 'Unable to save platform admin.');
+      Alert.alert('Failed', err instanceof Error ? err.message : 'Unable to add admin.');
     } finally {
       setSavingAdmin(false);
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace('/sign-in');
+  const handleSignOut = () => {
+    Alert.alert('Sign out?', 'You can sign back in anytime.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/sign-in');
+        },
+      },
+    ]);
   };
 
   const sqlSnippet = `insert into public.platform_admins (email, role, notes)
-values ('your-email@bookoraph.com', 'super_admin', 'Founder')
+values ('your-email@bookoraph.com', 'super_admin', 'Owner')
 on conflict (lower(email)) do update set role = excluded.role, is_active = true;`;
 
+  const tabTitles: Record<MainTab, string> = {
+    overview: 'Overview',
+    clients: 'Clients',
+    audit: 'Audit logs',
+    settings: 'Settings',
+  };
+
+  const adminInitials = (adminContext.email || session.user.email || 'A')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const bottomInset = Math.max(8, insets.bottom);
+
+  const inspectedBusinessName = clientDetail?.business_profile?.business_name
+    ? String(clientDetail.business_profile.business_name)
+    : clientDetail?.credentials.email || 'Client';
+
+  const inspectedInitials = inspectedBusinessName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?';
+
+  const inspectedSlug = clientDetail?.business_profile?.slug
+    ? String(clientDetail.business_profile.slug)
+    : '';
+
   return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <PageHeader
-        eyebrow={`Platform Admin · ${adminContext.role || 'admin'}`}
-        title="Bookora Control"
-        description={adminContext.email || session.user.email || ''}
-        action={
-          <Pressable
-            accessibilityLabel="Sign out"
-            onPress={() => void handleSignOut()}
-            style={styles.headerActionBtn}
-          >
-            <Ionicons name="log-out-outline" size={20} color={colors.ink} />
-          </Pressable>
-        }
-      />
-
-      {/* Native Segmented Navigation */}
-      <SegmentedControl
-        value={tab}
-        onChange={setTab}
-        items={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'clients', label: 'Clients', badge: stats?.total_businesses },
-          { value: 'audit', label: 'Audit' },
-          { value: 'admins', label: 'Admins' },
-        ]}
-      />
-
-      {tab === 'overview' && (
-        <View style={styles.sectionGap}>
-          {overviewLoading && !stats ? (
-            <Card>
-              <ActivityIndicator color={colors.coral} />
-            </Card>
-          ) : (
-            <>
-              <View style={styles.metricGrid}>
-                <Metric
-                  label="Business Clients"
-                  value={stats?.total_businesses ?? 0}
-                  sublabel={`${stats?.total_auth_users ?? 0} auth users`}
-                  icon="storefront-outline"
-                  tone="coral"
-                />
-                <Metric
-                  label="Active Plans"
-                  value={stats?.active_subscriptions ?? 0}
-                  sublabel="Starter default active"
-                  icon="card-outline"
-                  tone="lilac"
-                />
-                <Metric
-                  label="Bookings"
-                  value={stats?.total_appointments ?? 0}
-                  sublabel={formatCurrency(stats?.total_paid_revenue_php)}
-                  icon="calendar-outline"
-                  tone="mint"
-                />
-                <Metric
-                  label="Audit (24h)"
-                  value={stats?.audit_events_24h ?? 0}
-                  sublabel={`${stats?.suspended_users ?? 0} suspended`}
-                  icon="shield-outline"
-                  tone="peach"
-                />
-              </View>
-
-              <Card style={styles.cardGap}>
-                <Text style={styles.cardTitle}>Subscription Tiers</Text>
-                <Text style={styles.muted}>
-                  Existing businesses were set to Starter until you enable the Xendit paywall.
-                </Text>
-                <View style={styles.tierRow}>
-                  <View style={styles.tierChip}>
-                    <Text style={styles.tierVal}>{stats?.free_count ?? 0}</Text>
-                    <Text style={styles.tierLbl}>Free</Text>
-                  </View>
-                  <View style={[styles.tierChip, { backgroundColor: colors.peach }]}>
-                    <Text style={styles.tierVal}>{stats?.starter_count ?? 0}</Text>
-                    <Text style={styles.tierLbl}>Starter</Text>
-                  </View>
-                  <View style={[styles.tierChip, { backgroundColor: colors.mint }]}>
-                    <Text style={styles.tierVal}>{stats?.pro_count ?? 0}</Text>
-                    <Text style={styles.tierLbl}>Pro</Text>
-                  </View>
-                  <View style={[styles.tierChip, { backgroundColor: colors.lilac }]}>
-                    <Text style={styles.tierVal}>{stats?.other_plan_count ?? 0}</Text>
-                    <Text style={styles.tierLbl}>Other</Text>
-                  </View>
-                </View>
-                <Button label="Browse Clients" icon="people-outline" onPress={() => setTab('clients')} />
-              </Card>
-
-              <Card style={styles.cardGap}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.cardTitle}>Recent Security & Audit Events</Text>
-                  <Pressable onPress={() => setTab('audit')}>
-                    <Text style={styles.linkText}>View all</Text>
-                  </Pressable>
-                </View>
-                {recentLogs.length === 0 ? (
-                  <Text style={styles.muted}>No audit events recorded yet.</Text>
-                ) : (
-                  recentLogs.map((log) => (
-                    <Pressable key={log.id} style={styles.listItem} onPress={() => setInspectedLog(log)}>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={styles.itemTitle}>{log.summary}</Text>
-                        <Text style={styles.mutedSmall}>
-                          {log.action} · {log.actor_email || 'system'} · {formatDateTime(log.created_at)}
-                        </Text>
-                      </View>
-                      <StatusBadge status={log.severity === 'info' ? 'active' : 'failed'} />
-                    </Pressable>
-                  ))
-                )}
-              </Card>
-            </>
-          )}
+    <View style={styles.root}>
+      <Screen refreshing={refreshing} onRefresh={onRefresh} backgroundColor="#FFFFFF">
+        <View style={styles.headerLine}>
+          <Text style={styles.screenTitle}>{tabTitles[tab]}</Text>
+          <View style={styles.headerActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Refresh"
+              onPress={() => void onRefresh()}
+              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+            >
+              <Ionicons name="refresh-outline" size={19} color={colors.ink} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Admin settings"
+              onPress={() => setTab('settings')}
+              style={({ pressed }) => [styles.avatarBtn, pressed && styles.pressed]}
+            >
+              <Text style={styles.avatarBtnText}>{adminInitials}</Text>
+            </Pressable>
+          </View>
         </View>
-      )}
 
-      {tab === 'clients' && (
-        <View style={styles.sectionGap}>
-          <SearchField
-            value={clientSearch}
-            onChangeText={setClientSearch}
-            placeholder="Search business, email, slug, city…"
-          />
+        {tab === 'overview' && (
+          <View style={styles.sectionGap}>
+            {overviewLoading && !stats ? (
+              <Card>
+                <ActivityIndicator color={colors.coral} />
+              </Card>
+            ) : (
+              <>
+                <View style={styles.metricGrid}>
+                  <Metric
+                    label="Businesses"
+                    value={stats?.total_businesses ?? 0}
+                    sublabel={`${stats?.total_auth_users ?? 0} total users`}
+                    icon="storefront-outline"
+                    tone="coral"
+                  />
+                  <Metric
+                    label="Active plans"
+                    value={stats?.active_subscriptions ?? 0}
+                    sublabel="Default Starter"
+                    icon="card-outline"
+                    tone="lilac"
+                  />
+                  <Metric
+                    label="Bookings"
+                    value={stats?.total_appointments ?? 0}
+                    sublabel={formatCurrency(stats?.total_paid_revenue_php)}
+                    icon="calendar-outline"
+                    tone="mint"
+                  />
+                  <Metric
+                    label="Events (24h)"
+                    value={stats?.audit_events_24h ?? 0}
+                    sublabel={`${stats?.suspended_users ?? 0} suspended`}
+                    icon="shield-outline"
+                    tone="peach"
+                  />
+                </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {(['business', 'all', 'staff', 'client'] as const).map((type) => (
-              <Pressable
-                key={type}
-                onPress={() => setAccountFilter(type)}
-                style={[styles.filterChip, accountFilter === type && styles.filterChipActive]}
-              >
-                <Text style={[styles.filterChipText, accountFilter === type && styles.filterChipTextActive]}>
-                  {type === 'business' ? 'Businesses' : type === 'all' ? 'All Users' : type === 'staff' ? 'Staff' : 'Customers'}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {[{ code: 'all', name: 'All Plans' }, ...plans].map((p) => (
-              <Pressable
-                key={p.code}
-                onPress={() => setPlanFilter(p.code)}
-                style={[styles.filterChip, planFilter === p.code && styles.filterChipActive]}
-              >
-                <Text style={[styles.filterChipText, planFilter === p.code && styles.filterChipTextActive]}>
-                  {p.name}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.mutedSmall}>
-            Showing {clients.length} of {clientsTotal} accounts
-          </Text>
-
-          {clientsLoading ? (
-            <Card>
-              <ActivityIndicator color={colors.coral} />
-            </Card>
-          ) : clients.length === 0 ? (
-            <EmptyState
-              icon="business-outline"
-              title="No Clients Found"
-              message="Try clearing your search or switching plan/account filters."
-            />
-          ) : (
-            clients.map((c) => (
-              <Pressable key={c.user_id} onPress={() => void openClient(c.user_id)}>
-                <Card style={styles.clientCard}>
+                <Card style={styles.cardGap}>
                   <View style={styles.rowBetween}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={styles.itemTitle}>{c.business_name || c.full_name || 'No Business Profile'}</Text>
-                      <Text style={styles.mutedSmall}>{c.email || c.user_id}</Text>
+                    <Text style={styles.cardTitle}>Plans</Text>
+                    <Pressable onPress={() => setTab('clients')}>
+                      <Text style={styles.linkText}>View clients</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.tierRow}>
+                    <View style={styles.tierChip}>
+                      <Text style={styles.tierVal}>{stats?.free_count ?? 0}</Text>
+                      <Text style={styles.tierLbl}>Free</Text>
                     </View>
-                    <StatusBadge status={c.is_suspended ? 'blocked' : c.plan_code} />
-                  </View>
-
-                  <View style={styles.metaStrip}>
-                    <Text style={styles.metaPill}>
-                      {c.email_confirmed_at ? '✓ Verified' : 'Unverified'}
-                    </Text>
-                    <Text style={styles.metaPill}>{c.auth_providers.join(', ') || 'email'}</Text>
-                    {c.mfa_enabled ? <Text style={styles.metaPill}>2FA</Text> : null}
-                    <Text style={styles.metaPill}>
-                      {c.appointments_count} appts · {c.services_count} services
-                    </Text>
-                  </View>
-
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.mutedSmall}>
-                      {c.slug ? `/${c.slug}` : c.account_type} · {c.subscription_status} ({formatCurrency(c.monthly_price_php)}/mo)
-                    </Text>
-                    <Text style={styles.linkText}>Inspect ›</Text>
+                    <View style={[styles.tierChip, { backgroundColor: colors.peach }]}>
+                      <Text style={styles.tierVal}>{stats?.starter_count ?? 0}</Text>
+                      <Text style={styles.tierLbl}>Starter</Text>
+                    </View>
+                    <View style={[styles.tierChip, { backgroundColor: colors.mint }]}>
+                      <Text style={styles.tierVal}>{stats?.pro_count ?? 0}</Text>
+                      <Text style={styles.tierLbl}>Pro</Text>
+                    </View>
+                    <View style={[styles.tierChip, { backgroundColor: colors.lilac }]}>
+                      <Text style={styles.tierVal}>{stats?.other_plan_count ?? 0}</Text>
+                      <Text style={styles.tierLbl}>Other</Text>
+                    </View>
                   </View>
                 </Card>
-              </Pressable>
-            ))
-          )}
-        </View>
-      )}
 
-      {tab === 'audit' && (
-        <View style={styles.sectionGap}>
-          <SegmentedControl
-            value={auditView}
-            onChange={setAuditView}
-            items={[
-              { value: 'admin', label: 'Admin & Platform Logs' },
-              { value: 'security', label: 'Password & Security' },
-            ]}
-          />
+                <NativeListGroup title="Recent activity">
+                  {recentLogs.length === 0 ? (
+                    <View style={{ padding: space.lg }}>
+                      <Text style={styles.mutedSmall}>No activity yet.</Text>
+                    </View>
+                  ) : (
+                    recentLogs.map((log, idx) => (
+                      <NativeListRow
+                        key={log.id}
+                        first={idx === 0}
+                        icon={log.severity === 'info' ? 'shield-checkmark-outline' : 'warning-outline'}
+                        iconBg={log.severity === 'info' ? colors.mint : colors.coralSoft}
+                        iconColor={log.severity === 'info' ? colors.success : colors.danger}
+                        title={log.summary}
+                        subtitle={`${log.actor_email || 'system'} · ${formatDateTime(log.created_at)}`}
+                        onPress={() => setInspectedLog(log)}
+                      />
+                    ))
+                  )}
+                </NativeListGroup>
+              </>
+            )}
+          </View>
+        )}
 
-          <SearchField
-            value={auditSearch}
-            onChangeText={setAuditSearch}
-            placeholder="Search actor, target email, or action…"
-          />
+        {tab === 'clients' && (
+          <View style={styles.sectionGap}>
+            <SearchField
+              value={clientSearch}
+              onChangeText={setClientSearch}
+              placeholder="Search business, email, slug, city…"
+            />
 
-          {auditView === 'admin' && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-              {['all', 'info', 'warning', 'critical'].map((sev) => (
+              {(['business', 'all', 'staff', 'client'] as const).map((type) => (
                 <Pressable
-                  key={sev}
-                  onPress={() => setSeverityFilter(sev)}
-                  style={[styles.filterChip, severityFilter === sev && styles.filterChipActive]}
+                  key={type}
+                  onPress={() => setAccountFilter(type)}
+                  style={[styles.filterChip, accountFilter === type && styles.filterChipActive]}
                 >
-                  <Text style={[styles.filterChipText, severityFilter === sev && styles.filterChipTextActive]}>
-                    {sev === 'all' ? 'All Severities' : sev}
+                  <Text style={[styles.filterChipText, accountFilter === type && styles.filterChipTextActive]}>
+                    {type === 'business' ? 'Businesses' : type === 'all' ? 'All' : type === 'staff' ? 'Staff' : 'Customers'}
+                  </Text>
+                </Pressable>
+              ))}
+              {plans.map((p) => (
+                <Pressable
+                  key={p.code}
+                  onPress={() => setPlanFilter(planFilter === p.code ? 'all' : p.code)}
+                  style={[styles.filterChip, planFilter === p.code && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, planFilter === p.code && styles.filterChipTextActive]}>
+                    {p.name}
                   </Text>
                 </Pressable>
               ))}
             </ScrollView>
-          )}
 
-          {auditLoading ? (
-            <Card>
-              <ActivityIndicator color={colors.coral} />
-            </Card>
-          ) : auditView === 'admin' ? (
-            auditLogs.length === 0 ? (
-              <EmptyState icon="shield-outline" title="No Audit Logs" message="No events match your current filters." />
-            ) : (
-              auditLogs.map((log) => (
-                <Pressable key={log.id} onPress={() => setInspectedLog(log)}>
-                  <Card style={styles.cardGap}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.codeText}>{log.action}</Text>
-                      <StatusBadge status={log.severity === 'info' ? 'active' : 'failed'} />
-                    </View>
-                    <Text style={styles.itemTitle}>{log.summary}</Text>
-                    <Text style={styles.mutedSmall}>
-                      Actor: {log.actor_email || 'system'} ({log.actor_role}) · {formatDateTime(log.created_at)}
-                    </Text>
-                  </Card>
-                </Pressable>
-              ))
-            )
-          ) : securityLogs.length === 0 ? (
-            <EmptyState icon="key-outline" title="No Security Logs" message="No password update records found." />
-          ) : (
-            securityLogs.map((sl) => (
-              <Card key={sl.id} style={styles.cardGap}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.codeText}>{sl.action}</Text>
-                  <Text style={styles.mutedSmall}>{formatDateTime(sl.created_at)}</Text>
-                </View>
-                <Text style={styles.itemTitle}>{sl.user_email || sl.user_id}</Text>
-                <Text style={styles.mutedSmall}>
-                  {sl.business_name || '—'} · {sl.details || 'Password updated'}
-                </Text>
-              </Card>
-            ))
-          )}
-        </View>
-      )}
+            <Text style={styles.mutedSmall}>
+              {clients.length} of {clientsTotal} accounts
+            </Text>
 
-      {tab === 'admins' && (
-        <View style={styles.sectionGap}>
-          <NativeListGroup
-            title="Subscription Tiers & Xendit Paywall"
-            footer="Xendit Edge Functions (xendit-create-checkout & xendit-webhook) are ready. Add XENDIT_SECRET_KEY and XENDIT_CALLBACK_TOKEN in Supabase secrets when going live."
-          >
-            {plans.map((p, idx) => (
-              <NativeListRow
-                key={p.code}
-                first={idx === 0}
-                icon="card-outline"
-                iconBg={p.code === 'pro' ? colors.mint : p.code === 'starter' ? colors.peach : colors.surfaceMuted}
-                iconColor={p.code === 'pro' ? colors.success : p.code === 'starter' ? colors.warning : colors.muted}
-                title={`${p.name} · ${formatCurrency(p.monthly_price_php)}/mo`}
-                subtitle={`${p.description} · Staff: ${p.max_staff ?? 'Unlimited'}`}
-                badge={p.is_active ? 'Active' : 'Off'}
-                chevron={false}
-              />
-            ))}
-          </NativeListGroup>
-
-          <NativeListGroup title="Platform Admins">
-            {adminsLoading ? (
-              <View style={{ padding: space.lg }}>
+            {clientsLoading ? (
+              <Card>
                 <ActivityIndicator color={colors.coral} />
-              </View>
+              </Card>
+            ) : clients.length === 0 ? (
+              <EmptyState
+                icon="people-outline"
+                title="No clients found"
+                message="Try adjusting your search or filter."
+              />
             ) : (
-              platformAdmins.map((pa, idx) => (
+              <View style={styles.clientList}>
+                {clients.map((c) => {
+                  const displayName = c.business_name || c.full_name || c.email || 'Account';
+                  const initials = displayName
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .map((p) => p[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+                  return (
+                    <Pressable
+                      key={c.user_id}
+                      onPress={() => void openClient(c.user_id)}
+                      style={({ pressed }) => [styles.clientRowCard, pressed && styles.pressed]}
+                    >
+                      <View style={styles.clientAvatar}>
+                        <Text style={styles.clientAvatarText}>{initials || '?'}</Text>
+                      </View>
+                      <View style={styles.clientRowBody}>
+                        <View style={styles.clientRowTop}>
+                          <Text numberOfLines={1} style={styles.clientRowName}>
+                            {displayName}
+                          </Text>
+                          <StatusBadge status={c.is_suspended ? 'blocked' : c.plan_code} />
+                        </View>
+                        <Text numberOfLines={1} style={styles.mutedSmall}>
+                          {c.email || c.user_id}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.clientRowMeta}>
+                          {c.email_confirmed_at ? 'Verified' : 'Unverified'} · {c.auth_providers.join(', ') || 'email'} ·{' '}
+                          {c.appointments_count} appts · {formatCurrency(c.monthly_price_php)}/mo
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
+        {tab === 'audit' && (
+          <View style={styles.sectionGap}>
+            <SegmentedControl
+              value={auditView}
+              onChange={setAuditView}
+              items={[
+                { value: 'admin', label: 'Audit logs' },
+                { value: 'security', label: 'Password logs' },
+              ]}
+            />
+
+            <SearchField
+              value={auditSearch}
+              onChangeText={setAuditSearch}
+              placeholder="Search email, action, or summary…"
+            />
+
+            {auditView === 'admin' && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {['all', 'info', 'warning', 'critical'].map((sev) => (
+                  <Pressable
+                    key={sev}
+                    onPress={() => setSeverityFilter(sev)}
+                    style={[styles.filterChip, severityFilter === sev && styles.filterChipActive]}
+                  >
+                    <Text style={[styles.filterChipText, severityFilter === sev && styles.filterChipTextActive]}>
+                      {sev === 'all' ? 'All' : sev}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+
+            {auditLoading ? (
+              <Card>
+                <ActivityIndicator color={colors.coral} />
+              </Card>
+            ) : auditView === 'admin' ? (
+              auditLogs.length === 0 ? (
+                <EmptyState icon="shield-outline" title="No logs" message="No events match your filters." />
+              ) : (
+                <NativeListGroup>
+                  {auditLogs.map((log, idx) => (
+                    <NativeListRow
+                      key={log.id}
+                      first={idx === 0}
+                      icon={log.severity === 'info' ? 'shield-checkmark-outline' : 'alert-circle-outline'}
+                      iconBg={log.severity === 'info' ? colors.mint : colors.coralSoft}
+                      iconColor={log.severity === 'info' ? colors.success : colors.danger}
+                      title={log.summary}
+                      subtitle={`${log.action} · ${log.actor_email || 'system'} · ${formatDateTime(log.created_at)}`}
+                      onPress={() => setInspectedLog(log)}
+                    />
+                  ))}
+                </NativeListGroup>
+              )
+            ) : securityLogs.length === 0 ? (
+              <EmptyState icon="key-outline" title="No security logs" message="No password update records." />
+            ) : (
+              <NativeListGroup>
+                {securityLogs.map((sl, idx) => (
+                  <NativeListRow
+                    key={sl.id}
+                    first={idx === 0}
+                    icon="key-outline"
+                    iconBg={colors.lilac}
+                    iconColor={colors.navy}
+                    title={sl.user_email || sl.user_id}
+                    subtitle={`${sl.action} · ${formatDateTime(sl.created_at)}`}
+                    chevron={false}
+                  />
+                ))}
+              </NativeListGroup>
+            )}
+          </View>
+        )}
+
+        {tab === 'settings' && (
+          <View style={styles.sectionGap}>
+            <Card style={styles.heroCard}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{adminInitials}</Text>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.heroTitle} numberOfLines={1}>
+                  {adminContext.email || session.user.email}
+                </Text>
+                <Text style={styles.mutedSmall}>Role: {adminContext.role || 'admin'}</Text>
+              </View>
+            </Card>
+
+            <NativeListGroup title="Subscription plans">
+              {plans.map((p, idx) => (
                 <NativeListRow
-                  key={pa.id}
+                  key={p.code}
                   first={idx === 0}
-                  icon="shield-checkmark-outline"
-                  iconBg={colors.coralSoft}
-                  iconColor={colors.coral}
-                  title={pa.email}
-                  subtitle={`${pa.role} · ${pa.user_id ? 'Auth linked' : 'Pending first sign-in'}`}
-                  badge={pa.is_active ? 'Active' : 'Paused'}
+                  icon="card-outline"
+                  iconBg={p.code === 'pro' ? colors.mint : p.code === 'starter' ? colors.peach : colors.surfaceMuted}
+                  iconColor={p.code === 'pro' ? colors.success : p.code === 'starter' ? colors.warning : colors.muted}
+                  title={`${p.name} · ${formatCurrency(p.monthly_price_php)}/mo`}
+                  subtitle={p.description}
+                  badge={p.is_active ? 'Active' : 'Off'}
                   chevron={false}
                 />
-              ))
-            )}
-          </NativeListGroup>
+              ))}
+            </NativeListGroup>
 
-          <Card style={styles.cardGap}>
+            <NativeListGroup title="Admins">
+              {adminsLoading ? (
+                <View style={{ padding: space.lg }}>
+                  <ActivityIndicator color={colors.coral} />
+                </View>
+              ) : (
+                platformAdmins.map((pa, idx) => (
+                  <NativeListRow
+                    key={pa.id}
+                    first={idx === 0}
+                    icon="person-outline"
+                    iconBg={colors.sky}
+                    iconColor={colors.skyInk}
+                    title={pa.email}
+                    subtitle={`${pa.role} · ${pa.user_id ? 'Linked' : 'Pending'}`}
+                    badge={pa.is_active ? 'Active' : 'Off'}
+                    chevron={false}
+                  />
+                ))
+              )}
+            </NativeListGroup>
 
             {isSuperAdmin && (
-              <View style={styles.formGap}>
+              <Card style={styles.cardGap}>
+                <Text style={styles.cardTitle}>Add admin</Text>
                 <Field
-                  label="Grant Admin Email"
+                  label="Email"
                   keyboardType="email-address"
                   placeholder="partner@bookoraph.com"
                   value={newAdminEmail}
@@ -741,42 +792,84 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                     </Pressable>
                   ))}
                 </View>
-                <Field
-                  label="Notes"
-                  placeholder="e.g. Ops lead"
-                  value={newAdminNotes}
-                  onChangeText={setNewAdminNotes}
-                />
+                <Field label="Note" placeholder="Optional note" value={newAdminNotes} onChangeText={setNewAdminNotes} />
                 <Button
-                  label={savingAdmin ? 'Saving…' : 'Grant Admin Access'}
-                  icon="shield-checkmark-outline"
+                  label={savingAdmin ? 'Saving…' : 'Add admin'}
+                  icon="add"
                   onPress={() => void handleAddAdmin()}
                   disabled={savingAdmin}
                 />
-              </View>
+              </Card>
             )}
 
-            <Button
-              label="Copy Supabase Admin SQL"
-              icon="copy-outline"
-              secondary
-              compact
-              onPress={() => void copyOrShare('Supabase Admin SQL', sqlSnippet)}
-            />
-          </Card>
+            <NativeListGroup>
+              <NativeListRow
+                first
+                icon="copy-outline"
+                iconBg={colors.surfaceMuted}
+                iconColor={colors.ink}
+                title="Copy Supabase admin SQL"
+                onPress={() => void copyOrShare('Supabase Admin SQL', sqlSnippet)}
+              />
+              {!needsOnboarding ? (
+                <NativeListRow
+                  icon="storefront-outline"
+                  iconBg={colors.mint}
+                  iconColor={colors.success}
+                  title="Switch to salon app"
+                  onPress={() => router.replace('/(tabs)')}
+                />
+              ) : null}
+              <NativeListRow
+                icon="log-out-outline"
+                iconBg={colors.coralSoft}
+                iconColor={colors.danger}
+                title="Sign out"
+                destructive
+                chevron={false}
+                onPress={handleSignOut}
+              />
+            </NativeListGroup>
+          </View>
+        )}
+      </Screen>
 
-          {!needsOnboarding && (
-            <Button
-              label="Open My Salon Workspace"
-              icon="storefront-outline"
-              secondary
-              onPress={() => router.replace('/(tabs)')}
-            />
-          )}
-        </View>
-      )}
+      {/* Bottom Mobile Navigation Bar (mirrors client app) */}
+      <View
+        style={[
+          styles.bottomBar,
+          { height: 60 + bottomInset, paddingBottom: bottomInset },
+        ]}
+      >
+        {(
+          [
+            ['overview', 'Overview', 'grid', 'grid-outline'],
+            ['clients', 'Clients', 'people', 'people-outline'],
+            ['audit', 'Audit', 'shield-checkmark', 'shield-checkmark-outline'],
+            ['settings', 'Settings', 'settings', 'settings-outline'],
+          ] as [MainTab, string, keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap][]
+        ).map(([key, label, activeIcon, inactiveIcon]) => {
+          const active = tab === key;
+          return (
+            <Pressable
+              key={key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              onPress={() => setTab(key)}
+              style={({ pressed }) => [styles.bottomTab, pressed && styles.pressed]}
+            >
+              <Ionicons
+                name={active ? activeIcon : inactiveIcon}
+                size={22}
+                color={active ? colors.coral : colors.muted}
+              />
+              <Text style={[styles.bottomTabLabel, active && styles.bottomTabLabelActive]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
-      {/* Client Detail Modal */}
+      {/* Client Inspector Sheet (styled like Clients profile drawer) */}
       <Modal
         visible={Boolean(selectedUserId)}
         animationType="slide"
@@ -787,121 +880,180 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
         }}
       >
         <SafeAreaView style={styles.modalSafe}>
-          <View style={styles.modalHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>Inspect Client</Text>
-              <Text style={styles.modalTitle} numberOfLines={1}>
-                {clientDetail?.business_profile?.business_name
-                  ? String(clientDetail.business_profile.business_name)
-                  : clientDetail?.credentials.email || 'Loading…'}
-              </Text>
-            </View>
+          <View style={styles.drawerNav}>
             <Pressable
-              accessibilityLabel="Close"
+              accessibilityRole="button"
+              accessibilityLabel="Back"
               onPress={() => {
                 setSelectedUserId(null);
                 setClientDetail(null);
               }}
-              style={styles.headerActionBtn}
+              hitSlop={8}
+              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
             >
-              <Ionicons name="close" size={22} color={colors.ink} />
+              <Ionicons name="chevron-back" size={22} color={colors.ink} />
             </Pressable>
+            <Text style={styles.drawerTitle}>Client</Text>
+            {clientDetail?.credentials.email ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Send password reset"
+                onPress={() => void handleSendPasswordReset()}
+                disabled={sendingReset}
+                hitSlop={8}
+                style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+              >
+                <Ionicons name="key-outline" size={19} color={colors.ink} />
+              </Pressable>
+            ) : (
+              <View style={{ width: 40 }} />
+            )}
           </View>
 
           {detailLoading || !clientDetail ? (
-            <LoadingState message="Loading client credentials & profile…" />
+            <LoadingState message="Loading client…" />
           ) : (
-            <ScrollView contentContainerStyle={styles.modalScroll}>
+            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Profile Hero */}
+              <View style={styles.profileHero}>
+                <View style={styles.heroAvatar}>
+                  <Text style={styles.heroAvatarText}>{inspectedInitials}</Text>
+                </View>
+                <Text style={styles.heroName}>{inspectedBusinessName}</Text>
+                <Text style={styles.mutedSmall}>{clientDetail.credentials.email || 'No email'}</Text>
+                <View style={styles.heroBadges}>
+                  <StatusBadge status={clientDetail.subscription.plan_code} />
+                  <StatusBadge
+                    status={clientDetail.credentials.is_suspended ? 'blocked' : clientDetail.subscription.status}
+                  />
+                </View>
+
+                <View style={styles.quickActionRow}>
+                  <Pressable
+                    onPress={() => void copyOrShare('User ID', clientDetail.credentials.user_id)}
+                    style={({ pressed }) => [styles.quickPill, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="copy-outline" size={15} color={colors.ink} />
+                    <Text style={styles.quickPillText}>Copy ID</Text>
+                  </Pressable>
+                  {clientDetail.credentials.email ? (
+                    <Pressable
+                      onPress={() => void handleSendPasswordReset()}
+                      disabled={sendingReset}
+                      style={({ pressed }) => [styles.quickPill, pressed && styles.pressed]}
+                    >
+                      <Ionicons name="mail-outline" size={15} color={colors.ink} />
+                      <Text style={styles.quickPillText}>{sendingReset ? 'Sending…' : 'Reset password'}</Text>
+                    </Pressable>
+                  ) : null}
+                  {inspectedSlug ? (
+                    <Pressable
+                      onPress={() => void openExternalLink(`https://${inspectedSlug}.bookoraph.com/`)}
+                      style={({ pressed }) => [styles.quickPill, pressed && styles.pressed]}
+                    >
+                      <Ionicons name="globe-outline" size={15} color={colors.ink} />
+                      <Text style={styles.quickPillText}>Booking link</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+
               <SegmentedControl
-                value={drawerTab}
-                onChange={setDrawerTab}
+                value={inspectTab}
+                onChange={setInspectTab}
                 items={[
-                  { value: 'credentials', label: 'Credentials' },
+                  { value: 'credentials', label: 'Auth' },
                   { value: 'profile', label: 'Profile' },
                   { value: 'plan', label: 'Plan' },
                   { value: 'logs', label: 'Logs' },
                 ]}
               />
 
-              {drawerTab === 'credentials' && (
+              {inspectTab === 'credentials' && (
                 <View style={styles.sectionGap}>
-                  <Card style={styles.infoBanner}>
-                    <Text style={styles.itemTitle}>Password Security Note</Text>
-                    <Text style={styles.mutedSmall}>
-                      Supabase Auth hashes passwords with one-way bcrypt, so raw passwords are never readable. You can verify password status, auth identities, 2FA, metadata, and trigger a reset below.
-                    </Text>
-                  </Card>
-
-                  <Card style={styles.cardGap}>
-                    <Pressable onPress={() => void copyOrShare('User ID', clientDetail.credentials.user_id)}>
-                      <Text style={styles.mutedSmall}>User ID (tap to copy)</Text>
-                      <Text style={styles.codeText}>{clientDetail.credentials.user_id}</Text>
-                    </Pressable>
-                    <View style={styles.kvRow}>
-                      <Text style={styles.mutedSmall}>Primary Email</Text>
-                      <Text style={styles.itemTitle}>{clientDetail.credentials.email || '—'}</Text>
-                      <Text style={styles.mutedSmall}>
-                        {clientDetail.credentials.email_confirmed_at
-                          ? `Verified ${formatDateTime(clientDetail.credentials.email_confirmed_at)}`
-                          : 'Unverified'}
-                      </Text>
-                    </View>
-                    <View style={styles.kvRow}>
-                      <Text style={styles.mutedSmall}>Auth Phone</Text>
-                      <Text style={styles.itemTitle}>{clientDetail.credentials.phone || 'Not set'}</Text>
-                    </View>
-                    <View style={styles.kvRow}>
-                      <Text style={styles.mutedSmall}>Password & 2FA</Text>
-                      <Text style={styles.itemTitle}>
-                        {clientDetail.credentials.has_password ? 'Password Set (bcrypt)' : 'OAuth / Passwordless'} ·{' '}
-                        {clientDetail.credentials.mfa_factors.length} 2FA factors
-                      </Text>
-                      <Text style={styles.mutedSmall}>
-                        Password updated: {formatDateTime(clientDetail.credentials.password_updated_at)}
-                      </Text>
-                    </View>
-                    <View style={styles.kvRow}>
-                      <Text style={styles.mutedSmall}>Last Sign-In & Created</Text>
-                      <Text style={styles.itemTitle}>{formatDateTime(clientDetail.credentials.last_sign_in_at)}</Text>
-                      <Text style={styles.mutedSmall}>Created: {formatDateTime(clientDetail.credentials.created_at)}</Text>
-                    </View>
-                    <View style={styles.kvRow}>
-                      <Text style={styles.mutedSmall}>Auth Providers</Text>
-                      <Text style={styles.itemTitle}>
-                        {clientDetail.credentials.identities.map((i) => i.provider).join(', ') || 'email'}
-                      </Text>
-                    </View>
-                  </Card>
-
-                  <Card style={styles.cardGap}>
-                    <Text style={styles.cardTitle}>Raw User & App Metadata</Text>
-                    <Text style={styles.jsonBlock}>
-                      {JSON.stringify(
-                        {
-                          user_metadata: clientDetail.credentials.raw_user_meta_data,
-                          app_metadata: clientDetail.credentials.raw_app_meta_data,
-                        },
-                        null,
-                        2
-                      )}
-                    </Text>
-                  </Card>
-
-                  {clientDetail.credentials.email && (
-                    <Button
-                      label={sendingReset ? 'Sending…' : 'Send Password Reset Email'}
+                  <NativeListGroup title="Account & credentials">
+                    <NativeListRow
+                      first
                       icon="mail-outline"
-                      secondary
-                      onPress={() => void handleSendPasswordReset()}
-                      disabled={sendingReset}
+                      iconBg={colors.sky}
+                      iconColor={colors.skyInk}
+                      title={clientDetail.credentials.email || '—'}
+                      subtitle={
+                        clientDetail.credentials.email_confirmed_at
+                          ? `Verified ${formatDateTime(clientDetail.credentials.email_confirmed_at)}`
+                          : 'Email unverified'
+                      }
+                      chevron={false}
                     />
+                    <NativeListRow
+                      icon="call-outline"
+                      iconBg={colors.mint}
+                      iconColor={colors.success}
+                      title={clientDetail.credentials.phone || 'No auth phone'}
+                      subtitle={
+                        clientDetail.credentials.phone_confirmed_at
+                          ? `Verified ${formatDateTime(clientDetail.credentials.phone_confirmed_at)}`
+                          : 'Phone'
+                      }
+                      chevron={false}
+                    />
+                    <NativeListRow
+                      icon="lock-closed-outline"
+                      iconBg={colors.lilac}
+                      iconColor={colors.navy}
+                      title={clientDetail.credentials.has_password ? 'Password set (encrypted)' : 'OAuth sign-in'}
+                      subtitle={`Changed: ${formatDateTime(clientDetail.credentials.password_updated_at)}`}
+                      chevron={false}
+                    />
+                    <NativeListRow
+                      icon="key-outline"
+                      iconBg={colors.peach}
+                      iconColor={colors.warning}
+                      title={clientDetail.credentials.identities.map((i) => i.provider).join(', ') || 'email'}
+                      subtitle={`2FA factors: ${clientDetail.credentials.mfa_factors.length}`}
+                      chevron={false}
+                    />
+                    <NativeListRow
+                      icon="time-outline"
+                      iconBg={colors.surfaceMuted}
+                      iconColor={colors.muted}
+                      title={`Last sign-in: ${formatDateTime(clientDetail.credentials.last_sign_in_at)}`}
+                      subtitle={`Joined: ${formatDateTime(clientDetail.credentials.created_at)}`}
+                      chevron={false}
+                    />
+                  </NativeListGroup>
+
+                  <NativeListGroup>
+                    <NativeListRow
+                      first
+                      icon="code-slash-outline"
+                      iconBg={colors.surfaceMuted}
+                      iconColor={colors.ink}
+                      title={showRawMeta ? 'Hide metadata JSON' : 'View metadata JSON'}
+                      onPress={() => setShowRawMeta((prev) => !prev)}
+                    />
+                  </NativeListGroup>
+
+                  {showRawMeta && (
+                    <Card>
+                      <Text style={styles.jsonBlock}>
+                        {JSON.stringify(
+                          {
+                            user_metadata: clientDetail.credentials.raw_user_meta_data,
+                            app_metadata: clientDetail.credentials.raw_app_meta_data,
+                          },
+                          null,
+                          2
+                        )}
+                      </Text>
+                    </Card>
                   )}
 
                   {canMutate && clientDetail.credentials.user_id !== session.user.id && (
                     <Card style={styles.cardGap}>
                       <Field
-                        label="Suspension / Restore Reason"
-                        placeholder="Logged to security audit"
+                        label="Account status note"
+                        placeholder="Reason (optional)"
                         value={suspendReason}
                         onChangeText={setSuspendReason}
                       />
@@ -910,8 +1062,8 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                           suspending
                             ? 'Updating…'
                             : clientDetail.credentials.is_suspended
-                              ? 'Restore Account'
-                              : 'Suspend Account'
+                              ? 'Restore account'
+                              : 'Suspend account'
                         }
                         icon={clientDetail.credentials.is_suspended ? 'checkmark-circle-outline' : 'ban-outline'}
                         danger={!clientDetail.credentials.is_suspended}
@@ -923,85 +1075,99 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                 </View>
               )}
 
-              {drawerTab === 'profile' && (
+              {inspectTab === 'profile' && (
                 <View style={styles.sectionGap}>
                   {!clientDetail.business_profile ? (
                     <EmptyState
                       icon="storefront-outline"
-                      title="No Business Profile"
-                      message="This account has not completed business onboarding yet."
+                      title="No business profile"
+                      message="This account has not completed business setup."
                     />
                   ) : (
                     <>
-                      <Card style={styles.cardGap}>
-                        <Text style={styles.cardTitle}>{String(clientDetail.business_profile.business_name || 'Business')}</Text>
-                        <Text style={styles.mutedSmall}>
-                          Slug: /{String(clientDetail.business_profile.slug || '—')} ·{' '}
-                          {String(clientDetail.business_profile.industry || '—')}
-                        </Text>
-                        <Text style={styles.mutedSmall}>
-                          Email: {String(clientDetail.business_profile.email || '—')}
-                        </Text>
-                        <Text style={styles.mutedSmall}>
-                          Phone: {String(clientDetail.business_profile.country_code || '')}{' '}
-                          {String(clientDetail.business_profile.phone || '—')}
-                        </Text>
-                        <Text style={styles.mutedSmall}>
-                          Address:{' '}
-                          {[
-                            clientDetail.business_profile.address,
-                            clientDetail.business_profile.city,
-                            clientDetail.business_profile.country,
-                          ]
-                            .filter(Boolean)
-                            .join(', ') || '—'}
-                        </Text>
-                        <Text style={styles.mutedSmall}>
-                          Branding: {String(clientDetail.business_profile.brand_color || 'coral')} ·{' '}
-                          {String(clientDetail.business_profile.theme || 'Light')}
-                        </Text>
-                      </Card>
-
                       <View style={styles.metricGrid}>
                         <Metric label="Services" value={clientDetail.stats.services_count} icon="cut-outline" tone="coral" />
                         <Metric
-                          label="Appointments"
+                          label="Bookings"
                           value={clientDetail.stats.appointments_count}
                           icon="calendar-outline"
                           tone="mint"
                         />
                         <Metric label="Clients" value={clientDetail.stats.clients_count} icon="people-outline" tone="lilac" />
                         <Metric
-                          label="Paid Revenue"
+                          label="Paid"
                           value={formatCurrency(clientDetail.stats.paid_revenue_php)}
                           icon="cash-outline"
                           tone="peach"
                         />
                       </View>
+
+                      <NativeListGroup title="Business details">
+                        <NativeListRow
+                          first
+                          icon="storefront-outline"
+                          iconBg={colors.coralSoft}
+                          iconColor={colors.coral}
+                          title={String(clientDetail.business_profile.business_name || '—')}
+                          subtitle={String(clientDetail.business_profile.industry || '—')}
+                          chevron={false}
+                        />
+                        <NativeListRow
+                          icon="globe-outline"
+                          iconBg={colors.sky}
+                          iconColor={colors.skyInk}
+                          title={inspectedSlug ? `${inspectedSlug}.bookoraph.com` : 'No booking slug'}
+                          subtitle="Booking page"
+                          chevron={false}
+                        />
+                        <NativeListRow
+                          icon="call-outline"
+                          iconBg={colors.mint}
+                          iconColor={colors.success}
+                          title={`${String(clientDetail.business_profile.country_code || '')} ${String(clientDetail.business_profile.phone || '—')}`.trim()}
+                          subtitle={String(clientDetail.business_profile.email || '—')}
+                          chevron={false}
+                        />
+                        <NativeListRow
+                          icon="location-outline"
+                          iconBg={colors.peach}
+                          iconColor={colors.warning}
+                          title={
+                            [
+                              clientDetail.business_profile.address,
+                              clientDetail.business_profile.city,
+                              clientDetail.business_profile.country,
+                            ]
+                              .filter(Boolean)
+                              .join(', ') || 'No address'
+                          }
+                          subtitle={`Theme: ${String(clientDetail.business_profile.brand_color || 'coral')} · ${String(clientDetail.business_profile.theme || 'Light')}`}
+                          chevron={false}
+                        />
+                      </NativeListGroup>
                     </>
                   )}
                 </View>
               )}
 
-              {drawerTab === 'plan' && (
+              {inspectTab === 'plan' && (
                 <View style={styles.sectionGap}>
-                  <Card style={styles.cardGap}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.cardTitle}>{clientDetail.subscription.plan_name}</Text>
-                      <StatusBadge status={clientDetail.subscription.status} />
-                    </View>
-                    <Text style={styles.mutedSmall}>
-                      Provider: {clientDetail.subscription.billing_provider} · {clientDetail.subscription.billing_cycle} (
-                      {formatCurrency(clientDetail.subscription.amount_php)})
-                    </Text>
-                    <Text style={styles.mutedSmall}>
-                      Updated: {formatDateTime(clientDetail.subscription.updated_at)}
-                    </Text>
-                  </Card>
+                  <NativeListGroup title="Current subscription">
+                    <NativeListRow
+                      first
+                      icon="card-outline"
+                      iconBg={colors.peach}
+                      iconColor={colors.warning}
+                      title={`${clientDetail.subscription.plan_name} · ${formatCurrency(clientDetail.subscription.amount_php)}/${clientDetail.subscription.billing_cycle}`}
+                      subtitle={`Provider: ${clientDetail.subscription.billing_provider} · Updated ${formatDateTime(clientDetail.subscription.updated_at)}`}
+                      badge={clientDetail.subscription.status}
+                      chevron={false}
+                    />
+                  </NativeListGroup>
 
                   {canMutate && (
                     <Card style={styles.cardGap}>
-                      <Text style={styles.cardTitle}>Change Subscription Plan</Text>
+                      <Text style={styles.cardTitle}>Update plan</Text>
                       <View style={styles.filterRow}>
                         {plans.map((p) => (
                           <Pressable
@@ -1016,7 +1182,6 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                         ))}
                       </View>
 
-                      <Text style={styles.mutedSmall}>Status</Text>
                       <View style={styles.filterRow}>
                         {['active', 'trialing', 'past_due', 'cancelled', 'expired'].map((st) => (
                           <Pressable
@@ -1031,14 +1196,9 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                         ))}
                       </View>
 
-                      <Field
-                        label="Audit Note"
-                        placeholder="e.g. Manual upgrade to Pro"
-                        value={editNotes}
-                        onChangeText={setEditNotes}
-                      />
+                      <Field label="Note" placeholder="Optional note" value={editNotes} onChangeText={setEditNotes} />
                       <Button
-                        label={savingSub ? 'Saving…' : 'Save Subscription Change'}
+                        label={savingSub ? 'Saving…' : 'Save plan'}
                         icon="checkmark-outline"
                         onPress={() => void handleSaveSubscription()}
                         disabled={savingSub}
@@ -1048,43 +1208,49 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                 </View>
               )}
 
-              {drawerTab === 'logs' && (
+              {inspectTab === 'logs' && (
                 <View style={styles.sectionGap}>
-                  <Card style={styles.cardGap}>
-                    <Text style={styles.cardTitle}>Client Audit Events</Text>
+                  <NativeListGroup title="Audit history">
                     {clientDetail.recent_audit_logs.length === 0 ? (
-                      <Text style={styles.mutedSmall}>No audit events yet.</Text>
+                      <View style={{ padding: space.lg }}>
+                        <Text style={styles.mutedSmall}>No audit history yet.</Text>
+                      </View>
                     ) : (
-                      clientDetail.recent_audit_logs.map((l) => (
-                        <View key={l.id} style={styles.listItem}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.itemTitle}>{l.summary}</Text>
-                            <Text style={styles.mutedSmall}>
-                              {l.action} · {formatDateTime(l.created_at)}
-                            </Text>
-                          </View>
-                        </View>
+                      clientDetail.recent_audit_logs.map((l, idx) => (
+                        <NativeListRow
+                          key={l.id}
+                          first={idx === 0}
+                          icon="shield-checkmark-outline"
+                          iconBg={colors.mint}
+                          iconColor={colors.success}
+                          title={l.summary}
+                          subtitle={`${l.action} · ${formatDateTime(l.created_at)}`}
+                          chevron={false}
+                        />
                       ))
                     )}
-                  </Card>
+                  </NativeListGroup>
 
-                  <Card style={styles.cardGap}>
-                    <Text style={styles.cardTitle}>Password & Security Logs</Text>
+                  <NativeListGroup title="Password & security logs">
                     {clientDetail.recent_security_logs.length === 0 ? (
-                      <Text style={styles.mutedSmall}>No security log events.</Text>
+                      <View style={{ padding: space.lg }}>
+                        <Text style={styles.mutedSmall}>No password logs.</Text>
+                      </View>
                     ) : (
-                      clientDetail.recent_security_logs.map((sl) => (
-                        <View key={sl.id} style={styles.listItem}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.itemTitle}>{sl.action}</Text>
-                            <Text style={styles.mutedSmall}>
-                              {sl.details || '—'} · {formatDateTime(sl.created_at)}
-                            </Text>
-                          </View>
-                        </View>
+                      clientDetail.recent_security_logs.map((sl, idx) => (
+                        <NativeListRow
+                          key={sl.id}
+                          first={idx === 0}
+                          icon="key-outline"
+                          iconBg={colors.lilac}
+                          iconColor={colors.navy}
+                          title={sl.action}
+                          subtitle={`${sl.details || '—'} · ${formatDateTime(sl.created_at)}`}
+                          chevron={false}
+                        />
                       ))
                     )}
-                  </Card>
+                  </NativeListGroup>
                 </View>
               )}
             </ScrollView>
@@ -1100,34 +1266,48 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
         onRequestClose={() => setInspectedLog(null)}
       >
         <SafeAreaView style={styles.modalSafe}>
-          <View style={styles.modalHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>Audit Event</Text>
-              <Text style={styles.modalTitle}>{inspectedLog?.action}</Text>
-            </View>
-            <Pressable accessibilityLabel="Close" onPress={() => setInspectedLog(null)} style={styles.headerActionBtn}>
-              <Ionicons name="close" size={22} color={colors.ink} />
+          <View style={styles.drawerNav}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              onPress={() => setInspectedLog(null)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+            >
+              <Ionicons name="chevron-back" size={22} color={colors.ink} />
             </Pressable>
+            <Text style={styles.drawerTitle}>Event detail</Text>
+            <View style={{ width: 40 }} />
           </View>
           {inspectedLog && (
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <Card style={styles.cardGap}>
-                <Text style={styles.itemTitle}>{inspectedLog.summary}</Text>
-                <Text style={styles.mutedSmall}>
-                  Actor: {inspectedLog.actor_email || 'system'} ({inspectedLog.actor_role})
-                </Text>
-                <Text style={styles.mutedSmall}>Target: {inspectedLog.target_email || '—'}</Text>
-                <Text style={styles.mutedSmall}>When: {formatDateTime(inspectedLog.created_at)}</Text>
-              </Card>
+              <NativeListGroup>
+                <NativeListRow
+                  first
+                  title={inspectedLog.summary}
+                  subtitle={`${inspectedLog.action} · ${formatDateTime(inspectedLog.created_at)}`}
+                  chevron={false}
+                />
+                <NativeListRow
+                  title={inspectedLog.actor_email || 'system'}
+                  subtitle={`Role: ${inspectedLog.actor_role}`}
+                  chevron={false}
+                />
+                <NativeListRow
+                  title={inspectedLog.target_email || 'No target email'}
+                  subtitle="Target"
+                  chevron={false}
+                />
+              </NativeListGroup>
               {inspectedLog.before_state && (
                 <Card style={styles.cardGap}>
-                  <Text style={styles.cardTitle}>Before State</Text>
+                  <Text style={styles.cardTitle}>Before</Text>
                   <Text style={styles.jsonBlock}>{JSON.stringify(inspectedLog.before_state, null, 2)}</Text>
                 </Card>
               )}
               {inspectedLog.after_state && (
                 <Card style={styles.cardGap}>
-                  <Text style={styles.cardTitle}>After State</Text>
+                  <Text style={styles.cardTitle}>After</Text>
                   <Text style={styles.jsonBlock}>{JSON.stringify(inspectedLog.after_state, null, 2)}</Text>
                 </Card>
               )}
@@ -1139,46 +1319,46 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
           )}
         </SafeAreaView>
       </Modal>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerActionBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  headerLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: space.md,
+  },
+  screenTitle: { color: colors.ink, fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.7 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconAction: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabRow: { gap: 8, paddingVertical: 2 },
-  tabPill: {
-    flexDirection: 'row',
+  avatarBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.coralSoft,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+    justifyContent: 'center',
   },
-  tabPillActive: { backgroundColor: colors.ink, borderColor: colors.ink },
-  tabPillText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
-  tabPillTextActive: { color: '#fff' },
+  avatarBtnText: { color: colors.coral, fontSize: 13, fontWeight: '800' },
+  pressed: { opacity: 0.72 },
   sectionGap: { gap: space.md },
   cardGap: { gap: space.sm },
-  formGap: { gap: space.md, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colors.line },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   cardTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
-  itemTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
-  muted: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   mutedSmall: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   linkText: { color: colors.coral, fontSize: 13, fontWeight: '700' },
-  eyebrow: { color: colors.coral, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   tierRow: { flexDirection: 'row', gap: 8 },
   tierChip: {
@@ -1186,20 +1366,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: '#F4F1EC',
+    backgroundColor: '#F5F4F2',
     alignItems: 'center',
   },
   tierVal: { color: colors.ink, fontSize: 18, fontWeight: '800' },
   tierLbl: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
   filterRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   filterChip: {
     paddingHorizontal: 12,
@@ -1207,54 +1378,113 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
   },
   filterChipActive: { backgroundColor: colors.coralSoft, borderColor: colors.coral },
   filterChipText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   filterChipTextActive: { color: colors.coral },
-  clientCard: { gap: 10 },
-  metaStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  metaPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#F4F1EC',
-    color: colors.ink,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  segmentRow: {
+  clientList: { gap: 10 },
+  clientRowCard: {
     flexDirection: 'row',
-    gap: 6,
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: '#F4F1EC',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FFFFFF',
   },
-  segmentBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 9 },
-  segmentBtnActive: { backgroundColor: colors.surface },
-  segmentText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  segmentTextActive: { color: colors.ink },
-  codeText: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 12, color: colors.ink },
-  modalSafe: { flex: 1, backgroundColor: colors.canvas },
-  modalHeader: {
+  clientAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clientAvatarText: { color: colors.coral, fontSize: 15, fontWeight: '800' },
+  clientRowBody: { flex: 1, gap: 2 },
+  clientRowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  clientRowName: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '700' },
+  clientRowMeta: { color: colors.muted, fontSize: 11.5, marginTop: 2 },
+  heroCard: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 14 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: colors.coral, fontSize: 16, fontWeight: '800' },
+  heroTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 7,
+    backgroundColor: Platform.OS === 'web' ? 'rgba(255, 255, 255, 0.92)' : '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' } as ViewStyle)
+      : {}),
+  },
+  bottomTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  bottomTabLabel: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+  bottomTabLabelActive: { color: colors.coral, fontWeight: '700' },
+  modalSafe: { flex: 1, backgroundColor: '#FFFFFF' },
+  drawerNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
+    backgroundColor: '#FFFFFF',
   },
-  modalTitle: { color: colors.ink, fontSize: 19, fontWeight: '800' },
+  drawerTitle: { color: colors.ink, fontSize: 17, fontWeight: '700' },
   modalScroll: { padding: space.lg, gap: space.md, paddingBottom: 60 },
-  infoBanner: { backgroundColor: colors.sky, borderColor: '#C5DFEF', gap: 4 },
-  kvRow: { gap: 2, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.line },
+  profileHero: { alignItems: 'center', gap: 6, paddingVertical: 8 },
+  heroAvatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    backgroundColor: colors.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  heroAvatarText: { color: colors.coral, fontSize: 22, fontWeight: '800' },
+  heroName: { color: colors.ink, fontSize: 21, fontWeight: '800', textAlign: 'center' },
+  heroBadges: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  quickActionRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 },
+  quickPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FFFFFF',
+  },
+  quickPillText: { color: colors.ink, fontSize: 12, fontWeight: '700' },
   jsonBlock: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 11,
     color: colors.ink,
-    backgroundColor: '#F6F4F0',
+    backgroundColor: '#F6F5F3',
     padding: 10,
     borderRadius: 10,
   },

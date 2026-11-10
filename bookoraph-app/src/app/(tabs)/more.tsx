@@ -50,7 +50,7 @@ export default function SettingsHub() {
 
   const menuSections: { heading: string; items: MenuItem[] }[] = [
     {
-      heading: 'Business setup',
+      heading: 'Business',
       items: [
         {
           title: 'Business profile',
@@ -79,7 +79,7 @@ export default function SettingsHub() {
       ],
     },
     {
-      heading: 'Workspace',
+      heading: 'Offerings & team',
       items: [
         {
           title: 'Services',
@@ -196,9 +196,8 @@ export default function SettingsHub() {
   };
 
   return (
-    <Screen>
+    <Screen backgroundColor="#FFFFFF">
       <PageHeader
-        eyebrow="Workspace"
         title="Settings"
         action={
           <Pressable
@@ -224,10 +223,10 @@ export default function SettingsHub() {
             {businessName}
           </Text>
           <Text style={styles.heroSub} numberOfLines={1}>
-            {session?.user.email || 'Bookora PH Workspace'}
+            {session?.user.email || 'Bookora PH'}
           </Text>
         </View>
-        <StatusBadge status={adminContext.is_admin ? adminContext.role || 'admin' : 'active'} />
+        {adminContext.is_admin ? <StatusBadge status={adminContext.role || 'admin'} /> : null}
       </Card>
 
       {menuSections.map((section) => (
