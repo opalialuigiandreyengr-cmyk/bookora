@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, type Href } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,7 +41,7 @@ const CURRENCIES = [
 ];
 
 export default function OnboardingScreen() {
-  const { session, loading, completeOnboarding, signOut } = useApp();
+  const { session, loading, adminContext, completeOnboarding, signOut } = useApp();
   const meta = session?.user.user_metadata ?? {};
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -64,6 +64,9 @@ export default function OnboardingScreen() {
 
   if (!loading && !session) {
     return <Redirect href="/sign-in" />;
+  }
+  if (!loading && adminContext.is_admin) {
+    return <Redirect href={'/admin' as Href} />;
   }
 
   const canContinueStep1 = Boolean(brandName.trim() && industry && phone.trim());

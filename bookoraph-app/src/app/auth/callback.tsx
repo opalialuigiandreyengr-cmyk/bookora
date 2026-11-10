@@ -102,7 +102,7 @@ export default function AuthCallback() {
       }
 
       if (!isRecovery) {
-        router.replace('/(tabs)');
+        router.replace('/');
         return;
       }
       setMessage('Choose a new password for your Bookora account.');

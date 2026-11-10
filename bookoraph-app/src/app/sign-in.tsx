@@ -108,7 +108,7 @@ export default function SignIn() {
       setMessage({ type: 'error', text: result.message });
       return;
     }
-    if (result.status === 'success') router.replace('/(tabs)');
+    if (result.status === 'success') router.replace('/');
   };
 
   const resetView = mode === 'reset';

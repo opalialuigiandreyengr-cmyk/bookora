@@ -677,8 +677,12 @@ export function AppProvider({ children }: PropsWithChildren) {
     });
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
-      if (next) void load(next);
-      else {
+      if (next) {
+        if (loadedBusinessId.current !== next.user.id) {
+          setLoading(true);
+        }
+        void load(next);
+      } else {
         loadRequestId.current += 1;
         loadedBusinessId.current = null;
         resetWorkspaceState(null);
@@ -1727,6 +1731,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const needsOnboarding = Boolean(
     session &&
       !loading &&
+      !adminContext.is_admin &&
       !session.user.user_metadata?.onboarding_complete &&
       !hasBusinessProfileRow
   );
