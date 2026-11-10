@@ -192,9 +192,9 @@ function AppNavigator() {
   return (
     <Stack
         screenOptions={{
-          animation: 'slide_from_bottom',
+          animation: Platform.OS === 'web' ? 'fade' : 'default',
           headerShadowVisible: false,
-          headerStyle: { backgroundColor: '#FFFFFF' },
+          headerStyle: { backgroundColor: colors.canvas },
           headerTintColor: colors.ink,
           headerBackTitle: '',
           headerBackButtonDisplayMode: 'minimal',
@@ -211,7 +211,7 @@ function AppNavigator() {
               </Pressable>
             ),
           headerTitleStyle: { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: 'normal' },
-          contentStyle: { backgroundColor: '#FFFFFF' },
+          contentStyle: { backgroundColor: colors.canvas },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />

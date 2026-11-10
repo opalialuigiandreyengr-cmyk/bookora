@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, type Href } from 'expo-router';
 import { type ComponentProps } from 'react';
-import { Alert, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
+import { Card, NativeListGroup, NativeListRow, PageHeader, Screen, StatusBadge } from '@/components/ui';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
 
@@ -12,7 +12,10 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 
 type MenuItem = {
   title: string;
+  subtitle?: string;
   icon: IconName;
+  iconBg: string;
+  iconColor: string;
   route: Href;
   badge?: string | number;
   comingSoon?: boolean;
@@ -20,7 +23,9 @@ type MenuItem = {
 
 export default function SettingsHub() {
   const {
+    session,
     adminContext,
+    businessName,
     businessProfile,
     publicBookingUrl,
     services,
@@ -33,7 +38,15 @@ export default function SettingsHub() {
       ?.trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-') ||
-    'nailsou';
+    'bookora';
+
+  const initials = (businessName || session?.user.email || 'B')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const menuSections: { heading: string; items: MenuItem[] }[] = [
     {
@@ -41,17 +54,26 @@ export default function SettingsHub() {
       items: [
         {
           title: 'Business profile',
+          subtitle: 'Logo, address, contact & branding',
           icon: 'business-outline',
+          iconBg: colors.coralSoft,
+          iconColor: colors.coral,
           route: { pathname: '/settings', params: { section: 'Business profile' } },
         },
         {
           title: 'Business hours',
+          subtitle: 'Opening schedule & breaks',
           icon: 'time-outline',
+          iconBg: colors.peach,
+          iconColor: colors.warning,
           route: { pathname: '/settings', params: { section: 'Business hours' } },
         },
         {
           title: 'Booking preferences',
+          subtitle: 'Lead time, deposits & policy',
           icon: 'calendar-outline',
+          iconBg: colors.sky,
+          iconColor: colors.skyInk,
           route: { pathname: '/settings', params: { section: 'Booking preferences' } },
         },
       ],
@@ -61,13 +83,18 @@ export default function SettingsHub() {
       items: [
         {
           title: 'Services',
+          subtitle: 'Catalog, pricing & durations',
           icon: 'cut-outline',
+          iconBg: colors.mint,
+          iconColor: colors.success,
           route: '/services',
           badge: services.length || undefined,
         },
         {
           title: 'Team',
           icon: 'people-outline',
+          iconBg: colors.lilac,
+          iconColor: colors.navy,
           route: '/staff',
           comingSoon: true,
         },
@@ -79,12 +106,16 @@ export default function SettingsHub() {
         {
           title: 'Reports',
           icon: 'bar-chart-outline',
+          iconBg: colors.surfaceMuted,
+          iconColor: colors.muted,
           route: '/reports',
           comingSoon: true,
         },
         {
           title: 'Integrations',
           icon: 'git-network-outline',
+          iconBg: colors.surfaceMuted,
+          iconColor: colors.muted,
           route: '/integrations',
           comingSoon: true,
         },
@@ -97,7 +128,10 @@ export default function SettingsHub() {
           ? [
               {
                 title: 'Platform Admin Console',
+                subtitle: 'Clients, subscriptions & audit logs',
                 icon: 'shield-checkmark-outline' as IconName,
+                iconBg: colors.coralSoft,
+                iconColor: colors.coral,
                 route: '/admin' as Href,
                 badge: adminContext.role || 'admin',
               },
@@ -105,17 +139,26 @@ export default function SettingsHub() {
           : []),
         {
           title: 'Notifications',
+          subtitle: 'Reminders & delivery log',
           icon: 'notifications-outline',
+          iconBg: colors.peach,
+          iconColor: colors.warning,
           route: '/notifications',
         },
         {
           title: 'Account',
+          subtitle: session?.user.email || 'Profile & preferences',
           icon: 'person-outline',
+          iconBg: colors.sky,
+          iconColor: colors.skyInk,
           route: { pathname: '/settings', params: { section: 'Account' } },
         },
         {
           title: 'Security',
+          subtitle: 'Password & 2FA settings',
           icon: 'lock-closed-outline',
+          iconBg: colors.lilac,
+          iconColor: colors.navy,
           route: { pathname: '/settings', params: { section: 'Security' } },
         },
       ],
@@ -153,228 +196,111 @@ export default function SettingsHub() {
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.page}>
-      <View style={styles.topHeader}>
-        <Text style={styles.pageTitle}>Settings</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Share booking link"
-          onPress={() => void shareBookingPage()}
-          style={({ pressed }) => [styles.sharePill, pressed && styles.pressed]}
-        >
-          <Text style={styles.sharePillText} numberOfLines={1}>
-            {activeSlug}.bookoraph.com
+    <Screen>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Settings"
+        action={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share booking link"
+            onPress={() => void shareBookingPage()}
+            style={({ pressed }) => [styles.sharePill, pressed && styles.pressed]}
+          >
+            <Text style={styles.sharePillText} numberOfLines={1}>
+              {activeSlug}.bookoraph.com
+            </Text>
+            <Ionicons name="share-outline" size={15} color={colors.ink} />
+          </Pressable>
+        }
+      />
+
+      <Card style={styles.heroCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.heroTitle} numberOfLines={1}>
+            {businessName}
           </Text>
-          <Ionicons name="share-outline" size={15} color={colors.ink} />
-        </Pressable>
-      </View>
+          <Text style={styles.heroSub} numberOfLines={1}>
+            {session?.user.email || 'Bookora PH Workspace'}
+          </Text>
+        </View>
+        <StatusBadge status={adminContext.is_admin ? adminContext.role || 'admin' : 'active'} />
+      </Card>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {menuSections.map((section) => (
-          <View key={section.heading} style={styles.section}>
-            <Text style={styles.sectionHeading}>{section.heading}</Text>
-            <View style={styles.menuList}>
-              {section.items.map((item) => (
-                <Pressable
-                  key={item.title}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.comingSoon ? `${item.title}, Coming soon` : item.title}
-                  accessibilityState={{ disabled: Boolean(item.comingSoon) }}
-                  disabled={Boolean(item.comingSoon)}
-                  onPress={() => {
-                    if (!item.comingSoon) router.push(item.route);
-                  }}
-                  style={({ pressed }) => [
-                    styles.menuRow,
-                    item.comingSoon && styles.menuRowDisabled,
-                    !item.comingSoon && pressed && styles.rowPressed,
-                  ]}
-                >
-                  <View style={styles.menuRowLeft}>
-                    <Ionicons
-                      name={item.icon}
-                      size={19}
-                      color={item.comingSoon ? colors.muted : colors.ink}
-                    />
-                    <Text
-                      style={[
-                        styles.menuRowTitle,
-                        item.comingSoon && styles.menuRowTitleDisabled,
-                      ]}
-                    >
-                      {item.title}
-                    </Text>
-                  </View>
-                  <View style={styles.menuRowRight}>
-                    {item.comingSoon ? (
-                      <View style={styles.comingSoonBadge}>
-                        <Text style={styles.comingSoonBadgeText}>Coming soon</Text>
-                      </View>
-                    ) : (
-                      <>
-                        {item.badge !== undefined ? (
-                          <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{item.badge}</Text>
-                          </View>
-                        ) : null}
-                        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-                      </>
-                    )}
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ))}
+      {menuSections.map((section) => (
+        <NativeListGroup key={section.heading} title={section.heading}>
+          {section.items.map((item, idx) => (
+            <NativeListRow
+              key={item.title}
+              first={idx === 0}
+              icon={item.icon}
+              iconBg={item.iconBg}
+              iconColor={item.iconColor}
+              title={item.title}
+              subtitle={item.subtitle}
+              badge={item.comingSoon ? 'Soon' : item.badge}
+              chevron={!item.comingSoon}
+              disabled={Boolean(item.comingSoon)}
+              onPress={item.comingSoon ? undefined : () => router.push(item.route)}
+            />
+          ))}
+        </NativeListGroup>
+      ))}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
+      <NativeListGroup>
+        <NativeListRow
+          first
+          icon="log-out-outline"
+          iconBg={colors.coralSoft}
+          iconColor={colors.danger}
+          title="Sign out"
+          destructive
+          chevron={false}
           onPress={handleLogout}
-          style={({ pressed }) => [styles.signOutRow, pressed && styles.rowPressed]}
-        >
-          <View style={styles.menuRowLeft}>
-            <Ionicons name="log-out-outline" size={19} color={colors.danger} />
-            <Text style={styles.signOutText}>Sign out</Text>
-          </View>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+        />
+      </NativeListGroup>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.lg,
-    paddingTop: space.md,
-    paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  pageTitle: {
-    color: colors.ink,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '700',
-  },
   sharePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    maxWidth: '62%',
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    maxWidth: '56%',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: radius.pill,
-    backgroundColor: '#F3F4F6',
-  },
-  sharePillText: {
-    color: colors.ink,
-    fontSize: 12.5,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  pressed: {
-    opacity: 0.72,
-  },
-  rowPressed: {
-    backgroundColor: '#F8F9FA',
-  },
-  scrollContent: {
-    paddingHorizontal: space.lg,
-    paddingTop: 8,
-    paddingBottom: 48,
-    gap: 20,
-  },
-  section: {
-    gap: 4,
-  },
-  sectionHeading: {
-    color: colors.muted,
-    fontSize: 11.5,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    paddingHorizontal: 6,
-    marginBottom: 2,
-  },
-  menuList: {
-    backgroundColor: '#FFFFFF',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-  },
-  menuRowDisabled: {
-    opacity: 0.62,
-  },
-  menuRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  menuRowTitle: {
-    color: colors.ink,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  menuRowTitleDisabled: {
-    color: colors.muted,
-  },
-  menuRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  comingSoonBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
   },
-  comingSoonBadgeText: {
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: '600',
+  sharePillText: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '700',
+    flexShrink: 1,
   },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: '#F3F4F6',
-  },
-  badgeText: {
-    color: colors.muted,
-    fontSize: 11.5,
-    fontWeight: '600',
-  },
-  signOutRow: {
+  pressed: { opacity: 0.72 },
+  heroCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: space.md,
     paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderRadius: 10,
   },
-  signOutText: {
-    color: colors.danger,
-    fontSize: 15,
-    fontWeight: '600',
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  avatarText: { color: colors.coral, fontSize: 16, fontWeight: '800' },
+  heroTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  heroSub: { color: colors.muted, fontSize: 12 },
 });

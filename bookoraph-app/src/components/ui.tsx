@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { type ComponentProps, type PropsWithChildren, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ComponentProps, type PropsWithChildren, type ReactNode, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   Platform,
@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/app-text';
 import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
-import { colors, radius, space } from '@/theme';
+import { colors, radius, shadows, space } from '@/theme';
 
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -46,12 +46,15 @@ export function Screen({
       {fixedHeader}
       <KeyboardAwareScrollView
         stickyHeaderIndices={stickyHeaderIndices}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[styles.screen, style]}
         refreshControl={
           onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.coral} /> : undefined
         }
       >
-        {children}
+        <View style={styles.screenInner}>{children}</View>
       </KeyboardAwareScrollView>
       {floatingAction}
     </SafeAreaView>
@@ -83,6 +86,155 @@ export function PageHeader({
 
 export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   return <View style={[styles.card, style]}>{children}</View>;
+}
+
+export function GlassSurface({
+  children,
+  style,
+  interactive = false,
+}: PropsWithChildren<{ style?: StyleProp<ViewStyle>; interactive?: boolean }>) {
+  const glassAvailable = Platform.OS === 'ios' && isGlassEffectAPIAvailable();
+  if (glassAvailable) {
+    return (
+      <GlassView
+        glassEffectStyle="regular"
+        isInteractive={interactive}
+        style={[styles.glassSurface, style]}
+      >
+        {children}
+      </GlassView>
+    );
+  }
+  return <View style={[styles.glassFallback, style]}>{children}</View>;
+}
+
+export function SegmentedControl<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: readonly { value: T; label: string; badge?: string | number }[];
+  value: T;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <View style={styles.segmentTrack} accessibilityRole="tablist">
+      {items.map((item) => {
+        const selected = item.value === value;
+        return (
+          <Pressable
+            key={item.value}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(item.value)}
+            style={({ pressed }) => [
+              styles.segmentTab,
+              selected && styles.segmentTabActive,
+              pressed && !selected && { opacity: 0.72 },
+            ]}
+          >
+            <Text style={[styles.segmentLabel, selected && styles.segmentLabelActive]} numberOfLines={1}>
+              {item.label}
+            </Text>
+            {item.badge !== undefined ? (
+              <View style={[styles.segmentBadge, selected && styles.segmentBadgeActive]}>
+                <Text style={[styles.segmentBadgeText, selected && styles.segmentBadgeTextActive]}>
+                  {item.badge}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function NativeListGroup({
+  title,
+  footer,
+  children,
+}: PropsWithChildren<{ title?: string; footer?: string }>) {
+  return (
+    <View style={styles.listGroupWrap}>
+      {title ? <Text style={styles.listGroupTitle}>{title}</Text> : null}
+      <View style={styles.listGroupCard}>{children}</View>
+      {footer ? <Text style={styles.listGroupFooter}>{footer}</Text> : null}
+    </View>
+  );
+}
+
+export function NativeListRow({
+  icon,
+  iconBg = colors.surfaceMuted,
+  iconColor = colors.ink,
+  title,
+  subtitle,
+  value,
+  badge,
+  chevron = true,
+  destructive = false,
+  disabled = false,
+  first = false,
+  onPress,
+}: {
+  icon?: IconName;
+  iconBg?: string;
+  iconColor?: string;
+  title: string;
+  subtitle?: string;
+  value?: string;
+  badge?: string | number;
+  chevron?: boolean;
+  destructive?: boolean;
+  disabled?: boolean;
+  first?: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
+      disabled={disabled || !onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.listRow,
+        !first && styles.listRowBorder,
+        disabled && styles.listRowDisabled,
+        pressed && onPress && !disabled && styles.listRowPressed,
+      ]}
+    >
+      {icon ? (
+        <View style={[styles.listRowIcon, { backgroundColor: iconBg }]}>
+          <Ionicons name={icon} size={17} color={destructive ? colors.danger : iconColor} />
+        </View>
+      ) : null}
+      <View style={styles.listRowBody}>
+        <Text style={[styles.listRowTitle, destructive && { color: colors.danger }]} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={styles.listRowSubtitle} numberOfLines={2}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.listRowRight}>
+        {value ? (
+          <Text style={styles.listRowValue} numberOfLines={1}>
+            {value}
+          </Text>
+        ) : null}
+        {badge !== undefined ? (
+          <View style={styles.listRowBadge}>
+            <Text style={styles.listRowBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+        {chevron && onPress ? <Ionicons name="chevron-forward" size={17} color="#B4ABA0" /> : null}
+      </View>
+    </Pressable>
+  );
 }
 
 export function Button({
@@ -322,7 +474,7 @@ export function LoadingState({
   message?: string;
   onRetry?: () => void;
 } = {}) {
-  const spinAnim = useRef(new Animated.Value(0)).current;
+  const [spinAnim] = useState(() => new Animated.Value(0));
   const [isOffline, setIsOffline] = useState(() =>
     Platform.OS === 'web' && typeof navigator !== 'undefined' ? !navigator.onLine : false,
   );
@@ -435,13 +587,103 @@ export const uiStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  screen: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 14 },
+  screen: { paddingHorizontal: space.lg, paddingBottom: 120 },
+  screenInner: { width: '100%', maxWidth: 680, alignSelf: 'center', gap: 14 },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: space.md, paddingTop: space.md },
   headerCopy: { flex: 1, gap: space.xs },
-  eyebrow: { color: colors.coral, fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
-  title: { color: colors.ink, fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.6 },
+  eyebrow: { color: colors.coral, fontSize: 11, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' },
+  title: { color: colors.ink, fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.7 },
   description: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 14, padding: space.lg },
+  card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: space.lg, ...shadows.card },
+  glassSurface: { borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
+  glassFallback: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: Platform.OS === 'web' ? 'rgba(255, 255, 255, 0.88)' : colors.surface,
+    ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(16px)' } as ViewStyle) : shadows.card),
+  },
+  segmentTrack: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.lineSoft,
+    gap: 4,
+  },
+  segmentTab: {
+    flex: 1,
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  segmentTabActive: {
+    backgroundColor: colors.surface,
+    ...shadows.card,
+  },
+  segmentLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  segmentLabelActive: { color: colors.ink },
+  segmentBadge: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    backgroundColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentBadgeActive: { backgroundColor: colors.coralSoft },
+  segmentBadgeText: { color: colors.muted, fontSize: 10, fontWeight: '800' },
+  segmentBadgeTextActive: { color: colors.coral },
+  listGroupWrap: { gap: 7 },
+  listGroupTitle: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    paddingHorizontal: 6,
+  },
+  listGroupCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  listGroupFooter: { color: colors.muted, fontSize: 12, lineHeight: 17, paddingHorizontal: 6 },
+  listRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: colors.surface,
+  },
+  listRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  listRowDisabled: { opacity: 0.52 },
+  listRowPressed: { backgroundColor: '#F7F3ED' },
+  listRowIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  listRowBody: { flex: 1, gap: 2 },
+  listRowTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
+  listRowSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 16 },
+  listRowRight: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '42%' },
+  listRowValue: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  listRowBadge: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.coralSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  listRowBadgeText: { color: colors.coral, fontSize: 11, fontWeight: '800' },
   button: {
     minHeight: 48,
     flexDirection: 'row',

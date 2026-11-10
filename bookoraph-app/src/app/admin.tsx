@@ -22,9 +22,12 @@ import {
   Field,
   LoadingState,
   Metric,
+  NativeListGroup,
+  NativeListRow,
   PageHeader,
   Screen,
   SearchField,
+  SegmentedControl,
   StatusBadge,
 } from '@/components/ui';
 import {
@@ -405,29 +408,17 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
         }
       />
 
-      {/* Top Segmented Navigation */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
-        {(
-          [
-            ['overview', 'Overview', 'pulse-outline'],
-            ['clients', 'Clients', 'business-outline'],
-            ['audit', 'Audit Logs', 'shield-checkmark-outline'],
-            ['admins', 'Plans & Admins', 'settings-outline'],
-          ] as [MainTab, string, keyof typeof Ionicons.glyphMap][]
-        ).map(([key, label, icon]) => {
-          const active = tab === key;
-          return (
-            <Pressable
-              key={key}
-              onPress={() => setTab(key)}
-              style={[styles.tabPill, active && styles.tabPillActive]}
-            >
-              <Ionicons name={icon} size={15} color={active ? '#fff' : colors.ink} />
-              <Text style={[styles.tabPillText, active && styles.tabPillTextActive]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* Native Segmented Navigation */}
+      <SegmentedControl
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'clients', label: 'Clients', badge: stats?.total_businesses },
+          { value: 'audit', label: 'Audit' },
+          { value: 'admins', label: 'Admins' },
+        ]}
+      />
 
       {tab === 'overview' && (
         <View style={styles.sectionGap}>
@@ -610,24 +601,14 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
 
       {tab === 'audit' && (
         <View style={styles.sectionGap}>
-          <View style={styles.segmentRow}>
-            <Pressable
-              onPress={() => setAuditView('admin')}
-              style={[styles.segmentBtn, auditView === 'admin' && styles.segmentBtnActive]}
-            >
-              <Text style={[styles.segmentText, auditView === 'admin' && styles.segmentTextActive]}>
-                Admin & Platform Logs
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setAuditView('security')}
-              style={[styles.segmentBtn, auditView === 'security' && styles.segmentBtnActive]}
-            >
-              <Text style={[styles.segmentText, auditView === 'security' && styles.segmentTextActive]}>
-                Password & Security Logs
-              </Text>
-            </Pressable>
-          </View>
+          <SegmentedControl
+            value={auditView}
+            onChange={setAuditView}
+            items={[
+              { value: 'admin', label: 'Admin & Platform Logs' },
+              { value: 'security', label: 'Password & Security' },
+            ]}
+          />
 
           <SearchField
             value={auditSearch}
@@ -695,43 +676,48 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
 
       {tab === 'admins' && (
         <View style={styles.sectionGap}>
-          <Card style={styles.cardGap}>
-            <Text style={styles.cardTitle}>Subscription Tiers & Xendit Paywall</Text>
-            {plans.map((p) => (
-              <View key={p.code} style={styles.listItem}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.itemTitle}>
-                    {p.name} ({formatCurrency(p.monthly_price_php)}/mo)
-                  </Text>
-                  <Text style={styles.mutedSmall}>
-                    {p.description} · Staff: {p.max_staff ?? 'Unlimited'} · Locations: {p.max_locations ?? 'Unlimited'}
-                  </Text>
-                </View>
-                <StatusBadge status={p.is_active ? 'active' : 'paused'} />
-              </View>
+          <NativeListGroup
+            title="Subscription Tiers & Xendit Paywall"
+            footer="Xendit Edge Functions (xendit-create-checkout & xendit-webhook) are ready. Add XENDIT_SECRET_KEY and XENDIT_CALLBACK_TOKEN in Supabase secrets when going live."
+          >
+            {plans.map((p, idx) => (
+              <NativeListRow
+                key={p.code}
+                first={idx === 0}
+                icon="card-outline"
+                iconBg={p.code === 'pro' ? colors.mint : p.code === 'starter' ? colors.peach : colors.surfaceMuted}
+                iconColor={p.code === 'pro' ? colors.success : p.code === 'starter' ? colors.warning : colors.muted}
+                title={`${p.name} · ${formatCurrency(p.monthly_price_php)}/mo`}
+                subtitle={`${p.description} · Staff: ${p.max_staff ?? 'Unlimited'}`}
+                badge={p.is_active ? 'Active' : 'Off'}
+                chevron={false}
+              />
             ))}
-            <Text style={styles.mutedSmall}>
-              Xendit checkout & webhook Edge Functions (`xendit-create-checkout` & `xendit-webhook`) are ready in Supabase. Add `XENDIT_SECRET_KEY` and `XENDIT_CALLBACK_TOKEN` when going live.
-            </Text>
-          </Card>
+          </NativeListGroup>
 
-          <Card style={styles.cardGap}>
-            <Text style={styles.cardTitle}>Platform Admins</Text>
+          <NativeListGroup title="Platform Admins">
             {adminsLoading ? (
-              <ActivityIndicator color={colors.coral} />
+              <View style={{ padding: space.lg }}>
+                <ActivityIndicator color={colors.coral} />
+              </View>
             ) : (
-              platformAdmins.map((pa) => (
-                <View key={pa.id} style={styles.listItem}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={styles.itemTitle}>{pa.email}</Text>
-                    <Text style={styles.mutedSmall}>
-                      {pa.role} · {pa.user_id ? 'Auth linked' : 'Pending first sign-in'}
-                    </Text>
-                  </View>
-                  <StatusBadge status={pa.is_active ? 'active' : 'paused'} />
-                </View>
+              platformAdmins.map((pa, idx) => (
+                <NativeListRow
+                  key={pa.id}
+                  first={idx === 0}
+                  icon="shield-checkmark-outline"
+                  iconBg={colors.coralSoft}
+                  iconColor={colors.coral}
+                  title={pa.email}
+                  subtitle={`${pa.role} · ${pa.user_id ? 'Auth linked' : 'Pending first sign-in'}`}
+                  badge={pa.is_active ? 'Active' : 'Paused'}
+                  chevron={false}
+                />
               ))
             )}
+          </NativeListGroup>
+
+          <Card style={styles.cardGap}>
 
             {isSuperAdmin && (
               <View style={styles.formGap}>
@@ -794,6 +780,7 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
       <Modal
         visible={Boolean(selectedUserId)}
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => {
           setSelectedUserId(null);
           setClientDetail(null);
@@ -825,26 +812,16 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
             <LoadingState message="Loading client credentials & profile…" />
           ) : (
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {(
-                  [
-                    ['credentials', 'Credentials'],
-                    ['profile', 'Business Profile'],
-                    ['plan', 'Subscription'],
-                    ['logs', 'Logs'],
-                  ] as [DrawerTab, string][]
-                ).map(([key, label]) => (
-                  <Pressable
-                    key={key}
-                    onPress={() => setDrawerTab(key)}
-                    style={[styles.filterChip, drawerTab === key && styles.filterChipActive]}
-                  >
-                    <Text style={[styles.filterChipText, drawerTab === key && styles.filterChipTextActive]}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+              <SegmentedControl
+                value={drawerTab}
+                onChange={setDrawerTab}
+                items={[
+                  { value: 'credentials', label: 'Credentials' },
+                  { value: 'profile', label: 'Profile' },
+                  { value: 'plan', label: 'Plan' },
+                  { value: 'logs', label: 'Logs' },
+                ]}
+              />
 
               {drawerTab === 'credentials' && (
                 <View style={styles.sectionGap}>
@@ -1119,6 +1096,7 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
       <Modal
         visible={Boolean(inspectedLog)}
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setInspectedLog(null)}
       >
         <SafeAreaView style={styles.modalSafe}>
