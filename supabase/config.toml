@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.process-outbound-webhooks]
 verify_jwt = false
+
+[functions.xendit-webhook]
+verify_jwt = false
+
+[functions.xendit-create-checkout]
+verify_jwt = false

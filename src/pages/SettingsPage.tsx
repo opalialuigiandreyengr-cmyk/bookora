@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChangePasswordModal } from "@/pages/ChangePasswordModal"
+import { BillingSettings } from "@/pages/BillingSettings"
 import { supabase } from "@/lib/supabase"
 import { showToast } from "@/components/ui/toast"
 
@@ -2017,6 +2018,8 @@ export function SettingsPage({ user, onSignOut }: { user: User; onSignOut: () =>
             <AccountSettings user={user} />
           ) : active === "Security" ? (
             <SecuritySettings user={user} />
+          ) : active === "Billing" ? (
+            <BillingSettings user={user} />
           ) : (
             <section className="dashboard-placeholder">
               <span className="placeholder-icon">

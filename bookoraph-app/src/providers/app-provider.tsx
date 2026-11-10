@@ -5,6 +5,12 @@ import { Platform } from 'react-native';
 
 import { sendAppointmentUpdateEmail } from '@/lib/appointment-notifications';
 import { resolveAppointmentServices, validateAppointmentSchedule } from '@/lib/appointment-scheduling';
+import {
+  EMPTY_ADMIN_CONTEXT,
+  fetchAdminContext,
+  recordAdminAuditEvent,
+  type AdminContext,
+} from '@/lib/admin';
 import { createAuthCallbackUrl, type OAuthSignInResult, parseAuthCallbackUrl } from '@/lib/auth-callback';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import type {
@@ -238,6 +244,7 @@ type AppContextValue = {
   businessName: string;
   publicBookingUrl: string;
   needsOnboarding: boolean;
+  adminContext: AdminContext;
   refresh: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (payload: { email: string; password: string }) => Promise<string | null>;
@@ -387,8 +394,10 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [webhookDeliveries, setWebhookDeliveries] = useState<WebhookDelivery[]>([]);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(() => createDefaultBusinessProfile(null));
   const [hasBusinessProfileRow, setHasBusinessProfileRow] = useState(false);
+  const [adminContext, setAdminContext] = useState<AdminContext>(EMPTY_ADMIN_CONTEXT);
   const loadedBusinessId = useRef<string | null>(null);
   const loadRequestId = useRef(0);
+  const adminAuditLoggedUserId = useRef<string | null>(null);
 
   const resetWorkspaceState = useCallback((activeSession: Session | null) => {
     setAppointments([]);
@@ -412,6 +421,10 @@ export function AppProvider({ children }: PropsWithChildren) {
     setWebhookDeliveries([]);
     setBusinessProfile(createDefaultBusinessProfile(activeSession));
     setHasBusinessProfileRow(false);
+    setAdminContext(EMPTY_ADMIN_CONTEXT);
+    if (!activeSession) {
+      adminAuditLoggedUserId.current = null;
+    }
   }, []);
 
   const load = useCallback(async (activeSession: Session | null) => {
@@ -629,6 +642,26 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (!whDelRes.error && whDelRes.data) setWebhookDeliveries(whDelRes.data as WebhookDelivery[]);
     } catch {
       // Optional secondary tables may not exist in older schemas
+    }
+
+    try {
+      const nextAdmin = await fetchAdminContext();
+      if (requestId === loadRequestId.current) {
+        setAdminContext(nextAdmin);
+        if (nextAdmin.is_admin && adminAuditLoggedUserId.current !== businessId) {
+          adminAuditLoggedUserId.current = businessId;
+          void recordAdminAuditEvent({
+            action: 'admin.session_opened',
+            category: 'auth',
+            severity: 'info',
+            targetUserId: businessId,
+            targetEmail: activeSession.user.email || '',
+            summary: `Platform admin session opened in mobile/Expo app by ${activeSession.user.email || businessId}`,
+          });
+        }
+      }
+    } catch {
+      if (requestId === loadRequestId.current) setAdminContext(EMPTY_ADMIN_CONTEXT);
     }
 
     setLoading(false);
@@ -1727,6 +1760,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     businessName,
     publicBookingUrl,
     needsOnboarding,
+    adminContext,
     refresh,
     signIn,
     signUp,

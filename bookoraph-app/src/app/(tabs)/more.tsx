@@ -20,6 +20,7 @@ type MenuItem = {
 
 export default function SettingsHub() {
   const {
+    adminContext,
     businessProfile,
     publicBookingUrl,
     services,
@@ -92,6 +93,16 @@ export default function SettingsHub() {
     {
       heading: 'Account & system',
       items: [
+        ...(adminContext.is_admin
+          ? [
+              {
+                title: 'Platform Admin Console',
+                icon: 'shield-checkmark-outline' as IconName,
+                route: '/admin' as Href,
+                badge: adminContext.role || 'admin',
+              },
+            ]
+          : []),
         {
           title: 'Notifications',
           icon: 'notifications-outline',

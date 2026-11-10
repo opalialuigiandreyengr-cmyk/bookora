@@ -25,8 +25,10 @@ const AdvancedSchedulingPage = lazy(() => import("@/pages/AdvancedSchedulingPage
 const MembershipsPage = lazy(() => import("@/pages/MembershipsPage").then((module) => ({ default: module.MembershipsPage })))
 const BlockTimePage = lazy(() => import("@/pages/BlockTimePage").then((module) => ({ default: module.BlockTimePage })))
 const StaffWorkspacePage = lazy(() => import("@/pages/StaffWorkspacePage").then((module) => ({ default: module.StaffWorkspacePage })))
+const AdminDashboardPage = lazy(() => import("@/pages/AdminDashboardPage").then((module) => ({ default: module.AdminDashboardPage })))
 import { isOwnerRoute, getOwnerRoute } from "@/lib/ownerNavigation"
 import { getCrossSubdomainCookie, clearCrossSubdomainCookie } from "@/lib/domain"
+import { fetchAdminContext, recordAdminAuditEvent, type AdminContext } from "@/lib/admin"
 
 function WorkspaceLoadingSkeleton({ label = "Loading Bookora…" }: { label?: string }) {
   return <div className="app-loading-skeleton" role="status" aria-label={label}>
@@ -63,8 +65,14 @@ function AppContent() {
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [staffContext, setStaffContext] = useState<{ business_id: string; staff_member_id: string; role: string } | null>(null)
   const [staffContextLoading, setStaffContextLoading] = useState(false)
+  const [adminContext, setAdminContext] = useState<AdminContext | null>(null)
+  const [adminContextLoading, setAdminContextLoading] = useState(false)
+  const [adminViewMode, setAdminViewMode] = useState<"admin" | "owner">(() =>
+    new URLSearchParams(window.location.search).get("view") === "owner" ? "owner" : "admin"
+  )
   const [showPasskey, setShowPasskey] = useState(false)
   const welcomeToastUserId = useRef<string | null>(null)
+  const adminAuditLoggedUserId = useRef<string | null>(null)
 
   const isRootDomain = ["bookoraph.com", "www.bookoraph.com", "bookora.com", "www.bookora.com"].includes(hostname)
   const cookieSlug = getCrossSubdomainCookie("bookora_client_slug")
@@ -127,7 +135,15 @@ function AppContent() {
   useEffect(() => {
     if (isCustomerBooking) return
     if (!user) return
+    if (adminContextLoading) return
     const returnUrl = getCrossSubdomainCookie("bookora_client_return")
+
+    if (adminContext?.is_admin && adminViewMode === "admin") {
+      if (window.location.pathname !== "/admin") {
+        window.history.replaceState({}, "", "/admin")
+      }
+      return
+    }
 
     if (isClient) {
       if (returnUrl) {
@@ -141,7 +157,7 @@ function AppContent() {
         return
       }
       // Clients should never be redirected to business onboarding or salon dashboard
-      const internalBusinessRoutes = ["/dashboard", "/onboarding", "/services", "/calendar", "/settings", "/appointments", "/clients", "/staff", "/payments", "/reports", "/notifications", "/integrations", "/integrations/webhooks", "/packages", "/advanced-scheduling", "/block-time", "/memberships"]
+      const internalBusinessRoutes = ["/admin", "/dashboard", "/onboarding", "/services", "/calendar", "/settings", "/appointments", "/clients", "/staff", "/payments", "/reports", "/notifications", "/integrations", "/integrations/webhooks", "/packages", "/advanced-scheduling", "/block-time", "/memberships"]
       if (internalBusinessRoutes.includes(window.location.pathname)) {
         const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
         window.history.replaceState({}, "", destination)
@@ -155,7 +171,42 @@ function AppContent() {
         : "/dashboard"
       : "/onboarding"
     if (window.location.pathname !== destination) window.history.replaceState({}, "", destination)
-  }, [user, onboardingDone, isClient, clientSlug, hostname])
+  }, [user, onboardingDone, isClient, clientSlug, hostname, adminContext?.is_admin, adminContextLoading, adminViewMode, isCustomerBooking])
+
+  useEffect(() => {
+    if (isCustomerBooking || !user || !supabase || user.id === "preview-user-123") {
+      setAdminContext(null)
+      setAdminContextLoading(false)
+      return
+    }
+    let active = true
+    const loadAdminContext = async () => {
+      setAdminContextLoading(true)
+      try {
+        const nextAdmin = await fetchAdminContext()
+        if (!active) return
+        setAdminContext(nextAdmin)
+        if (nextAdmin.is_admin && adminAuditLoggedUserId.current !== user.id) {
+          adminAuditLoggedUserId.current = user.id
+          void recordAdminAuditEvent({
+            action: "admin.session_opened",
+            category: "auth",
+            severity: "info",
+            targetUserId: user.id,
+            targetEmail: user.email || "",
+            summary: `Platform admin session opened by ${user.email || user.id}`,
+          })
+        }
+      } catch {
+        if (!active) return
+        setAdminContext(null)
+      } finally {
+        if (active) setAdminContextLoading(false)
+      }
+    }
+    void loadAdminContext()
+    return () => { active = false }
+  }, [isCustomerBooking, user?.id])
 
   useEffect(() => {
     if (isCustomerBooking || !user || !supabase || user.id === "preview-user-123") return
@@ -202,7 +253,33 @@ function AppContent() {
     return <><ToastViewport /><LandingPage clientUser={user} /></>
   }
 
-  if (user && staffContextLoading) return <><ToastViewport /><WorkspaceLoadingSkeleton label="Loading your workspace…" /></>
+  if (user && (adminContextLoading || staffContextLoading)) return <><ToastViewport /><WorkspaceLoadingSkeleton label="Loading your workspace…" /></>
+  if (user && adminContext?.is_admin && (adminViewMode === "admin" || window.location.pathname === "/admin")) {
+    const handleAdminSignOut = async () => {
+      adminAuditLoggedUserId.current = null
+      setAdminContext(null)
+      await supabase?.auth.signOut()
+      window.history.replaceState({}, "", "/")
+    }
+    return (
+      <>
+        <ToastViewport />
+        <AdminDashboardPage
+          user={user}
+          adminContext={adminContext}
+          onSignOut={handleAdminSignOut}
+          onSwitchToOwner={
+            onboardingDone
+              ? () => {
+                  setAdminViewMode("owner")
+                  window.history.replaceState({}, "", "/dashboard?view=owner")
+                }
+              : undefined
+          }
+        />
+      </>
+    )
+  }
   if (user && staffContext) return <><ToastViewport /><StaffWorkspacePage user={user} businessId={staffContext.business_id} role={staffContext.role} /></>
   if (user && !onboardingDone) return <><ToastViewport /><OnboardingPage user={user} onComplete={() => { setOnboardingDone(true); if (localStorage.getItem("bookora-passkey-prompted") !== "true") setShowPasskey(true) }} /></>
   if (user && onboardingDone) {
@@ -302,7 +379,7 @@ function AppContent() {
     )
   }
 
-  if (["/signup", "/login", "/register", "/get-started", "/auth"].includes(pathname)) {
+  if (["/signup", "/login", "/register", "/get-started", "/auth", "/admin"].includes(pathname)) {
     return <><ToastViewport /><SignupPage /></>
   }
 

@@ -176,6 +176,7 @@ function AppNavigator() {
       void import('./integrations').catch(() => undefined);
       void import('./notifications').catch(() => undefined);
       void import('./settings').catch(() => undefined);
+      void import('./admin').catch(() => undefined);
       void import('./block-time').catch(() => undefined);
       void import('./packages').catch(() => undefined);
       void import('./memberships').catch(() => undefined);
@@ -218,6 +219,7 @@ function AppNavigator() {
         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
         <Stack.Protected guard={Boolean(session)} redirectTo="/sign-in">
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="admin" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="appointment/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, type Href } from 'expo-router';
 import { type ElementRef, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,7 +23,7 @@ type FocusedField = 'email' | 'password' | null;
 type AuthMode = 'signin' | 'signup' | 'reset';
 
 export default function SignIn() {
-  const { session, loading, needsOnboarding, configured, signIn, signUp, signInWithGoogle, resetPassword } = useApp();
+  const { session, loading, needsOnboarding, adminContext, configured, signIn, signUp, signInWithGoogle, resetPassword } = useApp();
   const passwordRef = useRef<ElementRef<typeof TextInput>>(null);
   const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
@@ -35,6 +35,7 @@ export default function SignIn() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   if (session && !loading) {
+    if (adminContext.is_admin) return <Redirect href={'/admin' as Href} />;
     return <Redirect href={needsOnboarding ? '/onboarding' : '/(tabs)'} />;
   }
 
