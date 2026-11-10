@@ -2,8 +2,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { type ComponentProps, type PropsWithChildren, type ReactNode, useEffect, useState } from 'react';
+import { type ComponentProps, type PropsWithChildren, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Platform,
@@ -12,6 +13,9 @@ import {
   StyleSheet,
   TextInput,
   View,
+  type GestureResponderEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -41,6 +45,52 @@ export function Screen({
   floatingAction?: ReactNode;
   fixedHeader?: ReactNode;
 }>) {
+  const scrollYRef = useRef(0);
+  const pullStartYRef = useRef<number | null>(null);
+  const [pullOffset, setPullOffset] = useState(0);
+  const pullThreshold = 58;
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollYRef.current = event.nativeEvent.contentOffset.y;
+  };
+
+  const webPullHandlers =
+    Platform.OS === 'web' && onRefresh
+      ? {
+          onTouchStart: (event: GestureResponderEvent) => {
+            if (scrollYRef.current <= 2 && !refreshing) {
+              pullStartYRef.current = event.nativeEvent.touches?.[0]?.pageY ?? null;
+            } else {
+              pullStartYRef.current = null;
+            }
+          },
+          onTouchMove: (event: GestureResponderEvent) => {
+            if (pullStartYRef.current === null || refreshing) return;
+            if (scrollYRef.current > 2) {
+              pullStartYRef.current = null;
+              setPullOffset(0);
+              return;
+            }
+            const currentY = event.nativeEvent.touches?.[0]?.pageY ?? pullStartYRef.current;
+            const delta = Math.max(0, currentY - pullStartYRef.current);
+            if (delta > 6) {
+              setPullOffset(Math.min(76, delta * 0.55));
+            }
+          },
+          onTouchEnd: () => {
+            if (pullStartYRef.current !== null && pullOffset >= pullThreshold && !refreshing) {
+              onRefresh();
+            }
+            pullStartYRef.current = null;
+            setPullOffset(0);
+          },
+          onTouchCancel: () => {
+            pullStartYRef.current = null;
+            setPullOffset(0);
+          },
+        }
+      : {};
+
   return (
     <SafeAreaView edges={['top']} style={[styles.safe, { backgroundColor }]}>
       {fixedHeader}
@@ -49,11 +99,32 @@ export function Screen({
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.screen, style]}
         refreshControl={
           onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.coral} /> : undefined
         }
+        {...webPullHandlers}
       >
+        {Platform.OS === 'web' && onRefresh && (pullOffset > 0 || refreshing) ? (
+          <View style={[styles.webPullBanner, { height: refreshing ? 44 : Math.max(28, pullOffset * 0.7) }]}>
+            {refreshing ? (
+              <ActivityIndicator size="small" color={colors.coral} />
+            ) : (
+              <View style={styles.webPullRow}>
+                <Ionicons
+                  name={pullOffset >= pullThreshold ? 'arrow-up' : 'arrow-down'}
+                  size={15}
+                  color={colors.coral}
+                />
+                <Text style={styles.webPullText}>
+                  {pullOffset >= pullThreshold ? 'Release to refresh' : 'Slide down to refresh'}
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
         <View style={styles.screenInner}>{children}</View>
       </KeyboardAwareScrollView>
       {floatingAction}
@@ -589,6 +660,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   screen: { paddingHorizontal: space.lg, paddingBottom: 120 },
   screenInner: { width: '100%', maxWidth: 680, alignSelf: 'center', gap: 14 },
+  webPullBanner: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  webPullRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  webPullText: { color: colors.coral, fontSize: 12, fontWeight: '700' },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: space.md, paddingTop: space.md },
   headerCopy: { flex: 1, gap: space.xs },
   eyebrow: { color: colors.coral, fontSize: 11, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' },

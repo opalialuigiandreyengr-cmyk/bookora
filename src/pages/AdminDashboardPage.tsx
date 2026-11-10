@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Store,
+  Trash2,
   UserCheck,
   UserX,
   Users,
@@ -45,6 +46,9 @@ import { Button } from "@/components/ui/button"
 import { showToast } from "@/components/ui/toast"
 import { supabase } from "@/lib/supabase"
 import {
+  deleteAdminAuditLog,
+  deleteAdminAuditLogs,
+  deleteUserSecurityLog,
   fetchAdminAuditLogs,
   fetchAdminClientDetail,
   fetchAdminClients,
@@ -70,6 +74,32 @@ import {
 
 type AdminTab = "overview" | "clients" | "subscriptions" | "audit" | "admins"
 type ClientDrawerTab = "credentials" | "profile" | "subscription" | "logs"
+type DateRangePreset = "all" | "today" | "7d" | "30d" | "custom"
+
+const toIsoBounds = (preset: DateRangePreset, customFrom: string, customTo: string) => {
+  const manilaToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })
+  const shiftDays = (days: number) => {
+    const d = new Date(`${manilaToday}T00:00:00+08:00`)
+    d.setDate(d.getDate() - days)
+    return d.toISOString()
+  }
+  if (preset === "today") {
+    return { dateFrom: `${manilaToday}T00:00:00+08:00`, dateTo: `${manilaToday}T23:59:59+08:00` }
+  }
+  if (preset === "7d") {
+    return { dateFrom: shiftDays(6), dateTo: `${manilaToday}T23:59:59+08:00` }
+  }
+  if (preset === "30d") {
+    return { dateFrom: shiftDays(29), dateTo: `${manilaToday}T23:59:59+08:00` }
+  }
+  if (preset === "custom") {
+    return {
+      dateFrom: customFrom ? `${customFrom}T00:00:00+08:00` : null,
+      dateTo: customTo ? `${customTo}T23:59:59+08:00` : null,
+    }
+  }
+  return { dateFrom: null, dateTo: null }
+}
 
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return "—"
@@ -200,6 +230,10 @@ export function AdminDashboardPage({
   const [auditSearch, setAuditSearch] = useState("")
   const [auditCategory, setAuditCategory] = useState("all")
   const [auditSeverity, setAuditSeverity] = useState("all")
+  const [auditDatePreset, setAuditDatePreset] = useState<DateRangePreset>("all")
+  const [auditDateFrom, setAuditDateFrom] = useState("")
+  const [auditDateTo, setAuditDateTo] = useState("")
+  const [deletingLogs, setDeletingLogs] = useState(false)
   const [auditPage, setAuditPage] = useState(1)
   const [inspectedLog, setInspectedLog] = useState<AdminAuditLogRow | null>(null)
   const auditPageSize = 25
@@ -261,11 +295,14 @@ export function AdminDashboardPage({
   const loadAuditLogs = useCallback(async () => {
     setAuditLoading(true)
     try {
+      const { dateFrom, dateTo } = toIsoBounds(auditDatePreset, auditDateFrom, auditDateTo)
       if (auditView === "admin") {
         const { rows, totalCount } = await fetchAdminAuditLogs({
           search: auditSearch,
           category: auditCategory,
           severity: auditSeverity,
+          dateFrom,
+          dateTo,
           limit: auditPageSize,
           offset: (auditPage - 1) * auditPageSize,
         })
@@ -274,6 +311,8 @@ export function AdminDashboardPage({
       } else {
         const { rows, totalCount } = await fetchUserSecurityLogs({
           search: auditSearch,
+          dateFrom,
+          dateTo,
           limit: auditPageSize,
           offset: (auditPage - 1) * auditPageSize,
         })
@@ -285,7 +324,7 @@ export function AdminDashboardPage({
     } finally {
       setAuditLoading(false)
     }
-  }, [auditCategory, auditPage, auditSearch, auditSeverity, auditView])
+  }, [auditCategory, auditDateFrom, auditDatePreset, auditDateTo, auditPage, auditSearch, auditSeverity, auditView])
 
   const loadPlatformAdmins = useCallback(async () => {
     setAdminsLoading(true)
@@ -474,6 +513,52 @@ export function AdminDashboardPage({
     })
     showToast("Client list exported to CSV")
   }
+
+  const handleDeleteAuditLog = useCallback(async (logId: string) => {
+    if (!canMutate) return
+    if (!window.confirm("Delete this audit log entry permanently?")) return
+    setDeletingLogs(true)
+    try {
+      await deleteAdminAuditLog(logId)
+      if (inspectedLog?.id === logId) setInspectedLog(null)
+      showToast("Audit log deleted.")
+      await Promise.all([loadAuditLogs(), loadOverview()])
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete audit log.", "error")
+    } finally {
+      setDeletingLogs(false)
+    }
+  }, [canMutate, inspectedLog?.id, loadAuditLogs, loadOverview])
+
+  const handleDeletePageAuditLogs = async () => {
+    if (!canMutate || !auditLogs.length) return
+    if (!window.confirm(`Permanently delete ${auditLogs.length} displayed audit log(s)?`)) return
+    setDeletingLogs(true)
+    try {
+      const deleted = await deleteAdminAuditLogs({ logIds: auditLogs.map((l) => l.id) })
+      showToast(`Deleted ${deleted} audit log(s).`)
+      await Promise.all([loadAuditLogs(), loadOverview()])
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete audit logs.", "error")
+    } finally {
+      setDeletingLogs(false)
+    }
+  }
+
+  const handleDeleteSecurityLog = useCallback(async (logId: string) => {
+    if (!canMutate) return
+    if (!window.confirm("Delete this security log entry permanently?")) return
+    setDeletingLogs(true)
+    try {
+      await deleteUserSecurityLog(logId)
+      showToast("Security log deleted.")
+      await loadAuditLogs()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete security log.", "error")
+    } finally {
+      setDeletingLogs(false)
+    }
+  }, [canMutate, loadAuditLogs])
 
   const handleExportAuditLogs = async () => {
     downloadCsv(
@@ -709,13 +794,28 @@ export function AdminDashboardPage({
         key: "inspect",
         label: "",
         render: (row) => (
-          <Button type="button" variant="outline" size="sm" onClick={() => setInspectedLog(row)}>
-            Details
-          </Button>
+          <div className="admin-inline-badges">
+            <Button type="button" variant="outline" size="sm" onClick={() => setInspectedLog(row)}>
+              Details
+            </Button>
+            {canMutate && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="admin-danger-button"
+                aria-label="Delete audit log"
+                disabled={deletingLogs}
+                onClick={() => void handleDeleteAuditLog(row.id)}
+              >
+                <Trash2 size={14} />
+              </Button>
+            )}
+          </div>
         ),
       },
     ],
-    []
+    [canMutate, deletingLogs, handleDeleteAuditLog]
   )
 
   const securityColumns: OwnerTableColumn<UserSecurityLogRow>[] = useMemo(
@@ -745,8 +845,26 @@ export function AdminDashboardPage({
         label: "Details",
         render: (row) => <span>{row.details || "—"}</span>,
       },
+      {
+        key: "delete",
+        label: "",
+        render: (row) =>
+          canMutate ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="admin-danger-button"
+              aria-label="Delete security log"
+              disabled={deletingLogs}
+              onClick={() => void handleDeleteSecurityLog(row.id)}
+            >
+              <Trash2 size={14} />
+            </Button>
+          ) : null,
+      },
     ],
-    []
+    [canMutate, deletingLogs, handleDeleteSecurityLog]
   )
 
   const navItems: Array<{ key: AdminTab; label: string; icon: typeof Activity }> = [
@@ -1282,10 +1400,24 @@ set role = excluded.role, is_active = true;`
                   </p>
                 </div>
                 {auditView === "admin" && (
-                  <Button type="button" variant="outline" onClick={() => void handleExportAuditLogs()} disabled={!auditLogs.length}>
-                    <Download data-icon="inline-start" />
-                    Export Audit CSV
-                  </Button>
+                  <div className="admin-inline-badges">
+                    <Button type="button" variant="outline" onClick={() => void handleExportAuditLogs()} disabled={!auditLogs.length}>
+                      <Download data-icon="inline-start" />
+                      Export Audit CSV
+                    </Button>
+                    {canMutate && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="admin-danger-button"
+                        onClick={() => void handleDeletePageAuditLogs()}
+                        disabled={!auditLogs.length || deletingLogs}
+                      >
+                        <Trash2 data-icon="inline-start" />
+                        Delete Displayed
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1314,11 +1446,14 @@ set role = excluded.role, is_active = true;`
 
               <OwnerFilterBar
                 onClear={
-                  auditSearch || auditCategory !== "all" || auditSeverity !== "all"
+                  auditSearch || auditCategory !== "all" || auditSeverity !== "all" || auditDatePreset !== "all"
                     ? () => {
                         setAuditSearch("")
                         setAuditCategory("all")
                         setAuditSeverity("all")
+                        setAuditDatePreset("all")
+                        setAuditDateFrom("")
+                        setAuditDateTo("")
                         setAuditPage(1)
                       }
                     : undefined
@@ -1333,6 +1468,45 @@ set role = excluded.role, is_active = true;`
                     setAuditPage(1)
                   }}
                 />
+                <select
+                  className="admin-filter-select"
+                  aria-label="Filter by date range"
+                  value={auditDatePreset}
+                  onChange={(e) => {
+                    setAuditDatePreset(e.target.value as DateRangePreset)
+                    setAuditPage(1)
+                  }}
+                >
+                  <option value="all">All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="7d">Last 7 Days</option>
+                  <option value="30d">Last 30 Days</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+                {auditDatePreset === "custom" && (
+                  <>
+                    <input
+                      type="date"
+                      className="admin-filter-select"
+                      aria-label="From date"
+                      value={auditDateFrom}
+                      onChange={(e) => {
+                        setAuditDateFrom(e.target.value)
+                        setAuditPage(1)
+                      }}
+                    />
+                    <input
+                      type="date"
+                      className="admin-filter-select"
+                      aria-label="To date"
+                      value={auditDateTo}
+                      onChange={(e) => {
+                        setAuditDateTo(e.target.value)
+                        setAuditPage(1)
+                      }}
+                    />
+                  </>
+                )}
                 {auditView === "admin" && (
                   <>
                     <select
@@ -2051,6 +2225,18 @@ set role = excluded.role, is_active = true;`
               <h4>Metadata</h4>
               <pre className="admin-json-pre">{JSON.stringify(inspectedLog.metadata || {}, null, 2)}</pre>
             </div>
+            {canMutate && (
+              <Button
+                type="button"
+                variant="outline"
+                className="admin-danger-button"
+                disabled={deletingLogs}
+                onClick={() => void handleDeleteAuditLog(inspectedLog.id)}
+              >
+                <Trash2 data-icon="inline-start" />
+                Delete Audit Log
+              </Button>
+            )}
           </div>
         )}
       </OwnerDrawer>

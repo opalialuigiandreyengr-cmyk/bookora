@@ -29,6 +29,8 @@ export default function SettingsHub() {
     businessProfile,
     publicBookingUrl,
     services,
+    refreshing,
+    refresh,
     signOut,
   } = useApp();
 
@@ -196,7 +198,7 @@ export default function SettingsHub() {
   };
 
   return (
-    <Screen backgroundColor="#FFFFFF">
+    <Screen backgroundColor="#FFFFFF" refreshing={refreshing} onRefresh={refresh}>
       <PageHeader
         title="Settings"
         action={

@@ -10,6 +10,7 @@ import {
   ScrollView,
   Share,
   StyleSheet,
+  Switch,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -31,6 +32,9 @@ import {
   StatusBadge,
 } from '@/components/ui';
 import {
+  deleteAdminAuditLog,
+  deleteAdminAuditLogs,
+  deleteUserSecurityLog,
   fetchAdminAuditLogs,
   fetchAdminClientDetail,
   fetchAdminClients,
@@ -42,6 +46,7 @@ import {
   toggleUserSuspension,
   updateClientSubscription,
   upsertPlatformAdmin,
+  upsertSubscriptionPlan,
   type AdminAuditLogRow,
   type AdminClientDetail,
   type AdminClientRow,
@@ -58,6 +63,35 @@ import { colors, radius, space } from '@/theme';
 
 type MainTab = 'overview' | 'clients' | 'audit' | 'settings';
 type InspectTab = 'credentials' | 'profile' | 'plan' | 'logs';
+type DateRangePreset = 'all' | 'today' | '7d' | '30d' | 'custom';
+
+const toIsoBounds = (preset: DateRangePreset, customFrom: string, customTo: string) => {
+  const now = new Date();
+  const manilaToday = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const shiftDays = (days: number) => {
+    const d = new Date(`${manilaToday}T00:00:00+08:00`);
+    d.setDate(d.getDate() - days);
+    return d.toISOString();
+  };
+  if (preset === 'today') {
+    return {
+      dateFrom: `${manilaToday}T00:00:00+08:00`,
+      dateTo: `${manilaToday}T23:59:59+08:00`,
+    };
+  }
+  if (preset === '7d') {
+    return { dateFrom: shiftDays(6), dateTo: `${manilaToday}T23:59:59+08:00` };
+  }
+  if (preset === '30d') {
+    return { dateFrom: shiftDays(29), dateTo: `${manilaToday}T23:59:59+08:00` };
+  }
+  if (preset === 'custom') {
+    const validFrom = /^\d{4}-\d{2}-\d{2}$/.test(customFrom.trim()) ? `${customFrom.trim()}T00:00:00+08:00` : null;
+    const validTo = /^\d{4}-\d{2}-\d{2}$/.test(customTo.trim()) ? `${customTo.trim()}T23:59:59+08:00` : null;
+    return { dateFrom: validFrom, dateTo: validTo };
+  }
+  return { dateFrom: null, dateTo: null };
+};
 
 const formatCurrency = (amount: number | null | undefined) =>
   `₱${Number(amount ?? 0).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
@@ -127,7 +161,16 @@ export default function AdminScreen() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditSearch, setAuditSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
+  const [deletingLogs, setDeletingLogs] = useState(false);
   const [inspectedLog, setInspectedLog] = useState<AdminAuditLogRow | null>(null);
+
+  // Plan Editor
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlanRow | null>(null);
+  const [planFeaturesText, setPlanFeaturesText] = useState('');
+  const [savingPlan, setSavingPlan] = useState(false);
 
   // Admins
   const [platformAdmins, setPlatformAdmins] = useState<PlatformAdminRow[]>([]);
@@ -181,11 +224,14 @@ export default function AdminScreen() {
   const loadAudit = useCallback(async () => {
     setAuditLoading(true);
     try {
+      const { dateFrom, dateTo } = toIsoBounds(datePreset, customDateFrom, customDateTo);
       if (auditView === 'admin') {
         const { rows } = await fetchAdminAuditLogs({
           search: auditSearch,
           category: 'all',
           severity: severityFilter,
+          dateFrom,
+          dateTo,
           limit: 60,
           offset: 0,
         });
@@ -193,6 +239,8 @@ export default function AdminScreen() {
       } else {
         const { rows } = await fetchUserSecurityLogs({
           search: auditSearch,
+          dateFrom,
+          dateTo,
           limit: 60,
           offset: 0,
         });
@@ -203,7 +251,7 @@ export default function AdminScreen() {
     } finally {
       setAuditLoading(false);
     }
-  }, [auditSearch, auditView, severityFilter]);
+  }, [auditSearch, auditView, customDateFrom, customDateTo, datePreset, severityFilter]);
 
   const loadAdmins = useCallback(async () => {
     setAdminsLoading(true);
@@ -386,6 +434,106 @@ export default function AdminScreen() {
     }
   };
 
+  const handleSavePlan = async () => {
+    if (!editingPlan || !canMutate) return;
+    if (!editingPlan.code.trim() || !editingPlan.name.trim()) {
+      Alert.alert('Missing details', 'Enter both a plan code and display name.');
+      return;
+    }
+    setSavingPlan(true);
+    try {
+      const features = planFeaturesText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+      await upsertSubscriptionPlan({
+        ...editingPlan,
+        code: editingPlan.code.trim().toLowerCase(),
+        name: editingPlan.name.trim(),
+        features,
+      });
+      Alert.alert('Saved', `Plan "${editingPlan.name}" saved.`);
+      setEditingPlan(null);
+      const freshPlans = await fetchSubscriptionPlans(true);
+      setPlans(freshPlans);
+    } catch (err) {
+      Alert.alert('Failed', err instanceof Error ? err.message : 'Unable to save plan.');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const handleDeleteSingleAuditLog = (log: AdminAuditLogRow) => {
+    if (!canMutate) return;
+    Alert.alert('Delete audit log?', 'This permanently removes this audit entry.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingLogs(true);
+          try {
+            await deleteAdminAuditLog(log.id);
+            setInspectedLog(null);
+            await Promise.all([loadAudit(), loadOverview()]);
+          } catch (err) {
+            Alert.alert('Delete failed', err instanceof Error ? err.message : 'Unable to delete log.');
+          } finally {
+            setDeletingLogs(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteVisibleAuditLogs = () => {
+    if (!canMutate || !auditLogs.length) return;
+    Alert.alert(
+      'Delete displayed audit logs?',
+      `Permanently delete ${auditLogs.length} displayed audit log${auditLogs.length === 1 ? '' : 's'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingLogs(true);
+            try {
+              await deleteAdminAuditLogs({ logIds: auditLogs.map((l) => l.id) });
+              await Promise.all([loadAudit(), loadOverview()]);
+            } catch (err) {
+              Alert.alert('Delete failed', err instanceof Error ? err.message : 'Unable to delete logs.');
+            } finally {
+              setDeletingLogs(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteSecurityLog = (logId: string) => {
+    if (!canMutate) return;
+    Alert.alert('Delete security log?', 'This permanently removes this security log entry.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingLogs(true);
+          try {
+            await deleteUserSecurityLog(logId);
+            await loadAudit();
+          } catch (err) {
+            Alert.alert('Delete failed', err instanceof Error ? err.message : 'Unable to delete log.');
+          } finally {
+            setDeletingLogs(false);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleSignOut = () => {
     Alert.alert('Sign out?', 'You can sign back in anytime.', [
       { text: 'Cancel', style: 'cancel' },
@@ -439,14 +587,6 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
         <View style={styles.headerLine}>
           <Text style={styles.screenTitle}>{tabTitles[tab]}</Text>
           <View style={styles.headerActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Refresh"
-              onPress={() => void onRefresh()}
-              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
-            >
-              <Ionicons name="refresh-outline" size={19} color={colors.ink} />
-            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Admin settings"
@@ -657,20 +797,77 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
               placeholder="Search email, action, or summary…"
             />
 
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {(
+                [
+                  ['all', 'All dates'],
+                  ['today', 'Today'],
+                  ['7d', '7 days'],
+                  ['30d', '30 days'],
+                  ['custom', 'Custom range'],
+                ] as [DateRangePreset, string][]
+              ).map(([key, label]) => (
+                <Pressable
+                  key={key}
+                  onPress={() => setDatePreset(key)}
+                  style={[styles.filterChip, datePreset === key && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, datePreset === key && styles.filterChipTextActive]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {datePreset === 'custom' && (
+              <Card style={styles.cardGap}>
+                <View style={styles.dateRow}>
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="From"
+                      placeholder="YYYY-MM-DD"
+                      value={customDateFrom}
+                      onChangeText={setCustomDateFrom}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="To"
+                      placeholder="YYYY-MM-DD"
+                      value={customDateTo}
+                      onChangeText={setCustomDateTo}
+                    />
+                  </View>
+                </View>
+              </Card>
+            )}
+
             {auditView === 'admin' && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                {['all', 'info', 'warning', 'critical'].map((sev) => (
+              <View style={styles.rowBetween}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                  {['all', 'info', 'warning', 'critical'].map((sev) => (
+                    <Pressable
+                      key={sev}
+                      onPress={() => setSeverityFilter(sev)}
+                      style={[styles.filterChip, severityFilter === sev && styles.filterChipActive]}
+                    >
+                      <Text style={[styles.filterChipText, severityFilter === sev && styles.filterChipTextActive]}>
+                        {sev === 'all' ? 'All' : sev}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                {canMutate && auditLogs.length > 0 ? (
                   <Pressable
-                    key={sev}
-                    onPress={() => setSeverityFilter(sev)}
-                    style={[styles.filterChip, severityFilter === sev && styles.filterChipActive]}
+                    onPress={handleDeleteVisibleAuditLogs}
+                    disabled={deletingLogs}
+                    style={({ pressed }) => [styles.deletePill, pressed && styles.pressed]}
                   >
-                    <Text style={[styles.filterChipText, severityFilter === sev && styles.filterChipTextActive]}>
-                      {sev === 'all' ? 'All' : sev}
-                    </Text>
+                    <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                    <Text style={styles.deletePillText}>{deletingLogs ? 'Deleting…' : 'Delete'}</Text>
                   </Pressable>
-                ))}
-              </ScrollView>
+                ) : null}
+              </View>
             )}
 
             {auditLoading ? (
@@ -709,7 +906,9 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                     iconColor={colors.navy}
                     title={sl.user_email || sl.user_id}
                     subtitle={`${sl.action} · ${formatDateTime(sl.created_at)}`}
+                    badge={canMutate ? 'Delete' : undefined}
                     chevron={false}
+                    onPress={canMutate ? () => handleDeleteSecurityLog(sl.id) : undefined}
                   />
                 ))}
               </NativeListGroup>
@@ -731,7 +930,34 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
               </View>
             </Card>
 
-            <NativeListGroup title="Subscription plans">
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionCaps}>Subscription plans</Text>
+              {canMutate ? (
+                <Pressable
+                  onPress={() => {
+                    setEditingPlan({
+                      code: '',
+                      name: '',
+                      description: '',
+                      monthly_price_php: 0,
+                      annual_price_php: 0,
+                      currency: 'PHP',
+                      max_staff: null,
+                      max_locations: 1,
+                      features: [],
+                      xendit_plan_id: null,
+                      is_active: true,
+                      is_public: true,
+                      sort_order: plans.length + 1,
+                    });
+                    setPlanFeaturesText('');
+                  }}
+                >
+                  <Text style={styles.linkText}>+ Add plan</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <NativeListGroup>
               {plans.map((p, idx) => (
                 <NativeListRow
                   key={p.code}
@@ -742,7 +968,15 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                   title={`${p.name} · ${formatCurrency(p.monthly_price_php)}/mo`}
                   subtitle={p.description}
                   badge={p.is_active ? 'Active' : 'Off'}
-                  chevron={false}
+                  chevron={canMutate}
+                  onPress={
+                    canMutate
+                      ? () => {
+                          setEditingPlan(p);
+                          setPlanFeaturesText(p.features.join('\n'));
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </NativeListGroup>
@@ -1277,7 +1511,20 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
               <Ionicons name="chevron-back" size={22} color={colors.ink} />
             </Pressable>
             <Text style={styles.drawerTitle}>Event detail</Text>
-            <View style={{ width: 40 }} />
+            {canMutate && inspectedLog ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete audit log"
+                onPress={() => handleDeleteSingleAuditLog(inspectedLog)}
+                disabled={deletingLogs}
+                hitSlop={8}
+                style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+              >
+                <Ionicons name="trash-outline" size={19} color={colors.danger} />
+              </Pressable>
+            ) : (
+              <View style={{ width: 40 }} />
+            )}
           </View>
           {inspectedLog && (
             <ScrollView contentContainerStyle={styles.modalScroll}>
@@ -1315,6 +1562,139 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                 <Text style={styles.cardTitle}>Metadata</Text>
                 <Text style={styles.jsonBlock}>{JSON.stringify(inspectedLog.metadata || {}, null, 2)}</Text>
               </Card>
+              {canMutate && (
+                <Button
+                  label={deletingLogs ? 'Deleting…' : 'Delete log'}
+                  icon="trash-outline"
+                  danger
+                  onPress={() => handleDeleteSingleAuditLog(inspectedLog)}
+                  disabled={deletingLogs}
+                />
+              )}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* Plan Editor Sheet */}
+      <Modal
+        visible={Boolean(editingPlan)}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditingPlan(null)}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.drawerNav}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              onPress={() => setEditingPlan(null)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+            >
+              <Ionicons name="chevron-back" size={22} color={colors.ink} />
+            </Pressable>
+            <Text style={styles.drawerTitle}>{editingPlan?.code ? `Edit ${editingPlan.name}` : 'Add plan'}</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          {editingPlan && (
+            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <Field
+                label="Plan code"
+                placeholder="e.g. growth"
+                value={editingPlan.code}
+                onChangeText={(v) => setEditingPlan({ ...editingPlan, code: v })}
+              />
+              <Field
+                label="Display name"
+                placeholder="e.g. Growth"
+                value={editingPlan.name}
+                onChangeText={(v) => setEditingPlan({ ...editingPlan, name: v })}
+              />
+              <Field
+                label="Description"
+                placeholder="Short summary"
+                value={editingPlan.description}
+                onChangeText={(v) => setEditingPlan({ ...editingPlan, description: v })}
+              />
+              <View style={styles.dateRow}>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label="Monthly (PHP)"
+                    keyboardType="numeric"
+                    value={String(editingPlan.monthly_price_php)}
+                    onChangeText={(v) => setEditingPlan({ ...editingPlan, monthly_price_php: Number(v) || 0 })}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label="Annual (PHP)"
+                    keyboardType="numeric"
+                    value={String(editingPlan.annual_price_php)}
+                    onChangeText={(v) => setEditingPlan({ ...editingPlan, annual_price_php: Number(v) || 0 })}
+                  />
+                </View>
+              </View>
+              <View style={styles.dateRow}>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label="Max staff"
+                    placeholder="Unlimited"
+                    keyboardType="numeric"
+                    value={editingPlan.max_staff === null ? '' : String(editingPlan.max_staff)}
+                    onChangeText={(v) =>
+                      setEditingPlan({ ...editingPlan, max_staff: v.trim() ? Number(v) || 1 : null })
+                    }
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label="Max locations"
+                    placeholder="Unlimited"
+                    keyboardType="numeric"
+                    value={editingPlan.max_locations === null ? '' : String(editingPlan.max_locations)}
+                    onChangeText={(v) =>
+                      setEditingPlan({ ...editingPlan, max_locations: v.trim() ? Number(v) || 1 : null })
+                    }
+                  />
+                </View>
+              </View>
+              <Field
+                label="Xendit plan ID (optional)"
+                placeholder="repl_..."
+                value={editingPlan.xendit_plan_id || ''}
+                onChangeText={(v) => setEditingPlan({ ...editingPlan, xendit_plan_id: v.trim() || null })}
+              />
+              <Field
+                label="Features (one per line)"
+                multiline
+                value={planFeaturesText}
+                onChangeText={setPlanFeaturesText}
+              />
+              <Card style={styles.cardGap}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>Active plan</Text>
+                  <Switch
+                    value={editingPlan.is_active}
+                    onValueChange={(val) => setEditingPlan({ ...editingPlan, is_active: val })}
+                    trackColor={{ false: colors.line, true: colors.coral }}
+                  />
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>Visible to owners</Text>
+                  <Switch
+                    value={editingPlan.is_public}
+                    onValueChange={(val) => setEditingPlan({ ...editingPlan, is_public: val })}
+                    trackColor={{ false: colors.line, true: colors.coral }}
+                  />
+                </View>
+              </Card>
+              <Button
+                label={savingPlan ? 'Saving…' : 'Save plan'}
+                icon="checkmark-outline"
+                onPress={() => void handleSavePlan()}
+                disabled={savingPlan}
+              />
             </ScrollView>
           )}
         </SafeAreaView>
@@ -1487,5 +1867,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F5F3',
     padding: 10,
     borderRadius: 10,
+  },
+  dateRow: { flexDirection: 'row', gap: 10 },
+  deletePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#F5C4BE',
+    backgroundColor: colors.coralSoft,
+  },
+  deletePillText: { color: colors.danger, fontSize: 12, fontWeight: '700' },
+  sectionCaps: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    paddingHorizontal: 6,
   },
 });

@@ -381,6 +381,8 @@ export async function fetchAdminAuditLogs(params: {
   search?: string
   category?: string
   severity?: string
+  dateFrom?: string | null
+  dateTo?: string | null
   limit?: number
   offset?: number
 }): Promise<{ rows: AdminAuditLogRow[]; totalCount: number }> {
@@ -391,6 +393,8 @@ export async function fetchAdminAuditLogs(params: {
     p_severity: params.severity ?? "all",
     p_limit: params.limit ?? 50,
     p_offset: params.offset ?? 0,
+    p_date_from: params.dateFrom || null,
+    p_date_to: params.dateTo || null,
   })
   if (error) throw new Error(error.message)
   const rows = ((data as AdminAuditLogRow[]) ?? []).map((row) => ({
@@ -405,6 +409,8 @@ export async function fetchAdminAuditLogs(params: {
 
 export async function fetchUserSecurityLogs(params: {
   search?: string
+  dateFrom?: string | null
+  dateTo?: string | null
   limit?: number
   offset?: number
 }): Promise<{ rows: UserSecurityLogRow[]; totalCount: number }> {
@@ -413,6 +419,8 @@ export async function fetchUserSecurityLogs(params: {
     p_search: params.search ?? "",
     p_limit: params.limit ?? 50,
     p_offset: params.offset ?? 0,
+    p_date_from: params.dateFrom || null,
+    p_date_to: params.dateTo || null,
   })
   if (error) throw new Error(error.message)
   const rows = ((data as UserSecurityLogRow[]) ?? []).map((row) => ({
@@ -423,6 +431,35 @@ export async function fetchUserSecurityLogs(params: {
     rows,
     totalCount: rows[0]?.total_count ?? 0,
   }
+}
+
+export async function deleteAdminAuditLog(logId: string): Promise<boolean> {
+  if (!supabase) throw new Error("Supabase is not configured.")
+  const { data, error } = await supabase.rpc("admin_delete_audit_log", { p_log_id: logId })
+  if (error) throw new Error(error.message)
+  return Boolean(data)
+}
+
+export async function deleteAdminAuditLogs(params: {
+  logIds?: string[]
+  dateFrom?: string | null
+  dateTo?: string | null
+}): Promise<number> {
+  if (!supabase) throw new Error("Supabase is not configured.")
+  const { data, error } = await supabase.rpc("admin_delete_audit_logs", {
+    p_log_ids: params.logIds?.length ? params.logIds : null,
+    p_date_from: params.dateFrom || null,
+    p_date_to: params.dateTo || null,
+  })
+  if (error) throw new Error(error.message)
+  return Number(data ?? 0)
+}
+
+export async function deleteUserSecurityLog(logId: string): Promise<boolean> {
+  if (!supabase) throw new Error("Supabase is not configured.")
+  const { data, error } = await supabase.rpc("admin_delete_user_security_log", { p_log_id: logId })
+  if (error) throw new Error(error.message)
+  return Boolean(data)
 }
 
 export async function fetchSubscriptionPlans(includeInactive = false): Promise<SubscriptionPlanRow[]> {
