@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
             name: `Bookora PH — ${plan.name} (${cycle === 'annual' ? 'Annual · Save 17%' : 'Monthly'})`,
             description: `Plan ${basePhp} PHP + Google Pay / Card / PayPal processing fee ${feePhp} PHP`,
             ...(redirectUrl ? { redirect_url: redirectUrl } : {}),
-            redirect_url_target: '_top',
+            ...(Number.isFinite(Number(variantId)) ? { enabled_variants: [Number(variantId)] } : {}),
           },
           checkout_options: {
             button_color: '#FF6B57',
@@ -448,6 +448,9 @@ Deno.serve(async (req) => {
     const postCheckout = async (targetStoreId: string, targetVariantId: string) => {
       lsPayload.data.relationships.store.data.id = targetStoreId;
       lsPayload.data.relationships.variant.data.id = targetVariantId;
+      if (Number.isFinite(Number(targetVariantId))) {
+        lsPayload.data.attributes.product_options.enabled_variants = [Number(targetVariantId)];
+      }
       const res = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
         method: 'POST',
         headers: lsHeaders(lsApiKey),
@@ -469,7 +472,7 @@ Deno.serve(async (req) => {
         const prodVarsJson = await prodVarsRes.json().catch(() => ({}));
         const firstVar = Array.isArray(prodVarsJson?.data)
           ? prodVarsJson.data.find((v: { attributes?: { status?: string } }) => v?.attributes?.status !== 'pending') ||
-            prodVarsJson.data[0]
+          prodVarsJson.data[0]
           : null;
         if (firstVar?.id) {
           attempt = await postCheckout(lsStoreId, String(firstVar.id));
@@ -495,22 +498,20 @@ Deno.serve(async (req) => {
         const varsJson = await varsRes.json().catch(() => ({}));
         const visibleStores = Array.isArray(storesJson?.data)
           ? storesJson.data.map(
-              (s: { id: string; attributes?: { name?: string } }) => `${s.id} (${s.attributes?.name || 'Store'})`
-            )
+            (s: { id: string; attributes?: { name?: string } }) => `${s.id} (${s.attributes?.name || 'Store'})`
+          )
           : [];
         const visibleVariants = Array.isArray(varsJson?.data)
           ? varsJson.data
-              .slice(0, 6)
-              .map(
-                (v: { id: string; attributes?: { name?: string; status?: string } }) =>
-                  `${v.id} (${v.attributes?.name || 'Variant'}/${v.attributes?.status || ''})`
-              )
+            .slice(0, 6)
+            .map(
+              (v: { id: string; attributes?: { name?: string; status?: string } }) =>
+                `${v.id} (${v.attributes?.name || 'Variant'}/${v.attributes?.status || ''})`
+            )
           : [];
-        apiDetail = `${apiDetail} (Configured Store=${lsStoreId}, Variant=${variantId}. Your API key sees Stores: [${
-          visibleStores.join(', ') || 'none'
-        }] and Variants: [${
-          visibleVariants.join(', ') || 'none — ensure Product is Published in the same Test/Live mode as your API key'
-        }].)`;
+        apiDetail = `${apiDetail} (Configured Store=${lsStoreId}, Variant=${variantId}. Your API key sees Stores: [${visibleStores.join(', ') || 'none'
+          }] and Variants: [${visibleVariants.join(', ') || 'none — ensure Product is Published in the same Test/Live mode as your API key'
+          }].)`;
       }
 
       return jsonResponse(
