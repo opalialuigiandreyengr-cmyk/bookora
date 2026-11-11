@@ -148,6 +148,7 @@ export default function AdminScreen() {
   const [showRawMeta, setShowRawMeta] = useState(false);
   const [editPlan, setEditPlan] = useState('starter');
   const [editStatus, setEditStatus] = useState('active');
+  const [editPeriodEnd, setEditPeriodEnd] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [savingSub, setSavingSub] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
@@ -336,6 +337,7 @@ export default function AdminScreen() {
       setClientDetail(detail);
       setEditPlan(detail.subscription.plan_code || 'starter');
       setEditStatus(detail.subscription.status || 'active');
+      setEditPeriodEnd(detail.subscription.current_period_end ? detail.subscription.current_period_end.slice(0, 10) : '');
       setEditNotes(detail.subscription.notes || '');
     } catch (err) {
       Alert.alert('Load failed', err instanceof Error ? err.message : 'Unable to load client.');
@@ -353,15 +355,22 @@ export default function AdminScreen() {
 
   const handleSaveSubscription = async () => {
     if (!selectedUserId || !canMutate) return;
+    const trimmedDate = editPeriodEnd.trim();
+    if (trimmedDate && !/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+      Alert.alert('Invalid billing date', 'Use YYYY-MM-DD format (for example, 2026-11-10).');
+      return;
+    }
+    const nextPeriodEnd = trimmedDate ? `${trimmedDate}T23:59:59+08:00` : null;
+
     setSavingSub(true);
     try {
       await updateClientSubscription({
         businessId: selectedUserId,
         planCode: editPlan,
         status: editStatus,
-        billingProvider: 'manual',
-        billingCycle: 'monthly',
-        periodEnd: null,
+        billingProvider: clientDetail?.subscription.billing_provider || 'manual',
+        billingCycle: clientDetail?.subscription.billing_cycle || 'monthly',
+        periodEnd: nextPeriodEnd,
         notes: editNotes,
       });
       Alert.alert('Saved', 'Subscription updated.');
@@ -1430,6 +1439,12 @@ on conflict (lower(email)) do update set role = excluded.role, is_active = true;
                         ))}
                       </View>
 
+                      <Field
+                        label="Next billing date (YYYY-MM-DD)"
+                        placeholder="2026-11-10"
+                        value={editPeriodEnd}
+                        onChangeText={setEditPeriodEnd}
+                      />
                       <Field label="Note" placeholder="Optional note" value={editNotes} onChangeText={setEditNotes} />
                       <Button
                         label={savingSub ? 'Saving…' : 'Save plan'}

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as WebBrowser from 'expo-web-browser';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,8 +24,10 @@ import {
   StatusBadge,
 } from '@/components/ui';
 import {
+  calculateCustomerCheckoutPricing,
   computeNextDueDate,
-  createXenditSubscriptionCheckout,
+  createSubscriptionCheckout,
+  verifySubscriptionCheckout,
   type PublicSubscriptionPlan,
   type SubscriptionCheckoutSession,
 } from '@/lib/billing';
@@ -44,12 +46,12 @@ const formatDate = (value: Date | string | null | undefined) => {
   return parsed.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const XENDIT_CHANNELS = [
-  { label: 'GCash', icon: 'phone-portrait-outline' as const },
-  { label: 'Maya', icon: 'wallet-outline' as const },
-  { label: 'QRPH', icon: 'qr-code-outline' as const },
-  { label: 'Cards', icon: 'card-outline' as const },
-  { label: 'BPI / UBP', icon: 'business-outline' as const },
+const PAYMENT_CHANNELS = [
+  { label: 'Google Pay', icon: 'logo-google' as const },
+  { label: 'Apple Pay', icon: 'logo-apple' as const },
+  { label: 'GCash / Maya Card', icon: 'wallet-outline' as const },
+  { label: 'Visa / Mastercard', icon: 'card-outline' as const },
+  { label: 'PayPal', icon: 'cash-outline' as const },
 ];
 
 export default function BillingScreen() {
@@ -65,7 +67,9 @@ export default function BillingScreen() {
   const [cycle, setCycle] = useState<'monthly' | 'annual'>('monthly');
   const [checkoutPlan, setCheckoutPlan] = useState<PublicSubscriptionPlan | null>(null);
   const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [activeInvoiceUrl, setActiveInvoiceUrl] = useState<string | null>(null);
+  const [activeExternalId, setActiveExternalId] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState('');
 
   const plansToShow = useMemo<PublicSubscriptionPlan[]>(() => {
@@ -123,46 +127,106 @@ export default function BillingScreen() {
   const openPaymentSheet = (plan: PublicSubscriptionPlan) => {
     setCheckoutPlan(plan);
     setActiveInvoiceUrl(null);
+    setActiveExternalId(null);
     setCheckoutError('');
   };
 
-  const handlePayWithXendit = async () => {
+  const handleVerifyPayment = useCallback(
+    async (externalId?: string, silentPending = false) => {
+      setVerifyingPayment(true);
+      setCheckoutError('');
+      try {
+        const res = await verifySubscriptionCheckout(externalId ? { externalId } : undefined);
+        if (!res.ok) {
+          if (!silentPending) {
+            setCheckoutError(res.error || 'Could not verify payment status yet.');
+          }
+          return;
+        }
+        if (res.verified || res.status === 'paid') {
+          await refreshSubscription();
+          setCheckoutPlan(null);
+          setActiveInvoiceUrl(null);
+          setActiveExternalId(null);
+          Alert.alert('Payment confirmed', res.message || 'Your subscription is now active.');
+          return;
+        }
+        if (res.status === 'expired' || res.status === 'failed') {
+          await refreshSubscription();
+          setActiveInvoiceUrl(null);
+          setCheckoutError(res.message || `Checkout ${res.status}. Please create a new payment session.`);
+          return;
+        }
+        if (!silentPending) {
+          Alert.alert('Still pending', res.message || 'Waiting for payment confirmation.');
+        }
+      } finally {
+        setVerifyingPayment(false);
+      }
+    },
+    [refreshSubscription]
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const checkoutStatus = params.get('checkout_status') || params.get('xendit_status');
+    const externalId = params.get('external_id') || undefined;
+    if (!checkoutStatus) return;
+
+    const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+    window.history.replaceState({}, '', cleanUrl);
+
+    if (checkoutStatus === 'failed') {
+      Alert.alert('Payment not completed', 'The checkout was cancelled or failed. You can try again anytime.');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void handleVerifyPayment(externalId, false);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [handleVerifyPayment]);
+
+  const handlePayWithGateway = async () => {
     if (!checkoutPlan) return;
     setCreatingCheckout(true);
     setCheckoutError('');
     const redirectUrl =
       Platform.OS === 'web' && typeof window !== 'undefined'
         ? `${window.location.origin}/app/billing`
-        : 'bookoraph://billing';
+        : 'https://bookoraph.com/app/billing';
 
-    const result = await createXenditSubscriptionCheckout({
+    const result = await createSubscriptionCheckout({
       planCode: checkoutPlan.code,
       billingCycle: cycle,
       redirectUrl,
     });
     setCreatingCheckout(false);
 
-    if (!result.ok || !result.invoiceUrl) {
+    if (!result.ok || !result.checkoutUrl) {
       setCheckoutError(
-        result.xenditConfigured
-          ? result.error || 'Could not start Xendit payment.'
-          : 'Xendit live keys are not enabled yet. Once configured in Supabase, tapping Pay with Xendit opens GCash, Maya, QRPH, and Card checkout.'
+        result.configured
+          ? result.error || 'Could not start checkout session.'
+          : 'Lemon Squeezy keys are not enabled yet. Configure LEMONSQUEEZY_API_KEY, LEMONSQUEEZY_STORE_ID, and LEMONSQUEEZY_MONTHLY_VARIANT_ID in Supabase Edge Function secrets.'
       );
       return;
     }
 
-    setActiveInvoiceUrl(result.invoiceUrl);
+    setActiveInvoiceUrl(result.checkoutUrl);
+    setActiveExternalId(result.externalId);
     await refreshSubscription();
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.location.assign(result.invoiceUrl);
+      window.location.assign(result.checkoutUrl);
       return;
     }
     try {
-      await WebBrowser.openBrowserAsync(result.invoiceUrl);
+      await WebBrowser.openBrowserAsync(result.checkoutUrl);
+      await handleVerifyPayment(result.externalId || undefined, true);
       await refreshSubscription();
     } catch {
-      await openExternalLink(result.invoiceUrl);
+      await openExternalLink(result.checkoutUrl);
     }
   };
 
@@ -186,6 +250,7 @@ export default function BillingScreen() {
       ? checkoutPlan.annual_price_php
       : checkoutPlan.monthly_price_php
     : 0;
+  const checkoutPricing = calculateCustomerCheckoutPricing(checkoutPrice);
 
   return (
     <View style={styles.root}>
@@ -193,6 +258,7 @@ export default function BillingScreen() {
         backgroundColor="#FFFFFF"
         refreshing={refreshing}
         onRefresh={onRefresh}
+        style={styles.screenContent}
         fixedHeader={
           <View style={styles.pageHeader}>
             <Pressable
@@ -293,7 +359,7 @@ export default function BillingScreen() {
           onChange={setCycle}
           items={[
             { value: 'monthly', label: 'Monthly' },
-            { value: 'annual', label: 'Annual · Save 17%' },
+            { value: 'annual', label: 'Annual', badge: '-17%' },
           ]}
         />
 
@@ -317,8 +383,21 @@ export default function BillingScreen() {
                     <Text style={styles.mutedSmall}>{plan.description}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
+                    {cycle === 'annual' && plan.monthly_price_php > 0 && plan.annual_price_php < plan.monthly_price_php * 12 && (
+                      <View style={styles.savePillRow}>
+                        <Text style={styles.strikeAnnualPrice}>
+                          {formatCurrency(plan.monthly_price_php * 12)}
+                        </Text>
+                        <View style={styles.saveBadge}>
+                          <Text style={styles.saveBadgeText}>Save 17%</Text>
+                        </View>
+                      </View>
+                    )}
                     <Text style={styles.planPrice}>{formatCurrency(price)}</Text>
-                    <Text style={styles.mutedSmall}>/{cycle === 'annual' ? 'year' : 'month'}</Text>
+                    <Text style={styles.mutedSmall}>
+                      /{cycle === 'annual' ? 'year' : 'month'}
+                      {cycle === 'annual' && price > 0 ? ` (${formatCurrency(Math.round(price / 12))}/mo)` : ''}
+                    </Text>
                   </View>
                 </View>
 
@@ -369,7 +448,7 @@ export default function BillingScreen() {
         <NativeListGroup title="Payment history">
           {checkoutSessions.length === 0 ? (
             <View style={{ padding: space.lg }}>
-              <Text style={styles.mutedSmall}>No Xendit invoices yet.</Text>
+              <Text style={styles.mutedSmall}>No payment receipts yet.</Text>
             </View>
           ) : (
             checkoutSessions.map((row, idx) => (
@@ -387,10 +466,24 @@ export default function BillingScreen() {
               />
             ))
           )}
+          {checkoutSessions.some((s) => s.status === 'pending') && (
+            <View style={{ padding: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line }}>
+              <Button
+                label={verifyingPayment ? 'Checking payment…' : 'Verify pending payment'}
+                icon="refresh-outline"
+                secondary
+                disabled={verifyingPayment}
+                onPress={() => {
+                  const latestPending = checkoutSessions.find((s) => s.status === 'pending');
+                  void handleVerifyPayment(latestPending?.external_id, false);
+                }}
+              />
+            </View>
+          )}
         </NativeListGroup>
       </Screen>
 
-      {/* Xendit Payment Sheet */}
+      {/* Subscription Checkout Sheet */}
       <Modal
         visible={Boolean(checkoutPlan)}
         animationType="slide"
@@ -408,7 +501,7 @@ export default function BillingScreen() {
             >
               <Ionicons name="chevron-back" size={22} color={colors.ink} />
             </Pressable>
-            <Text style={styles.drawerTitle}>Xendit payment</Text>
+            <Text style={styles.drawerTitle}>Subscription payment</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -417,9 +510,10 @@ export default function BillingScreen() {
               <Card style={styles.checkoutSummary}>
                 <Text style={styles.mutedSmall}>Bookora PH subscription</Text>
                 <Text style={styles.checkoutPlanTitle}>{checkoutPlan.name} Plan</Text>
-                <Text style={styles.checkoutAmount}>{formatCurrency(checkoutPrice)}</Text>
+                <Text style={styles.checkoutAmount}>{formatCurrency(checkoutPricing.totalPhp)}</Text>
                 <Text style={styles.mutedSmall}>
-                  Billed {cycle === 'annual' ? 'annually' : 'every month'} via Xendit
+                  {formatCurrency(checkoutPricing.basePhp)} plan + {formatCurrency(checkoutPricing.feePhp)} processing fee · Billed{' '}
+                  {cycle === 'annual' ? 'annually' : 'every month'}
                 </Text>
               </Card>
 
@@ -430,15 +524,24 @@ export default function BillingScreen() {
                   iconBg={colors.coralSoft}
                   iconColor={colors.coral}
                   title="Plan"
-                  value={checkoutPlan.name}
+                  value={`${checkoutPlan.name} (${cycle === 'annual' ? 'Annual' : 'Monthly'})`}
                   chevron={false}
                 />
                 <NativeListRow
-                  icon="repeat-outline"
+                  icon="pricetag-outline"
                   iconBg={colors.sky}
                   iconColor={colors.skyInk}
-                  title="Billing cycle"
-                  value={cycle === 'annual' ? 'Annual' : 'Monthly'}
+                  title="Plan price"
+                  value={formatCurrency(checkoutPricing.basePhp)}
+                  chevron={false}
+                />
+                <NativeListRow
+                  icon="shield-checkmark-outline"
+                  iconBg={colors.peach}
+                  iconColor={colors.warning}
+                  title="Processing fee"
+                  subtitle="Google Pay, Card & PayPal gateway fee"
+                  value={`+${formatCurrency(checkoutPricing.feePhp)}`}
                   chevron={false}
                 />
                 <NativeListRow
@@ -446,26 +549,29 @@ export default function BillingScreen() {
                   iconBg={colors.mint}
                   iconColor={colors.success}
                   title="Total due"
-                  value={formatCurrency(checkoutPrice)}
+                  value={formatCurrency(checkoutPricing.totalPhp)}
                   chevron={false}
                 />
               </NativeListGroup>
 
               <Card style={styles.cardGap}>
-                <Text style={styles.cardTitle}>Supported Xendit methods</Text>
+                <Text style={styles.cardTitle}>Supported payment methods</Text>
                 <View style={styles.channelsRow}>
-                  {XENDIT_CHANNELS.map((ch) => (
+                  {PAYMENT_CHANNELS.map((ch) => (
                     <View key={ch.label} style={styles.channelPill}>
                       <Ionicons name={ch.icon} size={14} color={colors.ink} />
                       <Text style={styles.channelText}>{ch.label}</Text>
                     </View>
                   ))}
                 </View>
+                <Text style={styles.mutedSmall}>
+                  Link your GCash Mastercard or Maya Visa card inside Google Pay, Apple Pay, or pay directly by card or PayPal.
+                </Text>
               </Card>
 
               {checkoutError ? (
                 <Card style={styles.errorBox}>
-                  <Text style={styles.errorTitle}>Xendit checkout notice</Text>
+                  <Text style={styles.errorTitle}>Checkout notice</Text>
                   <Text style={styles.mutedSmall}>{checkoutError}</Text>
                 </Card>
               ) : null}
@@ -473,26 +579,28 @@ export default function BillingScreen() {
               {activeInvoiceUrl ? (
                 <View style={styles.checkoutActions}>
                   <Button
-                    label="Open Xendit invoice"
+                    label="Open checkout page"
                     icon="open-outline"
                     onPress={() => void openExternalLink(activeInvoiceUrl)}
                   />
                   <Button
-                    label="I've paid · Refresh status"
+                    label={verifyingPayment ? 'Checking payment…' : "I've paid · Verify payment"}
                     icon="refresh-outline"
                     secondary
-                    onPress={async () => {
-                      await refreshSubscription();
-                      setCheckoutPlan(null);
-                    }}
+                    disabled={verifyingPayment}
+                    onPress={() => void handleVerifyPayment(activeExternalId || undefined, false)}
                   />
                 </View>
               ) : (
                 <Button
-                  label={creatingCheckout ? 'Creating Xendit invoice…' : `Pay ${formatCurrency(checkoutPrice)} with Xendit`}
+                  label={
+                    creatingCheckout
+                      ? 'Preparing checkout…'
+                      : `Pay ${formatCurrency(checkoutPricing.totalPhp)} with Google Pay / Card`
+                  }
                   icon="lock-closed-outline"
                   disabled={creatingCheckout}
-                  onPress={() => void handlePayWithXendit()}
+                  onPress={() => void handlePayWithGateway()}
                 />
               )}
 
@@ -507,6 +615,32 @@ export default function BillingScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFFFFF' },
+  screenContent: {
+    paddingTop: space.lg,
+  },
+  savePillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  strikeAnnualPrice: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+    textDecorationLine: 'line-through',
+  },
+  saveBadge: {
+    backgroundColor: colors.mint,
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  saveBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.success,
+  },
   pageHeader: {
     flexDirection: 'row',
     alignItems: 'center',

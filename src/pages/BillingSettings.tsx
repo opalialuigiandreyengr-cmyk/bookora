@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { ArrowUpRight, Check, CreditCard, Loader2, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -15,37 +15,76 @@ import {
 const formatCurrency = (amount: number) =>
   `₱${Number(amount ?? 0).toLocaleString("en-PH", { maximumFractionDigits: 2 })}`
 
+const calculateCheckoutTotal = (basePhp: number) => {
+  const clean = Math.max(0, Math.round(Number(basePhp || 0)))
+  if (clean <= 0) return { basePhp: 0, feePhp: 0, totalPhp: 0 }
+  const totalPhp = Math.ceil((clean + 30) / 0.92)
+  return { basePhp: clean, feePhp: Math.max(0, totalPhp - clean), totalPhp }
+}
+
 export function BillingSettings({ user }: { user: User }) {
   const [subscription, setSubscription] = useState<OwnerSubscriptionInfo | null>(null)
   const [plans, setPlans] = useState<SubscriptionPlanRow[]>([])
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly")
   const [loading, setLoading] = useState(true)
   const [upgradingCode, setUpgradingCode] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
   const [paywallNotice, setPaywallNotice] = useState("")
 
+  const reloadBilling = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [mySub, publicPlans] = await Promise.all([
+        fetchMySubscription(),
+        fetchSubscriptionPlans(false),
+      ])
+      setSubscription(mySub)
+      setPlans(publicPlans.filter((p) => p.is_public))
+    } catch {
+      // Ignore if preview user
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    let active = true
-    const load = async () => {
-      setLoading(true)
+    void reloadBilling()
+  }, [reloadBilling, user.id])
+
+  useEffect(() => {
+    if (!supabase || user.id === "preview-user-123") return
+    const params = new URLSearchParams(window.location.search)
+    const checkoutStatus = params.get("checkout_status") || params.get("xendit_status")
+    const externalId = params.get("external_id") || undefined
+    if (!checkoutStatus) return
+
+    const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`
+    window.history.replaceState({}, "", cleanUrl)
+
+    if (checkoutStatus === "failed") {
+      showToast("Checkout was not completed.", "error")
+      return
+    }
+
+    const verify = async () => {
+      setVerifying(true)
       try {
-        const [mySub, publicPlans] = await Promise.all([
-          fetchMySubscription(),
-          fetchSubscriptionPlans(false),
-        ])
-        if (!active) return
-        setSubscription(mySub)
-        setPlans(publicPlans.filter((p) => p.is_public))
-      } catch {
-        // Ignore if preview user
+        const { data, error } = await supabase!.functions.invoke("lemonsqueezy-create-checkout", {
+          body: { action: "verify", external_id: externalId },
+        })
+        if (error) return
+        if (data?.verified || data?.status === "paid") {
+          showToast(data?.message || "Payment confirmed! Subscription activated.", "success")
+          await reloadBilling()
+        } else if (data?.message) {
+          setPaywallNotice(String(data.message))
+        }
       } finally {
-        if (active) setLoading(false)
+        setVerifying(false)
       }
     }
-    void load()
-    return () => {
-      active = false
-    }
-  }, [user.id])
+    void verify()
+  }, [reloadBilling, user.id])
 
   const handleUpgrade = async (plan: SubscriptionPlanRow) => {
     if (!supabase || user.id === "preview-user-123") {
@@ -55,24 +94,38 @@ export function BillingSettings({ user }: { user: User }) {
     setUpgradingCode(plan.code)
     setPaywallNotice("")
     try {
-      const { data, error } = await supabase.functions.invoke("xendit-create-checkout", {
+      const { data, error } = await supabase.functions.invoke("lemonsqueezy-create-checkout", {
         body: {
+          action: "create",
           plan_code: plan.code,
           billing_cycle: billingCycle,
           success_redirect_url: `${window.location.origin}/settings`,
-          failure_redirect_url: `${window.location.origin}/settings`,
         },
       })
       if (error) {
-        const msg = error.message || "Xendit paywall checkout is not enabled yet."
+        let parsedMsg = error.message || "Lemon Squeezy checkout is not configured yet."
+        let configured = true
+        try {
+          const ctx = (error as { context?: { json?: () => Promise<Record<string, unknown>> } }).context
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json()
+            if (typeof body?.error === "string" && body.error.trim()) parsedMsg = body.error.trim()
+            if (body?.configured === false || body?.xendit_configured === false) configured = false
+          }
+        } catch {
+          // Ignore parse failure
+        }
         setPaywallNotice(
-          "Online upgrades via Xendit (GCash, Maya, Cards, QRPH) are coming soon. Contact Bookora PH support to change your plan manually."
+          configured
+            ? parsedMsg
+            : "Lemon Squeezy secrets are not configured in Supabase yet (LEMONSQUEEZY_API_KEY, LEMONSQUEEZY_STORE_ID, LEMONSQUEEZY_MONTHLY_VARIANT_ID). Add them to enable Google Pay, Apple Pay, Card, and PayPal upgrades."
         )
-        showToast(msg, "error")
+        showToast(parsedMsg, "error")
         return
       }
-      if (data?.invoice_url) {
-        window.location.href = String(data.invoice_url)
+      const nextUrl = data?.checkout_url || data?.invoice_url
+      if (nextUrl) {
+        window.location.assign(String(nextUrl))
         return
       }
       setPaywallNotice("Checkout session created, but no redirect URL was returned.")
@@ -80,7 +133,7 @@ export function BillingSettings({ user }: { user: User }) {
       setPaywallNotice(
         err instanceof Error
           ? err.message
-          : "Online upgrades via Xendit are not active yet."
+          : "Online upgrades are not active yet."
       )
     } finally {
       setUpgradingCode(null)
@@ -95,7 +148,7 @@ export function BillingSettings({ user }: { user: User }) {
         <div>
           <p className="dashboard-kicker">Plan & Subscription</p>
           <h1>Billing</h1>
-          <p>View your active Bookora PH plan and upgrade options powered by Xendit.</p>
+          <p>View your active Bookora PH plan and upgrade via Google Pay, Apple Pay, Card, or PayPal.</p>
         </div>
       </div>
 
@@ -124,15 +177,21 @@ export function BillingSettings({ user }: { user: User }) {
             </div>
             <div className="admin-kv">
               <span>Billing Provider</span>
-              <strong>{subscription?.billing_provider === "xendit" ? "Xendit" : "Bookora Managed"}</strong>
+              <strong>
+                {subscription?.billing_provider === "lemonsqueezy"
+                  ? "Lemon Squeezy"
+                  : subscription?.billing_provider === "xendit"
+                    ? "Xendit"
+                    : "Bookora Managed"}
+              </strong>
             </div>
             <div className="admin-kv">
               <span>Renewal / Period End</span>
               <strong>
                 {subscription?.current_period_end
                   ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" }).format(
-                      new Date(subscription.current_period_end)
-                    )
+                    new Date(subscription.current_period_end)
+                  )
                   : "Ongoing"}
               </strong>
             </div>
@@ -140,11 +199,21 @@ export function BillingSettings({ user }: { user: User }) {
         )}
       </article>
 
+      {verifying && (
+        <div className="admin-security-banner">
+          <Loader2 size={16} className="animate-spin" />
+          <div>
+            <strong>Confirming Payment</strong>
+            <p>Checking live order status with Lemon Squeezy…</p>
+          </div>
+        </div>
+      )}
+
       {paywallNotice && (
         <div className="admin-security-banner">
           <CreditCard size={16} />
           <div>
-            <strong>Xendit Paywall Notice</strong>
+            <strong>Checkout Notice</strong>
             <p>{paywallNotice}</p>
           </div>
         </div>
@@ -171,19 +240,33 @@ export function BillingSettings({ user }: { user: User }) {
         {plans.map((plan) => {
           const isCurrent = plan.code === currentCode
           const price = billingCycle === "annual" ? plan.annual_price_php : plan.monthly_price_php
+          const { feePhp, totalPhp } = calculateCheckoutTotal(price)
           return (
             <article className="admin-card admin-plan-card" key={plan.code}>
               <div className="admin-plan-card-head">
                 <div>
                   <div className="admin-inline-badges">
                     {isCurrent && <OwnerStatusBadge label="Current Plan" tone="success" />}
+                    {billingCycle === "annual" && plan.monthly_price_php > 0 && plan.annual_price_php < plan.monthly_price_php * 12 && (
+                      <OwnerStatusBadge label="Save 17%" tone="warning" />
+                    )}
                   </div>
                   <h3>{plan.name}</h3>
                   <p className="admin-muted">{plan.description}</p>
                 </div>
                 <div className="admin-plan-price">
+                  {billingCycle === "annual" && plan.monthly_price_php > 0 && plan.annual_price_php < plan.monthly_price_php * 12 && (
+                    <small style={{ textDecoration: "line-through", marginRight: 6 }}>
+                      {formatCurrency(plan.monthly_price_php * 12)}
+                    </small>
+                  )}
                   <strong>{formatCurrency(price)}</strong>
                   <small>/{billingCycle === "annual" ? "year" : "month"}</small>
+                  {price > 0 && (
+                    <div className="admin-muted" style={{ fontSize: 12 }}>
+                      +{formatCurrency(feePhp)} fee ({formatCurrency(totalPhp)} total)
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -217,7 +300,7 @@ export function BillingSettings({ user }: { user: User }) {
                     </>
                   ) : (
                     <>
-                      Upgrade to {plan.name}
+                      Upgrade to {plan.name} · {formatCurrency(totalPhp)}
                       <ArrowUpRight data-icon="inline-end" />
                     </>
                   )}

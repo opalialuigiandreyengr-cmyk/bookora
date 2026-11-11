@@ -80,6 +80,22 @@ export function computeNextDueDate(sub: OwnerSubscriptionInfo | null): Date | nu
   return null;
 }
 
+export function calculateCustomerCheckoutPricing(baseAmountPhp: number): {
+  basePhp: number;
+  feePhp: number;
+  totalPhp: number;
+} {
+  const basePhp = Math.max(0, Math.round(Number(baseAmountPhp || 0)));
+  if (basePhp <= 0) return { basePhp: 0, feePhp: 0, totalPhp: 0 };
+  // Covers ~7% card/intl/subscription + 1% PH bank payout + ~PHP 30 ($0.50 fixed)
+  const totalPhp = Math.ceil((basePhp + 30) / 0.92);
+  return {
+    basePhp,
+    feePhp: Math.max(0, totalPhp - basePhp),
+    totalPhp,
+  };
+}
+
 export function getSubscriptionBillingAlert(
   sub: OwnerSubscriptionInfo | null,
   sessions: SubscriptionCheckoutSession[] = []
@@ -90,9 +106,9 @@ export function getSubscriptionBillingAlert(
   if (pendingSession) {
     return {
       level: 'warning',
-      title: 'Pending Xendit payment',
-      message: `Complete your ${formatPhp(pendingSession.amount_php)} ${pendingSession.target_plan_code.toUpperCase()} invoice to activate your upgrade.`,
-      ctaLabel: 'Pay with Xendit',
+      title: 'Pending subscription payment',
+      message: `Complete your ${formatPhp(pendingSession.amount_php)} ${pendingSession.target_plan_code.toUpperCase()} checkout to activate your upgrade.`,
+      ctaLabel: 'Complete payment',
       dueDateIso: null,
       pendingInvoiceUrl: pendingSession.xendit_invoice_url,
     };
@@ -117,7 +133,7 @@ export function getSubscriptionBillingAlert(
       return {
         level: 'urgent',
         title: 'Monthly payment due today',
-        message: `Settle ${formatPhp(sub.amount_php)} for your ${sub.plan_name} monthly subscription via Xendit.`,
+        message: `Settle ${formatPhp(sub.amount_php)} for your ${sub.plan_name} monthly subscription to continue uninterrupted.`,
         ctaLabel: 'Settle payment',
         dueDateIso: nextDue.toISOString(),
         pendingInvoiceUrl: null,
@@ -142,7 +158,7 @@ export function getSubscriptionBillingAlert(
       return {
         level: 'info',
         title: diffDays <= 0 ? 'Trial ended' : `Trial ends in ${diffDays} day${diffDays === 1 ? '' : 's'}`,
-        message: `Settle your ${sub.plan_name} monthly subscription (${formatPhp(sub.amount_php)}/mo) via Xendit to continue uninterrupted.`,
+        message: `Settle your ${sub.plan_name} monthly subscription (${formatPhp(sub.amount_php)}/mo) to continue uninterrupted.`,
         ctaLabel: 'Settle payment',
         dueDateIso: sub.trial_ends_at,
         pendingInvoiceUrl: null,
@@ -232,54 +248,158 @@ export async function fetchMyCheckoutSessions(businessId: string): Promise<Subsc
   }));
 }
 
-export async function createXenditSubscriptionCheckout(params: {
+async function parseFunctionError(error: unknown): Promise<{ message: string; configured: boolean }> {
+  const errObj = error as { message?: string; context?: { json?: () => Promise<Record<string, unknown>>; status?: number } } | null;
+  let parsedMessage = '';
+  let configuredFromBody: boolean | undefined;
+
+  try {
+    const ctx = errObj?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const body = await ctx.json();
+      if (typeof body?.error === 'string' && body.error.trim()) {
+        parsedMessage = body.error.trim();
+      }
+      if (typeof body?.configured === 'boolean') {
+        configuredFromBody = body.configured;
+      } else if (typeof body?.xendit_configured === 'boolean') {
+        configuredFromBody = body.xendit_configured;
+      }
+    }
+  } catch {
+    // Ignore non-JSON error context
+  }
+
+  const msg = parsedMessage || errObj?.message || 'Lemon Squeezy checkout is not configured yet.';
+  const lower = msg.toLowerCase();
+  const status = errObj?.context?.status;
+  const notConfigured =
+    configuredFromBody === false ||
+    status === 503 ||
+    lower.includes('503') ||
+    lower.includes('not configured') ||
+    lower.includes('not enabled') ||
+    lower.includes('lemonsqueezy_api_key') ||
+    lower.includes('edge function returned');
+
+  return {
+    message: msg,
+    configured: configuredFromBody !== undefined ? configuredFromBody : !notConfigured,
+  };
+}
+
+export async function createSubscriptionCheckout(params: {
   planCode: string;
   billingCycle: 'monthly' | 'annual';
   redirectUrl: string;
 }): Promise<{
   ok: boolean;
-  xenditConfigured: boolean;
-  invoiceUrl: string | null;
+  configured: boolean;
+  checkoutUrl: string | null;
   externalId: string | null;
   error: string | null;
 }> {
   if (!supabase) {
-    return { ok: false, xenditConfigured: false, invoiceUrl: null, externalId: null, error: 'Supabase is not configured.' };
+    return { ok: false, configured: false, checkoutUrl: null, externalId: null, error: 'Supabase is not configured.' };
   }
-  const { data, error } = await supabase.functions.invoke('xendit-create-checkout', {
+  const { data, error } = await supabase.functions.invoke('lemonsqueezy-create-checkout', {
     body: {
+      action: 'create',
       plan_code: params.planCode,
       billing_cycle: params.billingCycle,
       success_redirect_url: params.redirectUrl,
-      failure_redirect_url: params.redirectUrl,
     },
   });
   if (error) {
-    const msg = error.message || 'Xendit checkout is not configured yet.';
-    const notConfigured = msg.toLowerCase().includes('503') || msg.toLowerCase().includes('not enabled') || msg.toLowerCase().includes('edge function');
+    const parsed = await parseFunctionError(error);
     return {
       ok: false,
-      xenditConfigured: !notConfigured,
-      invoiceUrl: null,
+      configured: parsed.configured,
+      checkoutUrl: null,
       externalId: null,
-      error: msg,
+      error: parsed.message,
     };
   }
-  if (data?.xendit_configured === false) {
+  if (data?.configured === false) {
     return {
       ok: false,
-      xenditConfigured: false,
-      invoiceUrl: null,
+      configured: false,
+      checkoutUrl: null,
       externalId: null,
-      error: String(data?.error || 'Xendit paywall is not yet enabled.'),
+      error: String(data?.error || 'Lemon Squeezy checkout is not yet enabled.'),
     };
   }
+  const url = data?.checkout_url || data?.invoice_url;
   return {
-    ok: Boolean(data?.invoice_url),
-    xenditConfigured: true,
-    invoiceUrl: data?.invoice_url ? String(data.invoice_url) : null,
+    ok: Boolean(url),
+    configured: true,
+    checkoutUrl: url ? String(url) : null,
     externalId: data?.external_id ? String(data.external_id) : null,
-    error: data?.invoice_url ? null : 'No Xendit invoice URL returned.',
+    error: url ? null : 'No checkout URL returned.',
   };
 }
 
+export async function verifySubscriptionCheckout(params?: {
+  externalId?: string;
+}): Promise<{
+  ok: boolean;
+  verified: boolean;
+  status: 'none' | 'pending' | 'paid' | 'expired' | 'failed';
+  configured: boolean;
+  checkoutUrl: string | null;
+  externalId: string | null;
+  message: string | null;
+  error: string | null;
+}> {
+  if (!supabase) {
+    return {
+      ok: false,
+      verified: false,
+      status: 'none',
+      configured: false,
+      checkoutUrl: null,
+      externalId: null,
+      message: null,
+      error: 'Supabase is not configured.',
+    };
+  }
+  const { data, error } = await supabase.functions.invoke('lemonsqueezy-create-checkout', {
+    body: {
+      action: 'verify',
+      external_id: params?.externalId || undefined,
+    },
+  });
+  if (error) {
+    const parsed = await parseFunctionError(error);
+    return {
+      ok: false,
+      verified: false,
+      status: 'pending',
+      configured: parsed.configured,
+      checkoutUrl: null,
+      externalId: null,
+      message: null,
+      error: parsed.message,
+    };
+  }
+  const payload = (data || {}) as {
+    ok?: boolean;
+    verified?: boolean;
+    status?: 'none' | 'pending' | 'paid' | 'expired' | 'failed';
+    configured?: boolean;
+    checkout_url?: string;
+    invoice_url?: string;
+    external_id?: string;
+    message?: string;
+  };
+  return {
+    ok: payload.ok !== false,
+    verified: Boolean(payload.verified),
+    status: payload.status || 'pending',
+    configured: payload.configured !== false,
+    checkoutUrl: payload.checkout_url || payload.invoice_url || null,
+    externalId: payload.external_id || null,
+    message: payload.message || null,
+    error: null,
+  };
+}
