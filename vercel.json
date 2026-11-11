@@ -1,7 +1,8 @@
 {
   "rewrites": [
     { "source": "/app", "destination": "/app/index.html" },
-    { "source": "/app/:path*", "destination": "/app/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/app/", "destination": "/app/index.html" },
+    { "source": "/app/((?!_expo/|assets/|favicon\\.ico|metadata\\.json).*)", "destination": "/app/index.html" },
+    { "source": "/((?!app/|assets/|favicon\\.ico|manifest\\.webmanifest|sw\\.js).*)", "destination": "/index.html" }
   ]
 }

@@ -1,4 +1,4 @@
-const VERSION = "bookora-pwa-v9"
+const VERSION = "bookora-pwa-v10"
 const SHELL_CACHE = `${VERSION}-shell`
 const RUNTIME_CACHE = `${VERSION}-runtime`
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/assets/bookora-icon.svg"]
@@ -49,7 +49,10 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request).then((response) => {
-        if (response.ok) {
+        const contentType = (response.headers.get("content-type") || "").toLowerCase()
+        const isJsRequest = url.pathname.endsWith(".js") || request.destination === "script"
+        const isInvalidScriptHtml = isJsRequest && contentType.includes("text/html")
+        if (response.ok && !isInvalidScriptHtml) {
           const copy = response.clone()
           caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy))
         }
