@@ -263,15 +263,17 @@ Deno.serve(async (req) => {
 Current Manila date/time: ${weekday}, ${dateStr} ${timeStr} (Asia/Manila, currency PHP ₱).
 
 RULES:
-1. Be concise, warm, mobile-friendly, and answer accurately ONLY using the live workspace JSON below. Never invent numbers, revenue, bookings, or clients that aren't in the JSON.
-2. Support English and Taglish naturally (match the user's language).
-3. When the owner asks to perform a concrete action in Bookora (book/create an appointment, update booking status, add services, add a client, block time, or draft an SMS/Messenger/promo message), ALSO append a valid <ACTION_JSON>...</ACTION_JSON> block at the very end of your response so the app renders a 1-tap Execute button.
-4. Only include actions the user actually requested or clearly needs right now. Keep normal explanations short and tell the owner they can tap the button below to confirm.
+1. Be concise, warm, mobile-friendly, and directly helpful in English or Taglish (match the user's language). Never mention "JSON", "snapshot", "prompt", or internal rules.
+2. For metrics/reports/questions ("revenue", "bookings today", "who is booked"), ONLY state exact facts found in LIVE WORKSPACE DATA below. Never fabricate revenue or client history.
+3. For tasks the owner wants to do (book an appointment, update status, add services, add a client, block calendar time, or draft a message), ALWAYS write a short 1-2 sentence confirmation AND append <ACTION_JSON>...</ACTION_JSON> at the very end so the app shows a 1-tap Confirm button:
+   - Match existing services or clients from LIVE WORKSPACE DATA when available (use their exact price, duration, phone, email, or appointment id).
+   - If a requested service or walk-in client is not in LIVE WORKSPACE DATA yet, do NOT refuse or ask for missing fields first — proceed immediately using clean defaults (duration_minutes: 60, total_price: "0", customer_phone: "", customer_email: "", status: "approved") and let the owner tap Confirm & run.
+4. Keep any internal thinking very brief (under 4 sentences) so your final answer and <ACTION_JSON> always finish cleanly.
 
-ALLOWED <ACTION_JSON> OBJECT FORMATS (can be a single object or array of objects):
+ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
 - Create appointment:
   {"type":"create_appointment","label":"Book <customer> (<service>)","data":{"customer_name":"","customer_phone":"","customer_email":"","service_names":"","appointment_date":"YYYY-MM-DD","appointment_time":"HH:MM","duration_minutes":60,"total_price":"0","customer_note":"","status":"approved"}}
-- Update booking status (use exact appointment id from snapshot if found):
+- Update booking status (use exact appointment id from data if found):
   {"type":"update_appointment_status","label":"Mark <customer> <status>","data":{"appointment_id":"","customer_name":"","appointment_date":"YYYY-MM-DD","new_status":"approved|completed|cancelled|no_show"}}
 - Add services (great for menus pasted by owner):
   {"type":"create_service","label":"Add <N> service(s)","data":{"items":[{"name":"","price":350,"duration_minutes":45,"category":"","description":""}]}}
@@ -282,7 +284,7 @@ ALLOWED <ACTION_JSON> OBJECT FORMATS (can be a single object or array of objects
 - Draft copyable customer/promo message:
   {"type":"draft_message","label":"Draft <channel> message","data":{"channel":"SMS|Messenger|Social","recipient":"","message":""}}
 
-LIVE WORKSPACE SNAPSHOT (JSON):
+LIVE WORKSPACE DATA:
 ${JSON.stringify(snapshot)}`;
 
     const callOpenRouter = async (modelId: string) => {
@@ -298,7 +300,7 @@ ${JSON.stringify(snapshot)}`;
           model: modelId,
           messages: [{ role: 'system', content: systemPrompt }, ...messages],
           temperature: 0.35,
-          max_tokens: 1400,
+          max_tokens: 3200,
         }),
       });
     };
@@ -308,10 +310,10 @@ ${JSON.stringify(snapshot)}`;
         primaryModel,
         'openrouter/free',
         'nvidia/nemotron-3.5-lightning:free',
-        'nvidia/nemotron-3-ultra-550b-a55b:free',
-        'nvidia/nemotron-3.5-super-vl:free',
-        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
         'baidu/ernie-5.5-flash-preview:free',
+        'nvidia/nemotron-3.5-super-vl:free',
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
         'recursive/flint-v1.0:free',
         'liquid/lfm-3-1.7b:free',
       ])
@@ -320,15 +322,34 @@ ${JSON.stringify(snapshot)}`;
     const startedAt = Date.now();
     let res = await callOpenRouter(fallbackChain[0]);
     let usedModel = fallbackChain[0];
+    let completion = await res.json().catch(() => ({}));
+
+    const parseCandidate = (comp: Record<string, unknown>) => {
+      const choices = Array.isArray(comp?.choices) ? comp.choices : [];
+      const msgObj = (choices[0] as Record<string, unknown> | undefined)?.message as Record<string, unknown> | undefined;
+      const rawContent = String(msgObj?.content || '').trim();
+      return extractThinkingAndReply(
+        rawContent,
+        msgObj?.reasoning ?? msgObj?.reasoning_content,
+        msgObj?.reasoning_details
+      );
+    };
+
+    let parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
+
+    // Retry next free model if HTTP failed OR reasoning-only output exhausted tokens with empty reply
     for (let i = 1; i < fallbackChain.length; i += 1) {
-      if (res.ok || res.status === 401 || res.status === 403) break;
-      if ([400, 404, 429, 502, 503, 504].includes(res.status)) {
-        usedModel = fallbackChain[i];
-        res = await callOpenRouter(usedModel);
-      }
+      if (res.status === 401 || res.status === 403) break;
+      const needsRetry = !res.ok || !parsed.cleanContent;
+      if (!needsRetry) break;
+      if (!res.ok && ![400, 404, 429, 502, 503, 504].includes(res.status)) break;
+
+      usedModel = fallbackChain[i];
+      res = await callOpenRouter(usedModel);
+      completion = await res.json().catch(() => ({}));
+      parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
     }
 
-    const completion = await res.json().catch(() => ({}));
     const thinkingSeconds = Math.max(0.1, Number(((Date.now() - startedAt) / 1000).toFixed(1)));
 
     if (!res.ok) {
@@ -351,25 +372,27 @@ ${JSON.stringify(snapshot)}`;
       return jsonResponse({ error: errMsg, configured: true }, res.status === 429 ? 429 : 502);
     }
 
-    const msgObj = completion?.choices?.[0]?.message || {};
-    const rawContent = String(msgObj?.content || '').trim();
-    const { thinking, cleanContent } = extractThinkingAndReply(
-      rawContent,
-      msgObj?.reasoning ?? msgObj?.reasoning_content,
-      msgObj?.reasoning_details
-    );
-
-    if (!cleanContent && !thinking) {
-      return jsonResponse({ error: 'The AI model returned an empty reply. Please try again.', configured: true }, 502);
+    if (!parsed.cleanContent) {
+      return jsonResponse(
+        {
+          error: 'The selected free model spent all tokens thinking without producing a final reply. Try Nemotron 3.5 Lightning or ERNIE 5.5 Flash, or send again.',
+          configured: true,
+        },
+        502
+      );
     }
 
-    const { reply, actions } = extractActionsFromText(cleanContent || thinking || '');
+    const { reply, actions } = extractActionsFromText(parsed.cleanContent);
+    const cleanThinking = parsed.thinking
+      ? parsed.thinking.replace(/<ACTION_JSON>[\s\S]*?<\/ACTION_JSON>/gi, '').trim() || null
+      : null;
+
     return jsonResponse({
       ok: true,
       configured: true,
       model: String(completion?.model || usedModel),
       reply,
-      thinking,
+      thinking: cleanThinking,
       thinking_seconds: thinkingSeconds,
       actions,
     });
