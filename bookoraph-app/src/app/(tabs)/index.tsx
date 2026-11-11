@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 
@@ -34,6 +34,7 @@ export default function Dashboard() {
     businessName,
     session,
     publicBookingUrl,
+    subscriptionAlert,
     addAppointment,
     addPayment,
     updateAppointmentStatus,
@@ -315,7 +316,7 @@ export default function Dashboard() {
               style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
             >
               <Ionicons name="notifications-outline" size={19} color={colors.ink} />
-              {pendingAppointments.length > 0 ? <View style={styles.notificationDot} /> : null}
+              {pendingAppointments.length > 0 || Boolean(subscriptionAlert) ? <View style={styles.notificationDot} /> : null}
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -379,6 +380,28 @@ export default function Dashboard() {
             </Pressable>
           </View>
         </Card>
+
+        {subscriptionAlert ? (
+          <Pressable
+            onPress={() => router.push('/billing' as Href)}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <Card style={styles.billingNoticeCard}>
+              <View style={styles.billingNoticeLeft}>
+                <View style={styles.billingNoticeIcon}>
+                  <Ionicons name="card-outline" size={17} color={colors.danger} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.billingNoticeTitle}>{subscriptionAlert.title}</Text>
+                  <Text numberOfLines={2} style={styles.billingNoticeSub}>
+                    {subscriptionAlert.message}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.billingNoticeCta}>{subscriptionAlert.ctaLabel} ›</Text>
+            </Card>
+          </Pressable>
+        ) : null}
 
         {/* 2x2 KPI Grid */}
         <View style={styles.kpiGrid}>
@@ -1298,4 +1321,25 @@ const styles = StyleSheet.create({
   snapshotBadge: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   shortcutTitle: { color: colors.ink, fontSize: 13.5, fontWeight: '700', marginTop: 10 },
   shortcutSub: { color: colors.muted, fontSize: 11.5, lineHeight: 16, marginTop: 3 },
+  billingNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    borderColor: '#F5C4BE',
+    backgroundColor: '#FFF7F6',
+    paddingVertical: 12,
+  },
+  billingNoticeLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  billingNoticeIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  billingNoticeTitle: { color: colors.ink, fontSize: 13.5, fontWeight: '700' },
+  billingNoticeSub: { color: colors.muted, fontSize: 12, lineHeight: 16 },
+  billingNoticeCta: { color: colors.coral, fontSize: 12.5, fontWeight: '800' },
 });

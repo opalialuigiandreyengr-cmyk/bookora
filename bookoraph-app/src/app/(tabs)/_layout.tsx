@@ -8,7 +8,7 @@ import { useApp } from '@/providers/app-provider';
 import { colors } from '@/theme';
 
 export default function TabsLayout() {
-  const { loading, session, needsOnboarding, adminContext, appointments } = useApp();
+  const { loading, session, needsOnboarding, adminContext, appointments, subscriptionAlert } = useApp();
   const insets = useSafeAreaInsets();
 
   if (loading) return <LoadingState />;
@@ -92,6 +92,13 @@ export default function TabsLayout() {
         name="more"
         options={{
           title: 'Settings',
+          tabBarBadge: subscriptionAlert ? '!' : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.coral,
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontFamily: 'SpaceGrotesk_700Bold',
+          },
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'settings' : 'settings-outline'}

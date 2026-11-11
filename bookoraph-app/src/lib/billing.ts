@@ -1,0 +1,285 @@
+import { supabase } from '@/lib/supabase';
+
+export type OwnerSubscriptionInfo = {
+  business_id: string;
+  plan_code: string;
+  plan_name: string;
+  plan_description: string;
+  monthly_price_php: number;
+  annual_price_php: number;
+  status: string;
+  billing_provider: string;
+  billing_cycle: string;
+  amount_php: number;
+  currency: string;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  trial_ends_at: string | null;
+  cancel_at_period_end: boolean;
+  xendit_latest_invoice_url: string | null;
+  xendit_payment_status: string | null;
+  features: string[];
+};
+
+export type PublicSubscriptionPlan = {
+  code: string;
+  name: string;
+  description: string;
+  monthly_price_php: number;
+  annual_price_php: number;
+  currency: string;
+  max_staff: number | null;
+  max_locations: number | null;
+  features: string[];
+  sort_order: number;
+};
+
+export type SubscriptionCheckoutSession = {
+  id: string;
+  business_id: string;
+  target_plan_code: string;
+  billing_cycle: 'monthly' | 'annual';
+  provider: string;
+  external_id: string;
+  xendit_invoice_id: string | null;
+  xendit_invoice_url: string | null;
+  amount_php: number;
+  currency: string;
+  status: 'pending' | 'paid' | 'expired' | 'failed';
+  paid_at: string | null;
+  created_at: string;
+};
+
+export type SubscriptionBillingAlert = {
+  level: 'urgent' | 'warning' | 'info';
+  title: string;
+  message: string;
+  ctaLabel: string;
+  dueDateIso: string | null;
+  pendingInvoiceUrl: string | null;
+};
+
+const formatPhp = (amount: number) =>
+  `₱${Number(amount || 0).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+
+export function computeNextDueDate(sub: OwnerSubscriptionInfo | null): Date | null {
+  if (!sub) return null;
+  if (sub.current_period_end) {
+    const parsed = new Date(sub.current_period_end);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  if (sub.current_period_start && Number(sub.amount_php) > 0) {
+    const start = new Date(sub.current_period_start);
+    if (!Number.isNaN(start.getTime())) {
+      const next = new Date(start);
+      if (sub.billing_cycle === 'annual') next.setFullYear(next.getFullYear() + 1);
+      else next.setMonth(next.getMonth() + 1);
+      return next;
+    }
+  }
+  return null;
+}
+
+export function getSubscriptionBillingAlert(
+  sub: OwnerSubscriptionInfo | null,
+  sessions: SubscriptionCheckoutSession[] = []
+): SubscriptionBillingAlert | null {
+  if (!sub) return null;
+
+  const pendingSession = sessions.find((s) => s.status === 'pending' && s.xendit_invoice_url);
+  if (pendingSession) {
+    return {
+      level: 'warning',
+      title: 'Pending Xendit payment',
+      message: `Complete your ${formatPhp(pendingSession.amount_php)} ${pendingSession.target_plan_code.toUpperCase()} invoice to activate your upgrade.`,
+      ctaLabel: 'Pay with Xendit',
+      dueDateIso: null,
+      pendingInvoiceUrl: pendingSession.xendit_invoice_url,
+    };
+  }
+
+  if (sub.status === 'past_due' || sub.status === 'expired') {
+    return {
+      level: 'urgent',
+      title: 'Monthly payment overdue',
+      message: `Your ${sub.plan_name} plan (${formatPhp(sub.amount_php)}/mo) needs settlement to keep all features active.`,
+      ctaLabel: 'Settle payment',
+      dueDateIso: sub.current_period_end,
+      pendingInvoiceUrl: sub.xendit_latest_invoice_url,
+    };
+  }
+
+  const nextDue = computeNextDueDate(sub);
+  if (nextDue && Number(sub.amount_php) > 0 && sub.plan_code !== 'free') {
+    const diffMs = nextDue.getTime() - Date.now();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      return {
+        level: 'urgent',
+        title: 'Monthly payment due today',
+        message: `Settle ${formatPhp(sub.amount_php)} for your ${sub.plan_name} monthly subscription via Xendit.`,
+        ctaLabel: 'Settle payment',
+        dueDateIso: nextDue.toISOString(),
+        pendingInvoiceUrl: null,
+      };
+    }
+    if (diffDays <= 5) {
+      return {
+        level: 'warning',
+        title: `Renewal due in ${diffDays} day${diffDays === 1 ? '' : 's'}`,
+        message: `Your ${sub.plan_name} monthly plan (${formatPhp(sub.amount_php)}) renews on ${nextDue.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}.`,
+        ctaLabel: 'Settle early',
+        dueDateIso: nextDue.toISOString(),
+        pendingInvoiceUrl: null,
+      };
+    }
+  }
+
+  if (sub.status === 'trialing' && sub.trial_ends_at) {
+    const trialEnd = new Date(sub.trial_ends_at);
+    const diffDays = Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 5) {
+      return {
+        level: 'info',
+        title: diffDays <= 0 ? 'Trial ended' : `Trial ends in ${diffDays} day${diffDays === 1 ? '' : 's'}`,
+        message: `Settle your ${sub.plan_name} monthly subscription (${formatPhp(sub.amount_php)}/mo) via Xendit to continue uninterrupted.`,
+        ctaLabel: 'Settle payment',
+        dueDateIso: sub.trial_ends_at,
+        pendingInvoiceUrl: null,
+      };
+    }
+  }
+
+  return null;
+}
+
+export async function fetchMySubscription(): Promise<OwnerSubscriptionInfo | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('get_my_subscription');
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    business_id: String(row.business_id),
+    plan_code: String(row.plan_code ?? 'starter'),
+    plan_name: String(row.plan_name ?? 'Starter'),
+    plan_description: String(row.plan_description ?? ''),
+    monthly_price_php: Number(row.monthly_price_php ?? 249),
+    annual_price_php: Number(row.annual_price_php ?? 2490),
+    status: String(row.status ?? 'active'),
+    billing_provider: String(row.billing_provider ?? 'manual'),
+    billing_cycle: String(row.billing_cycle ?? 'monthly'),
+    amount_php: Number(row.amount_php ?? 249),
+    currency: String(row.currency ?? 'PHP'),
+    current_period_start: row.current_period_start ? String(row.current_period_start) : null,
+    current_period_end: row.current_period_end ? String(row.current_period_end) : null,
+    trial_ends_at: row.trial_ends_at ? String(row.trial_ends_at) : null,
+    cancel_at_period_end: Boolean(row.cancel_at_period_end),
+    xendit_latest_invoice_url: row.xendit_latest_invoice_url ? String(row.xendit_latest_invoice_url) : null,
+    xendit_payment_status: row.xendit_payment_status ? String(row.xendit_payment_status) : null,
+    features: Array.isArray(row.features) ? row.features.map(String) : [],
+  };
+}
+
+export async function fetchPublicSubscriptionPlans(): Promise<PublicSubscriptionPlan[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('subscription_plans')
+    .select('*')
+    .eq('is_active', true)
+    .eq('is_public', true)
+    .order('sort_order', { ascending: true });
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((row) => ({
+    code: String(row.code),
+    name: String(row.name),
+    description: String(row.description ?? ''),
+    monthly_price_php: Number(row.monthly_price_php ?? 0),
+    annual_price_php: Number(row.annual_price_php ?? 0),
+    currency: String(row.currency ?? 'PHP'),
+    max_staff: row.max_staff === null || row.max_staff === undefined ? null : Number(row.max_staff),
+    max_locations: row.max_locations === null || row.max_locations === undefined ? null : Number(row.max_locations),
+    features: Array.isArray(row.features) ? row.features.map(String) : [],
+    sort_order: Number(row.sort_order ?? 0),
+  }));
+}
+
+export async function fetchMyCheckoutSessions(businessId: string): Promise<SubscriptionCheckoutSession[]> {
+  if (!supabase || !businessId) return [];
+  const { data, error } = await supabase
+    .from('subscription_checkout_sessions')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('created_at', { ascending: false })
+    .limit(15);
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((row) => ({
+    id: String(row.id),
+    business_id: String(row.business_id),
+    target_plan_code: String(row.target_plan_code),
+    billing_cycle: row.billing_cycle === 'annual' ? 'annual' : 'monthly',
+    provider: String(row.provider ?? 'xendit'),
+    external_id: String(row.external_id),
+    xendit_invoice_id: row.xendit_invoice_id ? String(row.xendit_invoice_id) : null,
+    xendit_invoice_url: row.xendit_invoice_url ? String(row.xendit_invoice_url) : null,
+    amount_php: Number(row.amount_php ?? 0),
+    currency: String(row.currency ?? 'PHP'),
+    status: (['pending', 'paid', 'expired', 'failed'].includes(String(row.status))
+      ? String(row.status)
+      : 'pending') as SubscriptionCheckoutSession['status'],
+    paid_at: row.paid_at ? String(row.paid_at) : null,
+    created_at: String(row.created_at),
+  }));
+}
+
+export async function createXenditSubscriptionCheckout(params: {
+  planCode: string;
+  billingCycle: 'monthly' | 'annual';
+  redirectUrl: string;
+}): Promise<{
+  ok: boolean;
+  xenditConfigured: boolean;
+  invoiceUrl: string | null;
+  externalId: string | null;
+  error: string | null;
+}> {
+  if (!supabase) {
+    return { ok: false, xenditConfigured: false, invoiceUrl: null, externalId: null, error: 'Supabase is not configured.' };
+  }
+  const { data, error } = await supabase.functions.invoke('xendit-create-checkout', {
+    body: {
+      plan_code: params.planCode,
+      billing_cycle: params.billingCycle,
+      success_redirect_url: params.redirectUrl,
+      failure_redirect_url: params.redirectUrl,
+    },
+  });
+  if (error) {
+    const msg = error.message || 'Xendit checkout is not configured yet.';
+    const notConfigured = msg.toLowerCase().includes('503') || msg.toLowerCase().includes('not enabled') || msg.toLowerCase().includes('edge function');
+    return {
+      ok: false,
+      xenditConfigured: !notConfigured,
+      invoiceUrl: null,
+      externalId: null,
+      error: msg,
+    };
+  }
+  if (data?.xendit_configured === false) {
+    return {
+      ok: false,
+      xenditConfigured: false,
+      invoiceUrl: null,
+      externalId: null,
+      error: String(data?.error || 'Xendit paywall is not yet enabled.'),
+    };
+  }
+  return {
+    ok: Boolean(data?.invoice_url),
+    xenditConfigured: true,
+    invoiceUrl: data?.invoice_url ? String(data.invoice_url) : null,
+    externalId: data?.external_id ? String(data.external_id) : null,
+    error: data?.invoice_url ? null : 'No Xendit invoice URL returned.',
+  };
+}
+

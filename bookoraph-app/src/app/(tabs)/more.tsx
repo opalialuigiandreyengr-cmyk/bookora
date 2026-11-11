@@ -4,7 +4,7 @@ import { type ComponentProps } from 'react';
 import { Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
-import { Card, NativeListGroup, NativeListRow, PageHeader, Screen, StatusBadge } from '@/components/ui';
+import { Card, NativeListGroup, NativeListRow, Screen, StatusBadge } from '@/components/ui';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
 
@@ -29,6 +29,8 @@ export default function SettingsHub() {
     businessProfile,
     publicBookingUrl,
     services,
+    subscription,
+    subscriptionAlert,
     refreshing,
     refresh,
     signOut,
@@ -124,8 +126,19 @@ export default function SettingsHub() {
       ],
     },
     {
-      heading: 'Account & system',
+      heading: 'Account & billing',
       items: [
+        {
+          title: 'Plan & Billing',
+          subtitle: subscriptionAlert
+            ? subscriptionAlert.title
+            : `${subscription?.plan_name || 'Starter'} · Monthly`,
+          icon: 'card-outline',
+          iconBg: subscriptionAlert ? colors.coralSoft : colors.mint,
+          iconColor: subscriptionAlert ? colors.danger : colors.success,
+          route: '/billing' as Href,
+          badge: subscriptionAlert ? 'Due' : subscription?.plan_name || 'Starter',
+        },
         ...(adminContext.is_admin
           ? [
               {
@@ -141,11 +154,12 @@ export default function SettingsHub() {
           : []),
         {
           title: 'Notifications',
-          subtitle: 'Reminders & delivery log',
+          subtitle: 'Reminders & billing alerts',
           icon: 'notifications-outline',
           iconBg: colors.peach,
           iconColor: colors.warning,
           route: '/notifications',
+          badge: subscriptionAlert ? '1' : undefined,
         },
         {
           title: 'Account',
@@ -199,22 +213,37 @@ export default function SettingsHub() {
 
   return (
     <Screen backgroundColor="#FFFFFF" refreshing={refreshing} onRefresh={refresh}>
-      <PageHeader
-        title="Settings"
-        action={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Share booking link"
-            onPress={() => void shareBookingPage()}
-            style={({ pressed }) => [styles.sharePill, pressed && styles.pressed]}
-          >
-            <Text style={styles.sharePillText} numberOfLines={1}>
-              {activeSlug}.bookoraph.com
-            </Text>
-            <Ionicons name="share-outline" size={15} color={colors.ink} />
-          </Pressable>
-        }
-      />
+      <View style={styles.headerLine}>
+        <Text style={styles.title}>Settings</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share booking link"
+          onPress={() => void shareBookingPage()}
+          style={({ pressed }) => [styles.sharePill, pressed && styles.pressed]}
+        >
+          <Text style={styles.sharePillText} numberOfLines={1}>
+            {activeSlug}.bookoraph.com
+          </Text>
+          <Ionicons name="share-outline" size={15} color={colors.ink} />
+        </Pressable>
+      </View>
+
+      {subscriptionAlert ? (
+        <Pressable onPress={() => router.push('/billing' as Href)} style={({ pressed }) => [pressed && styles.pressed]}>
+          <Card style={styles.billingAlertCard}>
+            <View style={styles.billingAlertIcon}>
+              <Ionicons name="card-outline" size={18} color={colors.danger} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.billingAlertTitle}>{subscriptionAlert.title}</Text>
+              <Text style={styles.billingAlertSub} numberOfLines={2}>
+                {subscriptionAlert.message}
+              </Text>
+            </View>
+            <Text style={styles.billingAlertCta}>Settle ›</Text>
+          </Card>
+        </Pressable>
+      ) : null}
 
       <Card style={styles.heroCard}>
         <View style={styles.avatar}>
@@ -268,13 +297,21 @@ export default function SettingsHub() {
 }
 
 const styles = StyleSheet.create({
+  headerLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.sm,
+    minHeight: 36,
+  },
+  title: { color: colors.ink, fontSize: 20, lineHeight: 26, fontWeight: '700' },
   sharePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    maxWidth: '56%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    maxWidth: '58%',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -287,6 +324,25 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   pressed: { opacity: 0.72 },
+  billingAlertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    borderColor: '#F5C4BE',
+    backgroundColor: '#FFF7F6',
+    paddingVertical: 12,
+  },
+  billingAlertIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: colors.coralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  billingAlertTitle: { color: colors.ink, fontSize: 13.5, fontWeight: '700' },
+  billingAlertSub: { color: colors.muted, fontSize: 12, lineHeight: 16 },
+  billingAlertCta: { color: colors.coral, fontSize: 12.5, fontWeight: '800' },
   heroCard: {
     flexDirection: 'row',
     alignItems: 'center',

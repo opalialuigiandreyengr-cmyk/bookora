@@ -6,7 +6,7 @@ import { useApp } from '@/providers/app-provider';
 import { colors } from '@/theme';
 
 export default function NativeTabsLayout() {
-  const { loading, session, needsOnboarding, adminContext, appointments } = useApp();
+  const { loading, session, needsOnboarding, adminContext, appointments, subscriptionAlert } = useApp();
 
   if (loading) return <LoadingState />;
   if (!session) return <Redirect href="/sign-in" />;
@@ -65,6 +65,7 @@ export default function NativeTabsLayout() {
           sf={{ default: 'gearshape', selected: 'gearshape.fill' }}
           md="settings"
         />
+        {subscriptionAlert ? <NativeTabs.Trigger.Badge>!</NativeTabs.Trigger.Badge> : null}
       </NativeTabs.Trigger>
     </NativeTabs>
   );

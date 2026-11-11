@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
 import { Button, Field, Screen, StatusBadge } from '@/components/ui';
+import { computeNextDueDate } from '@/lib/billing';
 import { goBackOrReplace } from '@/lib/navigation';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
@@ -46,11 +48,14 @@ export default function NotificationsScreen() {
   const {
     notificationSettings,
     notificationEvents,
+    subscription,
+    subscriptionAlert,
     saveNotificationSettings,
     retryNotificationEvent,
     refreshing,
     refresh,
   } = useApp();
+  const nextDue = computeNextDueDate(subscription);
 
   const [settingsDraft, setSettingsDraft] = useState<NotificationSettings | null>(null);
   const [saving, setSaving] = useState(false);
@@ -160,6 +165,42 @@ export default function NotificationsScreen() {
         </View>
       }
     >
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Subscription & billing</Text>
+          <Text style={styles.sectionHint}>Monthly plan reminders and settlement notices.</Text>
+        </View>
+        <Pressable
+          onPress={() => router.push('/billing' as Href)}
+          style={({ pressed }) => [styles.billingBanner, subscriptionAlert && styles.billingBannerAlert, pressed && styles.pressed]}
+        >
+          <View style={styles.billingBannerLeft}>
+            <View style={[styles.billingIcon, subscriptionAlert && { backgroundColor: colors.coralSoft }]}>
+              <Ionicons
+                name={subscriptionAlert ? 'alert-circle-outline' : 'card-outline'}
+                size={18}
+                color={subscriptionAlert ? colors.danger : colors.coral}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.toggleLabel}>
+                {subscriptionAlert
+                  ? subscriptionAlert.title
+                  : `${subscription?.plan_name || 'Starter'} · ₱${Number(subscription?.amount_php ?? 249).toLocaleString('en-PH')}/mo`}
+              </Text>
+              <Text style={styles.toggleHint}>
+                {subscriptionAlert
+                  ? subscriptionAlert.message
+                  : nextDue
+                    ? `Next monthly billing: ${nextDue.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                    : 'Tap to upgrade or settle monthly payment via Xendit'}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.billingCta}>{subscriptionAlert ? subscriptionAlert.ctaLabel : 'Billing'} ›</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Booking updates</Text>
@@ -485,4 +526,29 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   emptyMessage: { color: colors.muted, fontSize: 12 },
+  billingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FFFFFF',
+  },
+  billingBannerAlert: {
+    borderColor: '#F5C4BE',
+    backgroundColor: '#FFF7F6',
+  },
+  billingBannerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  billingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  billingCta: { color: colors.coral, fontSize: 12.5, fontWeight: '800' },
 });

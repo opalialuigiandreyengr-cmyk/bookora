@@ -176,6 +176,7 @@ function AppNavigator() {
       void import('./integrations').catch(() => undefined);
       void import('./notifications').catch(() => undefined);
       void import('./settings').catch(() => undefined);
+      void import('./billing').catch(() => undefined);
       void import('./admin').catch(() => undefined);
       void import('./block-time').catch(() => undefined);
       void import('./packages').catch(() => undefined);
@@ -234,6 +235,7 @@ function AppNavigator() {
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="integrations" options={{ title: 'Integrations & Webhooks' }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="billing" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
   );

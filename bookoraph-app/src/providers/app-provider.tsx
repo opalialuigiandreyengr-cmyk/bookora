@@ -12,6 +12,16 @@ import {
   type AdminContext,
 } from '@/lib/admin';
 import { createAuthCallbackUrl, type OAuthSignInResult, parseAuthCallbackUrl } from '@/lib/auth-callback';
+import {
+  fetchMyCheckoutSessions,
+  fetchMySubscription,
+  fetchPublicSubscriptionPlans,
+  getSubscriptionBillingAlert,
+  type OwnerSubscriptionInfo,
+  type PublicSubscriptionPlan,
+  type SubscriptionBillingAlert,
+  type SubscriptionCheckoutSession,
+} from '@/lib/billing';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import type {
   ApiToken,
@@ -245,6 +255,11 @@ type AppContextValue = {
   publicBookingUrl: string;
   needsOnboarding: boolean;
   adminContext: AdminContext;
+  subscription: OwnerSubscriptionInfo | null;
+  subscriptionPlans: PublicSubscriptionPlan[];
+  checkoutSessions: SubscriptionCheckoutSession[];
+  subscriptionAlert: SubscriptionBillingAlert | null;
+  refreshSubscription: () => Promise<void>;
   refresh: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (payload: { email: string; password: string }) => Promise<string | null>;
@@ -395,6 +410,9 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(() => createDefaultBusinessProfile(null));
   const [hasBusinessProfileRow, setHasBusinessProfileRow] = useState(false);
   const [adminContext, setAdminContext] = useState<AdminContext>(EMPTY_ADMIN_CONTEXT);
+  const [subscription, setSubscription] = useState<OwnerSubscriptionInfo | null>(null);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<PublicSubscriptionPlan[]>([]);
+  const [checkoutSessions, setCheckoutSessions] = useState<SubscriptionCheckoutSession[]>([]);
   const loadedBusinessId = useRef<string | null>(null);
   const loadRequestId = useRef(0);
   const adminAuditLoggedUserId = useRef<string | null>(null);
@@ -422,6 +440,8 @@ export function AppProvider({ children }: PropsWithChildren) {
     setBusinessProfile(createDefaultBusinessProfile(activeSession));
     setHasBusinessProfileRow(false);
     setAdminContext(EMPTY_ADMIN_CONTEXT);
+    setSubscription(null);
+    setCheckoutSessions([]);
     if (!activeSession) {
       adminAuditLoggedUserId.current = null;
     }
@@ -645,9 +665,17 @@ export function AppProvider({ children }: PropsWithChildren) {
     }
 
     try {
-      const nextAdmin = await fetchAdminContext();
+      const [nextAdmin, nextSub, nextPlans, nextSessions] = await Promise.all([
+        fetchAdminContext(),
+        fetchMySubscription(),
+        fetchPublicSubscriptionPlans(),
+        fetchMyCheckoutSessions(businessId),
+      ]);
       if (requestId === loadRequestId.current) {
         setAdminContext(nextAdmin);
+        setSubscription(nextSub);
+        setSubscriptionPlans(nextPlans);
+        setCheckoutSessions(nextSessions);
         if (nextAdmin.is_admin && adminAuditLoggedUserId.current !== businessId) {
           adminAuditLoggedUserId.current = businessId;
           void recordAdminAuditEvent({
@@ -699,6 +727,21 @@ export function AppProvider({ children }: PropsWithChildren) {
     setRefreshing(true);
     await load(session);
   };
+  const refreshSubscription = useCallback(async () => {
+    if (!businessId) return;
+    try {
+      const [nextSub, nextPlans, nextSessions] = await Promise.all([
+        fetchMySubscription(),
+        fetchPublicSubscriptionPlans(),
+        fetchMyCheckoutSessions(businessId),
+      ]);
+      setSubscription(nextSub);
+      setSubscriptionPlans(nextPlans);
+      setCheckoutSessions(nextSessions);
+    } catch {
+      // Ignore if billing tables are not deployed yet
+    }
+  }, [businessId]);
 
   const signIn = async (email: string, password: string) => {
     if (!supabase) return 'Supabase is not configured on this build.';
@@ -1736,6 +1779,8 @@ export function AppProvider({ children }: PropsWithChildren) {
       !hasBusinessProfileRow
   );
 
+  const subscriptionAlert = getSubscriptionBillingAlert(subscription, checkoutSessions);
+
   const value: AppContextValue = {
     session,
     configured: supabaseConfigured,
@@ -1766,6 +1811,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     publicBookingUrl,
     needsOnboarding,
     adminContext,
+    subscription,
+    subscriptionPlans,
+    checkoutSessions,
+    subscriptionAlert,
+    refreshSubscription,
     refresh,
     signIn,
     signUp,
