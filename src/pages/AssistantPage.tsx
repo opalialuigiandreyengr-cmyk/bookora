@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2, Wrench } from "lucide-react"
+import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OwnerMobileMenuButton, OwnerSidebar } from "@/components/owner/OwnerSidebar"
 import { OwnerStatusBadge } from "@/components/owner/OwnerDataPrimitives"
@@ -69,6 +69,42 @@ type AssistantAction =
     }
   }
   | {
+    type: "delete_service"
+    label: string
+    data: {
+      service_id?: string
+      name: string
+    }
+  }
+  | {
+    type: "delete_appointment"
+    label: string
+    data: {
+      appointment_id?: string
+      customer_name?: string
+      appointment_date?: string
+      appointment_time?: string
+    }
+  }
+  | {
+    type: "delete_client"
+    label: string
+    data: {
+      client_id?: string
+      full_name?: string
+    }
+  }
+  | {
+    type: "delete_block_time"
+    label: string
+    data: {
+      block_id?: string
+      title?: string
+      event_date?: string
+      start_time?: string
+    }
+  }
+  | {
     type: "draft_message"
     label: string
     data: {
@@ -82,7 +118,7 @@ type AssistantToolCall = {
   id: string
   tool: string
   page: string
-  status: "done" | "error"
+  status: "running" | "done" | "error"
   count: number
   duration_ms: number
   summary: string
@@ -207,6 +243,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [liveTools, setLiveTools] = useState<AssistantToolCall[]>([])
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({})
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({})
   const [setupNotice, setSetupNotice] = useState("")
@@ -232,6 +269,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
       abortRef.current.abort()
       abortRef.current = null
     }
+    setLiveTools([])
     setSending(false)
   }
 
@@ -252,6 +290,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
     abortRef.current = controller
     startRef.current = Date.now()
     setElapsedSeconds(0)
+    setLiveTools([])
     setSending(true)
     setSetupNotice("")
 
@@ -275,21 +314,95 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
         body: JSON.stringify({
           messages: nextThread.slice(-10).map((m) => ({ role: m.role, content: m.content })),
           model: selectedModel,
+          stream: true,
         }),
         signal: controller.signal,
       })
 
-      const data = await res.json().catch(() => ({}))
+      const contentType = res.headers.get("content-type") || ""
+      let data: Record<string, unknown> = {}
+      let streamErrorStatus: number | null = null
+      const streamedTools: AssistantToolCall[] = []
+
+      if (contentType.includes("application/x-ndjson") && res.body?.getReader) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+
+        const upsertTool = (t: AssistantToolCall) => {
+          const idx = streamedTools.findIndex((item) => item.id === t.id)
+          if (idx >= 0) streamedTools[idx] = t
+          else streamedTools.push(t)
+          setLiveTools((prev) => {
+            const pIdx = prev.findIndex((item) => item.id === t.id)
+            if (pIdx >= 0) {
+              const next = [...prev]
+              next[pIdx] = t
+              return next
+            }
+            return [...prev, t]
+          })
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 40)
+        }
+
+        const handleLine = (rawLine: string) => {
+          const line = rawLine.trim()
+          if (!line) return
+          try {
+            const ev = JSON.parse(line) as Record<string, unknown>
+            if ((ev.type === "tool_start" || ev.type === "tool_done") && ev.tool && typeof ev.tool === "object") {
+              upsertTool(ev.tool as AssistantToolCall)
+            } else if (ev.type === "result" && ev.data && typeof ev.data === "object") {
+              data = ev.data as Record<string, unknown>
+            } else if (ev.type === "error") {
+              streamErrorStatus = Number(ev.status || 500)
+              data = {
+                error: ev.error,
+                configured: ev.configured,
+                tool_calls: ev.tool_calls || streamedTools,
+              }
+            }
+          } catch {
+            // Ignore malformed line
+          }
+        }
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop() || ""
+          for (const line of lines) handleLine(line)
+        }
+        if (buffer.trim()) handleLine(buffer)
+      } else {
+        data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      }
+
       const finalElapsed = Math.max(0.1, Number(((Date.now() - startRef.current) / 1000).toFixed(1)))
 
-      if (!res.ok || data?.configured === false) {
-        const msg = String(data?.error || `Request failed (${res.status})`)
-        if (data?.configured === false || res.status === 503 || res.status === 401 || msg.toLowerCase().includes("openrouter_api_key")) {
+      if (!res.ok || (streamErrorStatus && streamErrorStatus >= 400) || data?.configured === false || data?.error) {
+        const msg = String(data?.error || `Request failed (${streamErrorStatus || res.status})`)
+        if (
+          data?.configured === false ||
+          res.status === 503 ||
+          res.status === 401 ||
+          streamErrorStatus === 401 ||
+          streamErrorStatus === 503 ||
+          msg.toLowerCase().includes("openrouter_api_key")
+        ) {
           setSetupNotice(msg)
         } else {
           setMessages((prev) => [
             ...prev,
-            { id: `e_${Date.now()}`, role: "assistant", content: msg, thinkingSeconds: finalElapsed },
+            {
+              id: `e_${Date.now()}`,
+              role: "assistant",
+              content: msg,
+              thinkingSeconds: finalElapsed,
+              toolCalls: Array.isArray(data?.tool_calls) ? (data.tool_calls as AssistantToolCall[]) : streamedTools,
+            },
           ])
         }
         return
@@ -303,7 +416,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           content: String(data?.reply || ""),
           thinking: typeof data?.thinking === "string" && data.thinking.trim() ? data.thinking.trim() : null,
           thinkingSeconds: typeof data?.thinking_seconds === "number" ? data.thinking_seconds : finalElapsed,
-          toolCalls: Array.isArray(data?.tool_calls) ? (data.tool_calls as AssistantToolCall[]) : [],
+          toolCalls: Array.isArray(data?.tool_calls) ? (data.tool_calls as AssistantToolCall[]) : streamedTools,
           model: data?.model ? String(data.model) : undefined,
           actions: Array.isArray(data?.actions) ? (data.actions as AssistantAction[]) : [],
         },
@@ -329,6 +442,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
       }
     } finally {
       abortRef.current = null
+      setLiveTools([])
       setSending(false)
     }
   }
@@ -507,6 +621,143 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
         if (error) throw new Error(error.message)
         showToast(`Blocked ${action.data.title}`, "success")
         setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
+        return
+      }
+
+      if (action.type === "delete_service") {
+        let targetId = action.data.service_id || ""
+        let targetName = action.data.name || ""
+        if (!targetId && targetName) {
+          const { data: rows } = await supabase
+            .from("services")
+            .select("id, name")
+            .eq("business_id", user.id)
+          const match = (rows || []).find(
+            (r) => String(r.name || "").trim().toLowerCase() === targetName.trim().toLowerCase()
+          )
+          if (match) {
+            targetId = String(match.id)
+            targetName = String(match.name)
+          }
+        }
+        if (!targetId) throw new Error(`Service "${action.data.name}" not found. Did not delete.`)
+        if (!window.confirm(`Permanently delete service "${targetName || action.data.name}"? This cannot be undone.`)) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+          return
+        }
+        const { error } = await supabase.from("services").delete().eq("id", targetId).eq("business_id", user.id)
+        if (error) throw new Error(error.message)
+        showToast(`Deleted "${targetName || action.data.name}"`, "success")
+        setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
+        return
+      }
+
+      if (action.type === "delete_appointment") {
+        let targetId = action.data.appointment_id || ""
+        let summaryLabel = action.data.customer_name || "booking"
+        if (!targetId) {
+          const { data: rows } = await supabase
+            .from("appointments")
+            .select("id, customer_name, appointment_date, service_names")
+            .eq("business_id", user.id)
+          const match = (rows || []).find(
+            (r) =>
+              (!action.data.customer_name ||
+                String(r.customer_name || "").trim().toLowerCase() ===
+                  action.data.customer_name.trim().toLowerCase()) &&
+              (!action.data.appointment_date || String(r.appointment_date || "") === action.data.appointment_date)
+          )
+          if (match) {
+            targetId = String(match.id)
+            summaryLabel = `${match.customer_name} (${match.appointment_date})`
+          }
+        }
+        if (!targetId) throw new Error("Matching booking not found. Did not delete.")
+        if (!window.confirm(`Permanently delete booking for ${summaryLabel}? This cannot be undone.`)) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+          return
+        }
+        const { error } = await supabase.from("appointments").delete().eq("id", targetId).eq("business_id", user.id)
+        if (error) throw new Error(error.message)
+        showToast(`Deleted booking for ${summaryLabel}`, "success")
+        setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
+        return
+      }
+
+      if (action.type === "delete_client") {
+        let targetId = action.data.client_id || ""
+        let targetName = action.data.full_name || ""
+        if (!targetId && targetName) {
+          const { data: rows } = await supabase
+            .from("clients")
+            .select("id, full_name")
+            .eq("business_id", user.id)
+          const match = (rows || []).find(
+            (r) => String(r.full_name || "").trim().toLowerCase() === targetName.trim().toLowerCase()
+          )
+          if (match) {
+            targetId = String(match.id)
+            targetName = String(match.full_name)
+          }
+        }
+        if (!targetId) throw new Error(`Client "${targetName}" not found. Did not delete.`)
+        if (!window.confirm(`Permanently delete client "${targetName}"? This cannot be undone.`)) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+          return
+        }
+        const { error } = await supabase.from("clients").delete().eq("id", targetId).eq("business_id", user.id)
+        if (error) throw new Error(error.message)
+        showToast(`Deleted client "${targetName}"`, "success")
+        setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
+        return
+      }
+
+      if (action.type === "delete_block_time") {
+        let targetId = action.data.block_id || ""
+        let targetTitle = action.data.title || "blocked time"
+        if (!targetId) {
+          const start = action.data.start_time ? normalizeTime24h(action.data.start_time) : ""
+          const { data: rows } = await supabase
+            .from("block_time_events")
+            .select("id, title, event_date, start_time")
+            .eq("business_id", user.id)
+          const match = (rows || []).find(
+            (r) =>
+              (!action.data.event_date || String(r.event_date || "") === action.data.event_date) &&
+              (!start || normalizeTime24h(String(r.start_time || "")) === start) &&
+              (!action.data.title ||
+                String(r.title || "").trim().toLowerCase() === action.data.title.trim().toLowerCase())
+          )
+          if (match) {
+            targetId = String(match.id)
+            targetTitle = `${match.title} (${match.event_date})`
+          }
+        }
+        if (!targetId) throw new Error("Blocked time entry not found. Did not delete.")
+        if (!window.confirm(`Permanently delete "${targetTitle}"? This cannot be undone.`)) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+          return
+        }
+        const { error } = await supabase.from("block_time_events").delete().eq("id", targetId).eq("business_id", user.id)
+        if (error) throw new Error(error.message)
+        showToast(`Deleted "${targetTitle}"`, "success")
+        setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
       }
     } catch (err) {
       setExecutedKeys((prev) => {
@@ -629,7 +880,6 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               {messages.map((msg) => {
                 const isUser = msg.role === "user"
                 const showThought = Boolean(expandedThinking[msg.id])
-                const showTools = Boolean(expandedTools[msg.id])
                 const toolCalls = !isUser && Array.isArray(msg.toolCalls) ? msg.toolCalls : []
                 const hasTools = toolCalls.length > 0
                 const hasThink = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null)
@@ -645,85 +895,61 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                     }}
                   >
                     {hasTools && (
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedTools((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
-                          }
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#111827",
-                            background: "#FFF5F3",
-                            border: "1px solid #FAD7D0",
-                            borderRadius: 999,
-                            padding: "4px 10px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <Wrench size={12} color="#FF6B57" />
-                          <span>
-                            Scanned {toolCalls.length} workspace pages (
-                            {toolCalls.reduce((sum, t) => sum + (Number(t.count) || 0), 0)} items)
-                          </span>
-                          {showTools ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        </button>
-                        {showTools && (
-                          <div
-                            style={{
-                              marginTop: 6,
-                              padding: "10px 12px",
-                              borderRadius: 12,
-                              border: "1px solid #E5E7EB",
-                              background: "#FFFFFF",
-                              display: "grid",
-                              gap: 8,
-                            }}
-                          >
-                            {toolCalls.map((t) => (
-                              <div
-                                key={t.id}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
+                        {toolCalls.map((t) => {
+                          const toolKey = `${msg.id}_${t.id}`
+                          const isOpen = Boolean(expandedTools[toolKey])
+                          return (
+                            <div key={t.id} style={{ display: "grid", gap: 4 }}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedTools((prev) => ({ ...prev, [toolKey]: !prev[toolKey] }))
+                                }
                                 style={{
-                                  borderBottom: "1px solid #F1F5F9",
-                                  paddingBottom: 6,
-                                  display: "grid",
-                                  gap: 2,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: "#111827",
+                                  background: "#FFF5F3",
+                                  border: "1px solid #FAD7D0",
+                                  borderRadius: 999,
+                                  padding: "4px 10px",
+                                  cursor: "pointer",
                                 }}
                               >
+                                {t.status === "error" ? (
+                                  <AlertCircle size={12} color="#DC2626" />
+                                ) : (
+                                  <CheckCircle2 size={12} color="#16A34A" />
+                                )}
+                                <span>
+                                  {t.page} · {t.count} · {t.duration_ms}ms
+                                </span>
+                                {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                              </button>
+                              {isOpen && (
                                 <div
                                   style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    gap: 8,
-                                    fontSize: 12.5,
-                                    fontWeight: 700,
+                                    padding: "7px 10px",
+                                    borderRadius: 10,
+                                    border: "1px solid #E5E7EB",
+                                    background: "#FFFFFF",
+                                    display: "grid",
+                                    gap: 2,
                                   }}
                                 >
-                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                    {t.status === "error" ? (
-                                      <AlertCircle size={13} color="#DC2626" />
-                                    ) : (
-                                      <CheckCircle2 size={13} color="#16A34A" />
-                                    )}
-                                    {t.page}
-                                  </span>
-                                  <span style={{ fontSize: 11, fontWeight: 600, color: "#64748B" }}>
-                                    {t.count} · {t.duration_ms}ms
-                                  </span>
+                                  <code style={{ fontSize: 11, color: "#FF6B57" }}>{t.tool}()</code>
+                                  {t.summary && (
+                                    <span style={{ fontSize: 12, color: "#64748B" }}>{t.summary}</span>
+                                  )}
                                 </div>
-                                <code style={{ fontSize: 11, color: "#FF6B57" }}>{t.tool}()</code>
-                                {t.summary && (
-                                  <span style={{ fontSize: 12, color: "#64748B" }}>{t.summary}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
 
@@ -794,8 +1020,17 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                         const key = `${msg.id}_${idx}`
                         const state = executedKeys[key]
                         const isDraft = action.type === "draft_message"
+                        const isDelete = action.type.startsWith("delete_")
                         return (
-                          <article key={key} className="admin-card" style={{ padding: 14 }}>
+                          <article
+                            key={key}
+                            className="admin-card"
+                            style={{
+                              padding: 14,
+                              borderColor: isDelete ? "#FCA5A5" : undefined,
+                              background: isDelete ? "#FFFBFB" : undefined,
+                            }}
+                          >
                             <div
                               style={{
                                 display: "flex",
@@ -824,6 +1059,11 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                             <Button
                               type="button"
                               variant={state === "done" ? "outline" : "default"}
+                              style={
+                                isDelete && state !== "done"
+                                  ? { background: "#DC2626", color: "#FFFFFF" }
+                                  : undefined
+                              }
                               disabled={state === "running" || (state === "done" && !isDraft)}
                               onClick={() => void runAction(key, action)}
                             >
@@ -835,12 +1075,17 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                               ) : state === "done" ? (
                                 <>
                                   <CheckCircle2 data-icon="inline-start" />
-                                  {isDraft ? "Copied" : "Completed"}
+                                  {isDraft ? "Copied" : isDelete ? "Deleted" : "Completed"}
                                 </>
                               ) : isDraft ? (
                                 <>
                                   <Copy data-icon="inline-start" />
                                   Copy Message
+                                </>
+                              ) : isDelete ? (
+                                <>
+                                  <Trash2 data-icon="inline-start" />
+                                  Confirm Delete
                                 </>
                               ) : (
                                 <>
@@ -858,24 +1103,37 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
 
               {sending && (
                 <div style={{ display: "grid", gap: 6 }}>
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      justifySelf: "start",
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      background: "#FFF5F3",
-                      border: "1px solid #FAD7D0",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#111827",
-                    }}
-                  >
-                    <Wrench size={12} color="#FF6B57" />
-                    <span>Scanning Services, Bookings, Clients, Staff & Settings…</span>
-                  </div>
+                  {liveTools.map((t) => (
+                    <div
+                      key={t.id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        justifySelf: "start",
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        background: "#FFF5F3",
+                        border: "1px solid #FAD7D0",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#111827",
+                      }}
+                    >
+                      {t.status === "running" ? (
+                        <Loader2 size={12} className="animate-spin" color="#FF6B57" />
+                      ) : t.status === "error" ? (
+                        <AlertCircle size={12} color="#DC2626" />
+                      ) : (
+                        <CheckCircle2 size={12} color="#16A34A" />
+                      )}
+                      <span>
+                        {t.status === "running"
+                          ? `Querying ${t.page}…`
+                          : `${t.page} · ${t.count} · ${t.duration_ms}ms`}
+                      </span>
+                    </div>
+                  ))}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#64748B", fontSize: 13 }}>
                   <Loader2 size={15} className="animate-spin" />
                   <span>Thinking… {elapsedSeconds.toFixed(1)}s</span>

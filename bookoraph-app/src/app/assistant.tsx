@@ -25,6 +25,7 @@ import {
   OPENROUTER_FREE_MODELS,
   type AssistantAction,
   type AssistantChatMessage,
+  type AssistantToolCall,
 } from '@/lib/assistant';
 import { goBackOrReplace } from '@/lib/navigation';
 import { useApp } from '@/providers/app-provider';
@@ -51,6 +52,15 @@ function minutesBetween(start: string, end?: string): number {
   return diff >= 5 ? diff : 60;
 }
 
+function confirmDestructive(title: string, message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
+
 export default function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -60,9 +70,13 @@ export default function AssistantScreen() {
     blockEvents,
     addAppointment,
     updateAppointmentStatus,
+    deleteAppointment,
     addService,
+    deleteService,
     addClient,
+    deleteClient,
     addBlockTime,
+    deleteBlockTime,
   } = useApp();
 
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
@@ -71,6 +85,7 @@ export default function AssistantScreen() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [liveTools, setLiveTools] = useState<AssistantToolCall[]>([]);
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({});
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [setupNotice, setSetupNotice] = useState('');
@@ -107,6 +122,7 @@ export default function AssistantScreen() {
       abortRef.current.abort();
       abortRef.current = null;
     }
+    setLiveTools([]);
     setSending(false);
   };
 
@@ -127,6 +143,7 @@ export default function AssistantScreen() {
     abortRef.current = controller;
     elapsedRef.current = 0;
     setElapsedSeconds(0);
+    setLiveTools([]);
     setSending(true);
     setSetupNotice('');
     scrollToBottom();
@@ -136,10 +153,27 @@ export default function AssistantScreen() {
       content: m.content,
     }));
 
-    const result = await askBookoraAssistant(apiHistory, selectedModel, controller.signal);
+    const upsertLiveTool = (tool: AssistantToolCall) => {
+      setLiveTools((prev) => {
+        const idx = prev.findIndex((t) => t.id === tool.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = tool;
+          return next;
+        }
+        return [...prev, tool];
+      });
+      scrollToBottom();
+    };
+
+    const result = await askBookoraAssistant(apiHistory, selectedModel, controller.signal, {
+      onToolStart: upsertLiveTool,
+      onToolDone: upsertLiveTool,
+    });
     const finalElapsed = Math.max(0.1, elapsedRef.current);
     abortRef.current = null;
     setSending(false);
+    setLiveTools([]);
 
     if (result.aborted) {
       setMessages((prev) => [
@@ -367,6 +401,124 @@ export default function AssistantScreen() {
         if (err) throw new Error(err);
         setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
         Alert.alert('Time blocked', `${action.data.title} on ${action.data.event_date} saved.`);
+        return;
+      }
+
+      if (action.type === 'delete_service') {
+        const target =
+          services.find((s) => action.data.service_id && s.id === action.data.service_id) ||
+          services.find((s) => s.name.trim().toLowerCase() === (action.data.name || '').trim().toLowerCase());
+        if (!target) {
+          throw new Error(`Service "${action.data.name}" not found in Services. Did not delete.`);
+        }
+        const ok = await confirmDestructive(
+          'Delete service?',
+          `Permanently delete "${target.name}" from Services? This cannot be undone.`
+        );
+        if (!ok) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          return;
+        }
+        const err = await deleteService(target.id);
+        if (err) throw new Error(err);
+        setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
+        Alert.alert('Service deleted', `"${target.name}" removed from Services.`);
+        return;
+      }
+
+      if (action.type === 'delete_appointment') {
+        const target =
+          appointments.find((a) => action.data.appointment_id && a.id === action.data.appointment_id) ||
+          appointments.find(
+            (a) =>
+              (!action.data.customer_name ||
+                a.customer_name.trim().toLowerCase() === action.data.customer_name.trim().toLowerCase()) &&
+              (!action.data.appointment_date || a.appointment_date === action.data.appointment_date)
+          );
+        if (!target) {
+          throw new Error('Matching booking not found. Did not delete.');
+        }
+        const ok = await confirmDestructive(
+          'Delete booking?',
+          `Permanently delete ${target.customer_name}'s booking (${target.service_names}) on ${target.appointment_date} at ${target.appointment_time}?`
+        );
+        if (!ok) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          return;
+        }
+        const err = await deleteAppointment(target.id);
+        if (err) throw new Error(err);
+        setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
+        Alert.alert('Booking deleted', `${target.customer_name}'s booking was deleted.`);
+        return;
+      }
+
+      if (action.type === 'delete_client') {
+        const target =
+          clients.find((c) => action.data.client_id && c.id === action.data.client_id) ||
+          clients.find(
+            (c) => c.full_name.trim().toLowerCase() === (action.data.full_name || '').trim().toLowerCase()
+          );
+        if (!target) {
+          throw new Error(`Client "${action.data.full_name || ''}" not found. Did not delete.`);
+        }
+        const ok = await confirmDestructive(
+          'Delete client?',
+          `Permanently delete client "${target.full_name}" from Clients? This cannot be undone.`
+        );
+        if (!ok) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          return;
+        }
+        const err = await deleteClient(target.id);
+        if (err) throw new Error(err);
+        setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
+        Alert.alert('Client deleted', `"${target.full_name}" removed from Clients.`);
+        return;
+      }
+
+      if (action.type === 'delete_block_time') {
+        const start = action.data.start_time ? normalizeTime24h(action.data.start_time) : '';
+        const target =
+          blockEvents.find((b) => action.data.block_id && b.id === action.data.block_id) ||
+          blockEvents.find(
+            (b) =>
+              (!action.data.event_date || b.event_date === action.data.event_date) &&
+              (!start || normalizeTime24h(b.start_time) === start) &&
+              (!action.data.title ||
+                b.title.trim().toLowerCase() === action.data.title.trim().toLowerCase())
+          );
+        if (!target) {
+          throw new Error('Blocked time entry not found. Did not delete.');
+        }
+        const ok = await confirmDestructive(
+          'Delete blocked time?',
+          `Permanently remove "${target.title}" (${target.event_date} at ${target.start_time})?`
+        );
+        if (!ok) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          return;
+        }
+        const err = await deleteBlockTime(target.id);
+        if (err) throw new Error(err);
+        setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
+        Alert.alert('Blocked time removed', `"${target.title}" was deleted.`);
       }
     } catch (err) {
       setExecutedKeys((prev) => {
@@ -418,6 +570,7 @@ export default function AssistantScreen() {
               setExecutedKeys({});
               setExpandedThinking({});
               setExpandedTools({});
+              setLiveTools([]);
               setSetupNotice('');
             }}
             style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}
@@ -530,7 +683,6 @@ export default function AssistantScreen() {
               {messages.map((msg) => {
                 const isUser = msg.role === 'user';
                 const showThought = Boolean(expandedThinking[msg.id]);
-                const showTools = Boolean(expandedTools[msg.id]);
                 const toolCalls = !isUser && Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
                 const hasToolsBlock = toolCalls.length > 0;
                 const hasThinkingBlock = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null);
@@ -538,48 +690,45 @@ export default function AssistantScreen() {
                 return (
                   <View key={msg.id} style={[styles.msgGroup, isUser ? styles.msgGroupUser : styles.msgGroupBot]}>
                     {hasToolsBlock ? (
-                      <View style={styles.toolsWrap}>
-                        <Pressable
-                          onPress={() =>
-                            setExpandedTools((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
-                          }
-                          style={({ pressed }) => [styles.toolPill, pressed && styles.pressed]}
-                        >
-                          <Ionicons name="construct-outline" size={12} color={colors.coral} />
-                          <Text style={styles.toolPillText}>
-                            Scanned {toolCalls.length} workspace pages (
-                            {toolCalls.reduce((sum, t) => sum + (Number(t.count) || 0), 0)} items)
-                          </Text>
-                          <Ionicons
-                            name={showTools ? 'chevron-up' : 'chevron-down'}
-                            size={13}
-                            color={colors.muted}
-                          />
-                        </Pressable>
-
-                        {showTools ? (
-                          <View style={styles.toolsBox}>
-                            {toolCalls.map((t) => (
-                              <View key={t.id} style={styles.toolRow}>
-                                <View style={styles.toolRowTop}>
-                                  <View style={styles.toolTitleWrap}>
-                                    <Ionicons
-                                      name={t.status === 'error' ? 'alert-circle' : 'checkmark-circle'}
-                                      size={13}
-                                      color={t.status === 'error' ? colors.danger : colors.success}
-                                    />
-                                    <Text style={styles.toolPageName}>{t.page}</Text>
-                                  </View>
-                                  <Text style={styles.toolMeta}>
-                                    {t.count} · {t.duration_ms}ms
-                                  </Text>
+                      <View style={styles.toolsListWrap}>
+                        {toolCalls.map((t) => {
+                          const toolKey = `${msg.id}_${t.id}`;
+                          const isOpen = Boolean(expandedTools[toolKey]);
+                          return (
+                            <View key={t.id} style={styles.singleToolItem}>
+                              <Pressable
+                                onPress={() =>
+                                  setExpandedTools((prev) => ({ ...prev, [toolKey]: !prev[toolKey] }))
+                                }
+                                style={({ pressed }) => [styles.toolPill, pressed && styles.pressed]}
+                              >
+                                <Ionicons
+                                  name={
+                                    t.status === 'error'
+                                      ? 'alert-circle'
+                                      : 'checkmark-circle'
+                                  }
+                                  size={13}
+                                  color={t.status === 'error' ? colors.danger : colors.success}
+                                />
+                                <Text style={styles.toolPillText}>
+                                  {t.page} · {t.count} · {t.duration_ms}ms
+                                </Text>
+                                <Ionicons
+                                  name={isOpen ? 'chevron-up' : 'chevron-down'}
+                                  size={12}
+                                  color={colors.muted}
+                                />
+                              </Pressable>
+                              {isOpen ? (
+                                <View style={styles.toolDetailBox}>
+                                  <Text style={styles.toolFuncName}>{t.tool}()</Text>
+                                  {t.summary ? <Text style={styles.toolSummary}>{t.summary}</Text> : null}
                                 </View>
-                                <Text style={styles.toolFuncName}>{t.tool}()</Text>
-                                {t.summary ? <Text style={styles.toolSummary}>{t.summary}</Text> : null}
-                              </View>
-                            ))}
-                          </View>
-                        ) : null}
+                              ) : null}
+                            </View>
+                          );
+                        })}
                       </View>
                     ) : null}
 
@@ -631,8 +780,9 @@ export default function AssistantScreen() {
                           const key = `${msg.id}_${idx}`;
                           const state = executedKeys[key];
                           const isDraft = action.type === 'draft_message';
+                          const isDelete = action.type.startsWith('delete_');
                           return (
-                            <Card key={key} style={styles.actionCard}>
+                            <Card key={key} style={[styles.actionCard, isDelete && styles.actionCardDelete]}>
                               <View style={styles.actionTop}>
                                 <Text style={styles.actionLabel}>{action.label || 'Suggested action'}</Text>
                                 {state === 'done' ? <StatusBadge status="active" /> : null}
@@ -646,19 +796,25 @@ export default function AssistantScreen() {
                                     state === 'done'
                                       ? isDraft
                                         ? 'Copied'
-                                        : 'Completed'
+                                        : isDelete
+                                          ? 'Deleted'
+                                          : 'Completed'
                                       : state === 'running'
                                         ? 'Working…'
                                         : isDraft
                                           ? 'Copy message'
-                                          : 'Confirm & run'
+                                          : isDelete
+                                            ? 'Confirm delete'
+                                            : 'Confirm & run'
                                   }
                                   icon={
                                     state === 'done'
                                       ? 'checkmark-circle-outline'
                                       : isDraft
                                         ? 'copy-outline'
-                                        : 'flash-outline'
+                                        : isDelete
+                                          ? 'trash-outline'
+                                          : 'flash-outline'
                                   }
                                   compact
                                   secondary={state === 'done'}
@@ -704,12 +860,24 @@ export default function AssistantScreen() {
 
               {sending ? (
                 <View style={styles.liveWrap}>
-                  <View style={styles.liveScanPill}>
-                    <Ionicons name="construct-outline" size={12} color={colors.coral} />
-                    <Text style={styles.liveScanText}>
-                      Scanning Services, Bookings, Clients, Staff & Settings…
-                    </Text>
-                  </View>
+                  {liveTools.map((t) => (
+                    <View key={t.id} style={styles.liveScanPill}>
+                      {t.status === 'running' ? (
+                        <ActivityIndicator size="small" color={colors.coral} />
+                      ) : (
+                        <Ionicons
+                          name={t.status === 'error' ? 'alert-circle' : 'checkmark-circle'}
+                          size={13}
+                          color={t.status === 'error' ? colors.danger : colors.success}
+                        />
+                      )}
+                      <Text style={styles.liveScanText}>
+                        {t.status === 'running'
+                          ? `Querying ${t.page}…`
+                          : `${t.page} · ${t.count} · ${t.duration_ms}ms`}
+                      </Text>
+                    </View>
+                  ))}
                   <View style={styles.liveThinkingRow}>
                   <View style={styles.loadingBubble}>
                     <ActivityIndicator size="small" color={colors.coral} />
@@ -975,9 +1143,14 @@ const styles = StyleSheet.create({
   msgGroupBot: {
     alignItems: 'flex-start',
   },
-  toolsWrap: {
+  toolsListWrap: {
     maxWidth: '94%',
-    gap: 6,
+    gap: 5,
+    alignItems: 'flex-start',
+  },
+  singleToolItem: {
+    gap: 4,
+    alignSelf: 'flex-start',
   },
   toolPill: {
     flexDirection: 'row',
@@ -985,7 +1158,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: radius.pill,
     backgroundColor: '#FFF5F3',
     borderWidth: 1,
@@ -996,41 +1169,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
-  toolsBox: {
+  toolDetailBox: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: 10,
-    gap: 8,
-  },
-  toolRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 6,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     gap: 2,
-  },
-  toolRowTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  toolTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flex: 1,
-  },
-  toolPageName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  toolMeta: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: colors.muted,
   },
   toolFuncName: {
     fontSize: 10.5,
@@ -1128,6 +1274,10 @@ const styles = StyleSheet.create({
   actionCard: {
     gap: 8,
     backgroundColor: '#FFFFFF',
+  },
+  actionCardDelete: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FFFBFB',
   },
   actionTop: {
     flexDirection: 'row',

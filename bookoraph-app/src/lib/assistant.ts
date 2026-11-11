@@ -4,7 +4,7 @@ export type AssistantToolCall = {
   id: string;
   tool: string;
   page: string;
-  status: 'done' | 'error';
+  status: 'running' | 'done' | 'error';
   count: number;
   duration_ms: number;
   summary: string;
@@ -83,6 +83,42 @@ export type AssistantAction =
     };
   }
   | {
+    type: 'delete_service';
+    label: string;
+    data: {
+      service_id?: string;
+      name: string;
+    };
+  }
+  | {
+    type: 'delete_appointment';
+    label: string;
+    data: {
+      appointment_id?: string;
+      customer_name?: string;
+      appointment_date?: string;
+      appointment_time?: string;
+    };
+  }
+  | {
+    type: 'delete_client';
+    label: string;
+    data: {
+      client_id?: string;
+      full_name?: string;
+    };
+  }
+  | {
+    type: 'delete_block_time';
+    label: string;
+    data: {
+      block_id?: string;
+      title?: string;
+      event_date?: string;
+      start_time?: string;
+    };
+  }
+  | {
     type: 'draft_message';
     label: string;
     data: {
@@ -117,10 +153,17 @@ export const ASSISTANT_QUICK_PROMPTS = [
   'Block lunch break tomorrow 12:00 PM to 1:00 PM',
 ];
 
+export type AssistantStreamHandlers = {
+  onToolStart?: (tool: AssistantToolCall) => void;
+  onToolDone?: (tool: AssistantToolCall) => void;
+  onThinkingStart?: () => void;
+};
+
 export async function askBookoraAssistant(
   history: { role: 'user' | 'assistant'; content: string }[],
   model?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  handlers?: AssistantStreamHandlers
 ): Promise<{
   ok: boolean;
   aborted?: boolean;
@@ -173,9 +216,99 @@ export async function askBookoraAssistant(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages: history, model: model || 'openrouter/free' }),
+      body: JSON.stringify({ messages: history, model: model || 'openrouter/free', stream: true }),
       signal,
     });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/x-ndjson')) {
+      const liveTools: AssistantToolCall[] = [];
+      let finalPayload: Record<string, unknown> | null = null;
+      let streamError: { error: string; status: number; configured: boolean; toolCalls: AssistantToolCall[] } | null = null;
+
+      const handleLine = (rawLine: string) => {
+        const line = rawLine.trim();
+        if (!line) return;
+        try {
+          const ev = JSON.parse(line) as Record<string, unknown>;
+          if (ev.type === 'tool_start' && ev.tool && typeof ev.tool === 'object') {
+            const t = ev.tool as AssistantToolCall;
+            liveTools.push(t);
+            handlers?.onToolStart?.(t);
+          } else if (ev.type === 'tool_done' && ev.tool && typeof ev.tool === 'object') {
+            const t = ev.tool as AssistantToolCall;
+            const idx = liveTools.findIndex((item) => item.id === t.id);
+            if (idx >= 0) liveTools[idx] = t;
+            else liveTools.push(t);
+            handlers?.onToolDone?.(t);
+          } else if (ev.type === 'thinking_start') {
+            handlers?.onThinkingStart?.();
+          } else if (ev.type === 'result' && ev.data && typeof ev.data === 'object') {
+            finalPayload = ev.data as Record<string, unknown>;
+          } else if (ev.type === 'error') {
+            streamError = {
+              error: String(ev.error || 'Request failed'),
+              status: Number(ev.status || 500),
+              configured: ev.configured !== false,
+              toolCalls: Array.isArray(ev.tool_calls) ? (ev.tool_calls as AssistantToolCall[]) : liveTools,
+            };
+          }
+        } catch {
+          // Ignore malformed stream chunk
+        }
+      };
+
+      const reader = res.body?.getReader?.();
+      if (reader) {
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            handleLine(line);
+          }
+        }
+        if (buffer.trim()) handleLine(buffer);
+      } else {
+        const fullText = await res.text();
+        for (const line of fullText.split('\n')) {
+          handleLine(line);
+        }
+      }
+
+      if (streamError) {
+        const se = streamError as { error: string; status: number; configured: boolean; toolCalls: AssistantToolCall[] };
+        const configured = se.configured === false || se.status === 503 || se.status === 401 ? false : true;
+        return {
+          ok: false,
+          configured,
+          reply: '',
+          thinking: null,
+          thinkingSeconds: null,
+          toolCalls: se.toolCalls,
+          actions: [],
+          error: se.error,
+        };
+      }
+
+      if (finalPayload) {
+        const fp = finalPayload as Record<string, unknown>;
+        return {
+          ok: true,
+          configured: true,
+          reply: String(fp.reply || ''),
+          thinking: typeof fp.thinking === 'string' && fp.thinking.trim() ? fp.thinking.trim() : null,
+          thinkingSeconds: typeof fp.thinking_seconds === 'number' ? fp.thinking_seconds : null,
+          toolCalls: Array.isArray(fp.tool_calls) ? (fp.tool_calls as AssistantToolCall[]) : liveTools,
+          actions: Array.isArray(fp.actions) ? (fp.actions as AssistantAction[]) : [],
+          model: fp.model ? String(fp.model) : undefined,
+        };
+      }
+    }
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data?.configured === false) {

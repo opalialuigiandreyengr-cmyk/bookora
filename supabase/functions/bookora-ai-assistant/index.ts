@@ -141,11 +141,86 @@ type ToolScanEntry = {
   id: string;
   tool: string;
   page: string;
-  status: 'done' | 'error';
+  status: 'running' | 'done' | 'error';
   count: number;
   duration_ms: number;
   summary: string;
 };
+
+type ScannerKey =
+  | 'overview'
+  | 'services'
+  | 'calendar'
+  | 'clients'
+  | 'payments'
+  | 'staff'
+  | 'automation';
+
+const SCANNER_ORDER: ScannerKey[] = [
+  'overview',
+  'services',
+  'calendar',
+  'clients',
+  'payments',
+  'staff',
+  'automation',
+];
+
+function selectScannersForPrompt(messages: ChatMessage[]): ScannerKey[] {
+  const latest = (messages[messages.length - 1]?.content || '').toLowerCase();
+  const combined = messages
+    .slice(-3)
+    .map((m) => m.content)
+    .join(' ')
+    .toLowerCase();
+  const text = `${latest} ${combined}`;
+
+  if (/\b(all pages|everything|full scan|entire|all data|scan all|overview of everything)\b/i.test(latest)) {
+    return [...SCANNER_ORDER];
+  }
+
+  const picked = new Set<ScannerKey>();
+
+  if (/\b(service|services|menu|price|pricing|category|categories|package|packages|promo|treatment|manicure|pedicure|facial|hair|nail|wax|massage|add service|delete service|remove service)\b/i.test(text)) {
+    picked.add('services');
+  }
+  if (/\b(book|booking|bookings|appointment|appointments|schedule|scheduled|calendar|slot|slots|tomorrow|today|week|block|blocked|lunch|break|class|classes|waitlist|reschedule|cancel|no_show|no-show|reminder|confirm)\b/i.test(text)) {
+    picked.add('calendar');
+    picked.add('services');
+    picked.add('clients');
+  }
+  if (/\b(client|clients|customer|customers|member|membership|memberships|loyalty|points|phone|email|contact|maria|juan)\b/i.test(text)) {
+    picked.add('clients');
+  }
+  if (/\b(revenue|sales|income|earn|earning|earnings|payment|payments|paid|pending|refund|billing|invoice|money|php|month|cash|gcash|card)\b/i.test(text)) {
+    picked.add('payments');
+    picked.add('calendar');
+  }
+  if (/\b(staff|team|stylist|technician|therapist|employee|barber|specialist|worker|assign)\b/i.test(text)) {
+    picked.add('staff');
+    picked.add('services');
+  }
+  if (/\b(setting|settings|profile|hour|hours|open|close|slug|link|address|location|policy|fee|plan|subscription)\b/i.test(text)) {
+    picked.add('overview');
+  }
+  if (/\b(notification|notifications|alert|alerts|report|reports|webhook|webhooks|integration|integrations|google calendar|zoom|email|sms|messenger)\b/i.test(text)) {
+    picked.add('automation');
+  }
+
+  // If summary or draft or generic request without narrow keyword, scan core pages
+  if (/\b(summarize|summary|report|status|how is|how are|draft)\b/i.test(latest) && picked.size < 3) {
+    picked.add('overview');
+    picked.add('services');
+    picked.add('calendar');
+    picked.add('payments');
+  }
+
+  if (picked.size === 0) {
+    return ['overview', 'services', 'calendar', 'clients', 'payments'];
+  }
+
+  return SCANNER_ORDER.filter((k) => picked.has(k));
+}
 
 function addMinutesToTime(startTime: string, durationMinutes: number): string {
   const parts = String(startTime || '09:00').split(':');
@@ -157,12 +232,14 @@ function addMinutesToTime(startTime: string, durationMinutes: number): string {
   return `${hh}:${mm}`;
 }
 
-async function scanAllOwnerPages(
+async function scanOwnerPages(
   supabaseUrl: string,
   apiKey: string,
   userJwt: string,
   userId: string,
-  todayManila: string
+  todayManila: string,
+  selectedKeys: ScannerKey[],
+  onToolEvent?: (ev: { type: 'tool_start' | 'tool_done'; tool: ToolScanEntry }) => void
 ): Promise<{ snapshot: Record<string, unknown>; toolCalls: ToolScanEntry[] }> {
   const headers = {
     apikey: apiKey,
@@ -197,47 +274,59 @@ async function scanAllOwnerPages(
     page: string,
     fn: () => Promise<{ data: T; count: number; summary: string; hasError?: boolean }>
   ): Promise<{ entry: ToolScanEntry; data: T }> => {
+    onToolEvent?.({
+      type: 'tool_start',
+      tool: {
+        id,
+        tool,
+        page,
+        status: 'running',
+        count: 0,
+        duration_ms: 0,
+        summary: `Querying ${page}…`,
+      },
+    });
     const t0 = Date.now();
     try {
       const result = await fn();
-      return {
-        entry: {
-          id,
-          tool,
-          page,
-          status: result.hasError ? 'error' : 'done',
-          count: result.count,
-          duration_ms: Math.max(1, Date.now() - t0),
-          summary: result.summary,
-        },
-        data: result.data,
+      const entry: ToolScanEntry = {
+        id,
+        tool,
+        page,
+        status: result.hasError ? 'error' : 'done',
+        count: result.count,
+        duration_ms: Math.max(1, Date.now() - t0),
+        summary: result.summary,
       };
+      onToolEvent?.({ type: 'tool_done', tool: entry });
+      return { entry, data: result.data };
     } catch (err) {
-      return {
-        entry: {
-          id,
-          tool,
-          page,
-          status: 'error',
-          count: 0,
-          duration_ms: Math.max(1, Date.now() - t0),
-          summary: err instanceof Error ? err.message : 'Scan failed',
-        },
-        data: {} as T,
+      const entry: ToolScanEntry = {
+        id,
+        tool,
+        page,
+        status: 'error',
+        count: 0,
+        duration_ms: Math.max(1, Date.now() - t0),
+        summary: err instanceof Error ? err.message : 'Scan failed',
       };
+      onToolEvent?.({ type: 'tool_done', tool: entry });
+      return { entry, data: {} as T };
     }
   };
 
-  const [
-    overviewScan,
-    servicesScan,
-    calendarScan,
-    clientsScan,
-    paymentsScan,
-    staffScan,
-    automationScan,
-  ] = await Promise.all([
-    runScanner('tool_overview', 'scan_overview_settings', 'Overview & Settings', async () => {
+  let overviewData: Record<string, unknown> = {};
+  let servicesData: { services?: Record<string, unknown>[]; categories?: Record<string, unknown>[]; packages?: Record<string, unknown>[] } = {};
+  let calendarData: { appointments?: Record<string, unknown>[]; blocks?: Record<string, unknown>[]; class_sessions?: Record<string, unknown>[]; scheduling_settings?: Record<string, unknown> } = {};
+  let clientsData: { clients?: Record<string, unknown>[]; membership_plans?: Record<string, unknown>[]; client_memberships?: Record<string, unknown>[] } = {};
+  let paymentsData: { payments?: Record<string, unknown>[]; paidThisMonth?: number; pendingCount?: number } = {};
+  let staffData: Record<string, unknown>[] = [];
+  let automationData: Record<string, unknown> = {};
+  const toolCalls: ToolScanEntry[] = [];
+
+  for (const key of selectedKeys) {
+    if (key === 'overview') {
+      const res = await runScanner('tool_overview', 'scan_overview_settings', 'Overview & Settings', async () => {
       const [profileRes, subRes] = await Promise.all([
         safeQuery(`business_profiles?id=eq.${uid}&select=*&limit=1`),
         safeQuery(`business_subscriptions?business_id=eq.${uid}&select=*&limit=1`),
@@ -269,9 +358,11 @@ async function scanAllOwnerPages(
         ? `Settings query error: ${profileRes.error}`
         : `${business.business_name || 'Business profile'} · slug: ${business.slug || 'unset'}`;
       return { data: business, count: profileRes.rows.length, summary, hasError };
-    }),
-
-    runScanner('tool_services', 'scan_services_packages', 'Services & Packages', async () => {
+    });
+    overviewData = res.data;
+    toolCalls.push(res.entry);
+  } else if (key === 'services') {
+    const res = await runScanner('tool_services', 'scan_services_packages', 'Services & Packages', async () => {
       const [svcRes, catRes, pkgRes] = await Promise.all([
         safeQuery(`services?business_id=eq.${uid}&select=*&order=name.asc&limit=100`),
         safeQuery(`service_categories?business_id=eq.${uid}&select=*&order=created_at.asc&limit=50`),
@@ -318,9 +409,11 @@ async function scanAllOwnerPages(
         summary,
         hasError,
       };
-    }),
-
-    runScanner('tool_calendar', 'scan_calendar_bookings', 'Calendar, Bookings & Schedule', async () => {
+    });
+    servicesData = res.data;
+    toolCalls.push(res.entry);
+  } else if (key === 'calendar') {
+    const res = await runScanner('tool_calendar', 'scan_calendar_bookings', 'Calendar, Bookings & Schedule', async () => {
       const [apptRes, blockRes, classRes, schedRes] = await Promise.all([
         safeQuery(
           `appointments?business_id=eq.${uid}&select=*&order=appointment_date.desc,appointment_time.asc&limit=60`
@@ -386,9 +479,11 @@ async function scanAllOwnerPages(
         summary,
         hasError,
       };
-    }),
-
-    runScanner('tool_clients', 'scan_clients_memberships', 'Clients & Memberships', async () => {
+    });
+    calendarData = res.data;
+    toolCalls.push(res.entry);
+  } else if (key === 'clients') {
+    const res = await runScanner('tool_clients', 'scan_clients_memberships', 'Clients & Memberships', async () => {
       const [clientRes, planRes, memRes] = await Promise.all([
         safeQuery(`clients?business_id=eq.${uid}&select=*&order=full_name.asc&limit=80`),
         safeQuery(`membership_plans?business_id=eq.${uid}&select=*&order=created_at.desc&limit=30`),
@@ -427,9 +522,11 @@ async function scanAllOwnerPages(
         summary,
         hasError,
       };
-    }),
-
-    runScanner('tool_payments', 'scan_payments_revenue', 'Payments & Revenue', async () => {
+    });
+    clientsData = res.data;
+    toolCalls.push(res.entry);
+  } else if (key === 'payments') {
+    const res = await runScanner('tool_payments', 'scan_payments_revenue', 'Payments & Revenue', async () => {
       const payRes = await safeQuery(
         `payment_transactions?business_id=eq.${uid}&select=*&order=created_at.desc&limit=50`
       );
@@ -462,9 +559,11 @@ async function scanAllOwnerPages(
         summary,
         hasError,
       };
-    }),
-
-    runScanner('tool_staff', 'scan_staff_team', 'Team & Staff', async () => {
+    });
+    paymentsData = res.data;
+    toolCalls.push(res.entry);
+  } else if (key === 'staff') {
+    const res = await runScanner('tool_staff', 'scan_staff_team', 'Team & Staff', async () => {
       const [staffRes, assignRes] = await Promise.all([
         safeQuery(`staff_members?business_id=eq.${uid}&select=*&order=created_at.asc&limit=40`),
         safeQuery(`staff_service_assignments?select=*&limit=100`),
@@ -494,9 +593,11 @@ async function scanAllOwnerPages(
           ? `${staff.length} team member(s): ${staff.slice(0, 3).map((m) => m.full_name).join(', ')}`
           : '0 team members configured';
       return { data: staff, count: staff.length, summary, hasError };
-    }),
-
-    runScanner('tool_automation', 'scan_notifications_integrations', 'Notifications, Reports & Integrations', async () => {
+    });
+    staffData = res.data;
+    toolCalls.push(res.entry);
+  } else if (key === 'automation') {
+    const res = await runScanner('tool_automation', 'scan_notifications_integrations', 'Notifications, Reports & Integrations', async () => {
       const [notifSetRes, notifEvtRes, repSchedRes, intRes, whRes] = await Promise.all([
         safeQuery(`notification_settings?business_id=eq.${uid}&select=*&limit=1`),
         safeQuery(
@@ -537,52 +638,46 @@ async function scanAllOwnerPages(
         count: recent_notifications.length + integrations.length + webhooks.length,
         summary,
       };
-    }),
-  ]);
+    });
+    automationData = res.data;
+    toolCalls.push(res.entry);
+  }
+  }
 
-  const appointments = calendarScan.data.appointments || [];
+  const appointments = (calendarData.appointments || []) as Array<Record<string, unknown>>;
   const todaysBookings = appointments.filter(
-    (a) => a.appointment_date === todayManila && !['cancelled', 'no_show'].includes(a.status)
+    (a) => a.appointment_date === todayManila && !['cancelled', 'no_show'].includes(String(a.status || ''))
   );
   const pendingBookingsCount = appointments.filter((a) => a.status === 'pending').length;
 
   const snapshot = {
-    business: overviewScan.data,
+    scanned_pages: selectedKeys,
+    business: overviewData,
     summary: {
       today_date: todayManila,
       todays_active_bookings_count: todaysBookings.length,
       pending_bookings_count: pendingBookingsCount,
-      paid_revenue_this_month_php: paymentsScan.data.paidThisMonth || 0,
-      pending_payments_count: paymentsScan.data.pendingCount || 0,
-      total_services: (servicesScan.data.services || []).length,
-      total_packages: (servicesScan.data.packages || []).length,
-      total_clients: (clientsScan.data.clients || []).length,
-      total_staff: (staffScan.data || []).length,
+      paid_revenue_this_month_php: paymentsData.paidThisMonth || 0,
+      pending_payments_count: paymentsData.pendingCount || 0,
+      total_services: (servicesData.services || []).length,
+      total_packages: (servicesData.packages || []).length,
+      total_clients: (clientsData.clients || []).length,
+      total_staff: staffData.length,
     },
-    services: servicesScan.data.services || [],
-    service_categories: servicesScan.data.categories || [],
-    packages: servicesScan.data.packages || [],
+    services: servicesData.services || [],
+    service_categories: servicesData.categories || [],
+    packages: servicesData.packages || [],
     appointments: appointments.slice(0, 45),
-    upcoming_blocks: calendarScan.data.blocks || [],
-    class_sessions: calendarScan.data.class_sessions || [],
-    scheduling_settings: calendarScan.data.scheduling_settings || {},
-    clients: (clientsScan.data.clients || []).slice(0, 60),
-    membership_plans: clientsScan.data.membership_plans || [],
-    client_memberships: clientsScan.data.client_memberships || [],
-    recent_payments: (paymentsScan.data.payments || []).slice(0, 20),
-    staff: staffScan.data || [],
-    automation: automationScan.data || {},
+    upcoming_blocks: calendarData.blocks || [],
+    class_sessions: calendarData.class_sessions || [],
+    scheduling_settings: calendarData.scheduling_settings || {},
+    clients: (clientsData.clients || []).slice(0, 60),
+    membership_plans: clientsData.membership_plans || [],
+    client_memberships: clientsData.client_memberships || [],
+    recent_payments: (paymentsData.payments || []).slice(0, 20),
+    staff: staffData || [],
+    automation: automationData || {},
   };
-
-  const toolCalls = [
-    overviewScan.entry,
-    servicesScan.entry,
-    calendarScan.entry,
-    clientsScan.entry,
-    paymentsScan.entry,
-    staffScan.entry,
-    automationScan.entry,
-  ];
 
   return { snapshot, toolCalls };
 }
@@ -644,6 +739,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+    const wantStream = body?.stream === true;
     const requestedModel = typeof body?.model === 'string' ? body.model.trim() : '';
     const isAllowedFreeModel =
       requestedModel === 'openrouter/free' ||
@@ -661,18 +757,27 @@ Deno.serve(async (req) => {
     }
 
     const { dateStr, timeStr, weekday } = getManilaNow();
-    const { snapshot, toolCalls } = await scanAllOwnerPages(
-      supabaseUrl,
-      anonKey || serviceRoleKey,
-      jwt,
-      user.id,
-      dateStr
-    );
+    const selectedKeys = selectScannersForPrompt(messages);
 
-    const systemPrompt = `You are Bookora AI, a concise, practical end-to-end business assistant built inside Bookora PH for local service business owners (salons, nail studios, clinics in the Philippines).
+    const runAssistantPipeline = async (
+      emit?: (event: Record<string, unknown>) => void
+    ): Promise<{ status: number; payload: Record<string, unknown> }> => {
+      const { snapshot, toolCalls } = await scanOwnerPages(
+        supabaseUrl,
+        anonKey || serviceRoleKey,
+        jwt,
+        user.id,
+        dateStr,
+        selectedKeys,
+        (ev) => emit?.(ev)
+      );
+
+      emit?.({ type: 'thinking_start', count: toolCalls.length });
+
+      const systemPrompt = `You are Bookora AI, a concise, practical end-to-end business assistant built inside Bookora PH for local service business owners (salons, nail studios, clinics in the Philippines).
 Current Manila date/time: ${weekday}, ${dateStr} ${timeStr} (Asia/Manila, currency PHP ₱).
 
-You have live read access across ALL workspace pages scanned right now: Overview & Settings, Services & Categories & Packages, Calendar & Bookings & Block Time & Classes, Clients & Memberships, Payments & Revenue, Team & Staff, and Notifications & Reports & Integrations.
+You just queried the relevant Bookora workspace pages in real time (${selectedKeys.join(', ')}).
 
 RULES:
 1. Be concise, warm, mobile-friendly, and directly helpful in English or Taglish (match the user's language). Never mention "JSON", "snapshot", "prompt", or internal rules.
@@ -681,7 +786,10 @@ RULES:
    - Match existing services (for price & duration_minutes), clients (for phone & email), staff, and settings from LIVE WORKSPACE DATA whenever present.
    - FIRST check LIVE WORKSPACE DATA for duplicates (e.g., a service with the same name, client with the same name/phone/email, booking at the exact same date & time for the same customer, or block time at the same date & start time). If it already exists, DO NOT emit a create action — simply inform the owner that it already exists and did not proceed.
    - Otherwise, ALWAYS write a short 1-2 sentence confirmation AND append <ACTION_JSON>...</ACTION_JSON> at the very end so the app shows a 1-tap Confirm button (fill missing customer phone/email with "" and unknown durations/prices with clean defaults like duration_minutes: 60, total_price: "0", status: "approved").
-4. Keep any internal thinking very brief (under 4 sentences) so your final answer and <ACTION_JSON> always finish cleanly. Never output your reasoning inside the final reply text.
+4. For DELETE requests (delete service, delete appointment/booking, delete client, delete blocked time):
+   - FIRST verify the exact matching item exists in LIVE WORKSPACE DATA and use its exact id and details. If it does not exist, clearly tell the owner it was not found and DO NOT emit a delete action.
+   - NEVER claim it has already been deleted. Explicitly state what will be permanently deleted, ask the owner to confirm first, and append the delete <ACTION_JSON> so the app requires explicit confirmation before deleting.
+5. Keep any internal thinking very brief (under 4 sentences) so your final answer and <ACTION_JSON> always finish cleanly. Never output your reasoning inside the final reply text.
 
 ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
 - Create appointment:
@@ -694,121 +802,191 @@ ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
   {"type":"create_client","label":"Add client <name>","data":{"full_name":"","phone":"","email":"","notes":""}}
 - Block calendar time:
   {"type":"block_time","label":"Block <title>","data":{"title":"","event_date":"YYYY-MM-DD","start_time":"HH:MM","end_time":"HH:MM","note":""}}
+- Delete service (ALWAYS verify exists & ask confirmation; use exact service_id if found):
+  {"type":"delete_service","label":"Delete service: <name>","data":{"service_id":"","name":""}}
+- Delete appointment (ALWAYS verify exists & ask confirmation; use exact appointment_id if found):
+  {"type":"delete_appointment","label":"Delete booking: <customer_name> (<appointment_date>)","data":{"appointment_id":"","customer_name":"","appointment_date":"YYYY-MM-DD","appointment_time":""}}
+- Delete client (ALWAYS verify exists & ask confirmation; use exact client_id if found):
+  {"type":"delete_client","label":"Delete client: <full_name>","data":{"client_id":"","full_name":""}}
+- Delete block time (ALWAYS verify exists & ask confirmation; use exact block_id if found):
+  {"type":"delete_block_time","label":"Delete blocked time: <title>","data":{"block_id":"","title":"","event_date":"YYYY-MM-DD","start_time":""}}
 - Draft copyable customer/promo message:
   {"type":"draft_message","label":"Draft <channel> message","data":{"channel":"SMS|Messenger|Social","recipient":"","message":""}}
 
 LIVE WORKSPACE DATA:
 ${JSON.stringify(snapshot)}`;
 
-    const callOpenRouter = async (modelId: string) => {
-      return await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${openRouterKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://www.bookoraph.com',
-          'X-Title': 'Bookora PH Owner Assistant',
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [{ role: 'system', content: systemPrompt }, ...messages],
-          temperature: 0.35,
-          max_tokens: 3200,
-        }),
-      });
-    };
-
-    const fallbackChain = Array.from(
-      new Set([
-        primaryModel,
-        'openrouter/free',
-        'nvidia/nemotron-3.5-lightning:free',
-        'baidu/ernie-5.5-flash-preview:free',
-        'nvidia/nemotron-3.5-super-vl:free',
-        'nvidia/nemotron-3-ultra-550b-a55b:free',
-        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-        'recursive/flint-v1.0:free',
-        'liquid/lfm-3-1.7b:free',
-      ])
-    );
-
-    const startedAt = Date.now();
-    let res = await callOpenRouter(fallbackChain[0]);
-    let usedModel = fallbackChain[0];
-    let completion = await res.json().catch(() => ({}));
-
-    const parseCandidate = (comp: Record<string, unknown>) => {
-      const choices = Array.isArray(comp?.choices) ? comp.choices : [];
-      const msgObj = (choices[0] as Record<string, unknown> | undefined)?.message as Record<string, unknown> | undefined;
-      const rawContent = String(msgObj?.content || '').trim();
-      return extractThinkingAndReply(
-        rawContent,
-        msgObj?.reasoning ?? msgObj?.reasoning_content,
-        msgObj?.reasoning_details
-      );
-    };
-
-    let parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
-
-    // Retry next free model if HTTP failed OR reasoning-only output exhausted tokens with empty reply
-    for (let i = 1; i < fallbackChain.length; i += 1) {
-      if (res.status === 401 || res.status === 403) break;
-      const needsRetry = !res.ok || !parsed.cleanContent;
-      if (!needsRetry) break;
-      if (!res.ok && ![400, 404, 429, 502, 503, 504].includes(res.status)) break;
-
-      usedModel = fallbackChain[i];
-      res = await callOpenRouter(usedModel);
-      completion = await res.json().catch(() => ({}));
-      parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
-    }
-
-    const thinkingSeconds = Math.max(0.1, Number(((Date.now() - startedAt) / 1000).toFixed(1)));
-
-    if (!res.ok) {
-      const rawErr = String(completion?.error?.message || completion?.message || '');
-      if (res.status === 401 || rawErr.toLowerCase().includes('user not found')) {
-        return jsonResponse(
-          {
-            error:
-              'OpenRouter rejected your API key (401: User not found). Generate/copy a valid key from openrouter.ai/keys (starts with sk-or-v1-, no extra quotes) and save it as OPENROUTER_API_KEY in Supabase Edge Function Secrets.',
-            configured: false,
+      const callOpenRouter = async (modelId: string) => {
+        return await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${openRouterKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://www.bookoraph.com',
+            'X-Title': 'Bookora PH Owner Assistant',
           },
-          401
-        );
-      }
-      const errMsg =
-        rawErr ||
-        (res.status === 429
-          ? 'Free AI model rate limit reached for now. Please wait a minute or pick another free model.'
-          : 'Unable to reach OpenRouter AI right now.');
-      return jsonResponse({ error: errMsg, configured: true }, res.status === 429 ? 429 : 502);
-    }
+          body: JSON.stringify({
+            model: modelId,
+            messages: [{ role: 'system', content: systemPrompt }, ...messages],
+            temperature: 0.35,
+            max_tokens: 3200,
+          }),
+        });
+      };
 
-    if (!parsed.cleanContent) {
-      return jsonResponse(
-        {
-          error: 'The selected free model spent all tokens thinking without producing a final reply. Try Nemotron 3.5 Lightning or ERNIE 5.5 Flash, or send again.',
-          configured: true,
-        },
-        502
+      const fallbackChain = Array.from(
+        new Set([
+          primaryModel,
+          'openrouter/free',
+          'nvidia/nemotron-3.5-lightning:free',
+          'baidu/ernie-5.5-flash-preview:free',
+          'nvidia/nemotron-3.5-super-vl:free',
+          'nvidia/nemotron-3-ultra-550b-a55b:free',
+          'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+          'recursive/flint-v1.0:free',
+          'liquid/lfm-3-1.7b:free',
+        ])
       );
+
+      const startedAt = Date.now();
+      let res = await callOpenRouter(fallbackChain[0]);
+      let usedModel = fallbackChain[0];
+      let completion = await res.json().catch(() => ({}));
+
+      const parseCandidate = (comp: Record<string, unknown>) => {
+        const choices = Array.isArray(comp?.choices) ? comp.choices : [];
+        const msgObj = (choices[0] as Record<string, unknown> | undefined)?.message as Record<string, unknown> | undefined;
+        const rawContent = String(msgObj?.content || '').trim();
+        return extractThinkingAndReply(
+          rawContent,
+          msgObj?.reasoning ?? msgObj?.reasoning_content,
+          msgObj?.reasoning_details
+        );
+      };
+
+      let parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
+
+      for (let i = 1; i < fallbackChain.length; i += 1) {
+        if (res.status === 401 || res.status === 403) break;
+        const needsRetry = !res.ok || !parsed.cleanContent;
+        if (!needsRetry) break;
+        if (!res.ok && ![400, 404, 429, 502, 503, 504].includes(res.status)) break;
+
+        usedModel = fallbackChain[i];
+        res = await callOpenRouter(usedModel);
+        completion = await res.json().catch(() => ({}));
+        parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
+      }
+
+      const thinkingSeconds = Math.max(0.1, Number(((Date.now() - startedAt) / 1000).toFixed(1)));
+
+      if (!res.ok) {
+        const rawErr = String(completion?.error?.message || completion?.message || '');
+        if (res.status === 401 || rawErr.toLowerCase().includes('user not found')) {
+          return {
+            status: 401,
+            payload: {
+              error:
+                'OpenRouter rejected your API key (401: User not found). Generate/copy a valid key from openrouter.ai/keys (starts with sk-or-v1-, no extra quotes) and save it as OPENROUTER_API_KEY in Supabase Edge Function Secrets.',
+              configured: false,
+            },
+          };
+        }
+        const errMsg =
+          rawErr ||
+          (res.status === 429
+            ? 'Free AI model rate limit reached for now. Please wait a minute or pick another free model.'
+            : 'Unable to reach OpenRouter AI right now.');
+        return {
+          status: res.status === 429 ? 429 : 502,
+          payload: { error: errMsg, configured: true, tool_calls: toolCalls },
+        };
+      }
+
+      if (!parsed.cleanContent) {
+        return {
+          status: 502,
+          payload: {
+            error:
+              'The selected free model spent all tokens thinking without producing a final reply. Try Nemotron 3.5 Lightning or ERNIE 5.5 Flash, or send again.',
+            configured: true,
+            tool_calls: toolCalls,
+          },
+        };
+      }
+
+      const { reply, actions } = extractActionsFromText(parsed.cleanContent);
+      const cleanThinking = parsed.thinking
+        ? parsed.thinking.replace(/<ACTION_JSON>[\s\S]*?<\/ACTION_JSON>/gi, '').trim() || null
+        : null;
+
+      return {
+        status: 200,
+        payload: {
+          ok: true,
+          configured: true,
+          model: String(completion?.model || usedModel),
+          reply,
+          thinking: cleanThinking,
+          thinking_seconds: thinkingSeconds,
+          tool_calls: toolCalls,
+          actions,
+        },
+      };
+    };
+
+    if (!wantStream) {
+      const { status, payload } = await runAssistantPipeline();
+      return jsonResponse(payload, status);
     }
 
-    const { reply, actions } = extractActionsFromText(parsed.cleanContent);
-    const cleanThinking = parsed.thinking
-      ? parsed.thinking.replace(/<ACTION_JSON>[\s\S]*?<\/ACTION_JSON>/gi, '').trim() || null
-      : null;
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const pushLine = (obj: Record<string, unknown>) => {
+          try {
+            controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
+          } catch {
+            // Stream closed by client abort
+          }
+        };
+        try {
+          const { status, payload } = await runAssistantPipeline((ev) => pushLine(ev));
+          if (status >= 400 || payload.error) {
+            pushLine({
+              type: 'error',
+              status,
+              error: String(payload.error || 'Request failed'),
+              configured: payload.configured !== false,
+              tool_calls: Array.isArray(payload.tool_calls) ? payload.tool_calls : [],
+            });
+          } else {
+            pushLine({ type: 'result', data: payload });
+          }
+        } catch (err) {
+          pushLine({
+            type: 'error',
+            status: 500,
+            error: err instanceof Error ? err.message : 'Unexpected assistant error',
+            configured: true,
+          });
+        } finally {
+          try {
+            controller.close();
+          } catch {
+            // Ignore close errors
+          }
+        }
+      },
+    });
 
-    return jsonResponse({
-      ok: true,
-      configured: true,
-      model: String(completion?.model || usedModel),
-      reply,
-      thinking: cleanThinking,
-      thinking_seconds: thinkingSeconds,
-      tool_calls: toolCalls,
-      actions,
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+      },
     });
   } catch (err) {
     return jsonResponse(
