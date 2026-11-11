@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2 } from "lucide-react"
+import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OwnerMobileMenuButton, OwnerSidebar } from "@/components/owner/OwnerSidebar"
 import { OwnerStatusBadge } from "@/components/owner/OwnerDataPrimitives"
@@ -78,12 +78,23 @@ type AssistantAction =
     }
   }
 
+type AssistantToolCall = {
+  id: string
+  tool: string
+  page: string
+  status: "done" | "error"
+  count: number
+  duration_ms: number
+  summary: string
+}
+
 type ChatMessage = {
   id: string
   role: "user" | "assistant"
   content: string
   thinking?: string | null
   thinkingSeconds?: number | null
+  toolCalls?: AssistantToolCall[]
   model?: string
   actions?: AssistantAction[]
 }
@@ -197,6 +208,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
   const [sending, setSending] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({})
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({})
   const [setupNotice, setSetupNotice] = useState("")
   const [executedKeys, setExecutedKeys] = useState<Record<string, "running" | "done">>({})
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -291,6 +303,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           content: String(data?.reply || ""),
           thinking: typeof data?.thinking === "string" && data.thinking.trim() ? data.thinking.trim() : null,
           thinkingSeconds: typeof data?.thinking_seconds === "number" ? data.thinking_seconds : finalElapsed,
+          toolCalls: Array.isArray(data?.tool_calls) ? (data.tool_calls as AssistantToolCall[]) : [],
           model: data?.model ? String(data.model) : undefined,
           actions: Array.isArray(data?.actions) ? (data.actions as AssistantAction[]) : [],
         },
@@ -332,6 +345,25 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
       }
 
       if (action.type === "create_appointment") {
+        const normTime = normalizeTime24h(action.data.appointment_time)
+        const normName = action.data.customer_name.trim().toLowerCase()
+        const { data: existingBookings } = await supabase
+          .from("appointments")
+          .select("id, customer_name, appointment_time, status")
+          .eq("business_id", user.id)
+          .eq("appointment_date", action.data.appointment_date)
+        const dupBooking = (existingBookings || []).find(
+          (a) =>
+            !["cancelled", "no_show"].includes(String(a.status || "")) &&
+            String(a.customer_name || "").trim().toLowerCase() === normName &&
+            normalizeTime24h(String(a.appointment_time || "")) === normTime
+        )
+        if (dupBooking) {
+          throw new Error(
+            `Duplicate booking: ${action.data.customer_name} already has a booking on ${action.data.appointment_date} at ${normTime}. Did not proceed.`
+          )
+        }
+
         const { error } = await supabase.from("appointments").insert({
           business_id: user.id,
           customer_name: action.data.customer_name.trim(),
@@ -339,7 +371,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           customer_email: (action.data.customer_email || "").trim(),
           service_names: action.data.service_names.trim(),
           appointment_date: action.data.appointment_date,
-          appointment_time: normalizeTime24h(action.data.appointment_time),
+          appointment_time: normTime,
           duration_minutes: Math.max(5, Number(action.data.duration_minutes) || 60),
           total_price: String(action.data.total_price || "0"),
           customer_note: action.data.customer_note || "Booked via Bookora AI",
@@ -391,6 +423,23 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           show_on_booking_page: true,
         }))
         if (rows.length === 0) throw new Error("No services provided.")
+
+        const { data: existingServices } = await supabase
+          .from("services")
+          .select("name")
+          .eq("business_id", user.id)
+        const existingSet = new Set((existingServices || []).map((s) => String(s.name || "").trim().toLowerCase()))
+        const seenBatch = new Set<string>()
+        const dupNames: string[] = []
+        for (const r of rows) {
+          const k = r.name.toLowerCase()
+          if (existingSet.has(k) || seenBatch.has(k)) dupNames.push(r.name)
+          seenBatch.add(k)
+        }
+        if (dupNames.length > 0) {
+          throw new Error(`Duplicate service found (${dupNames.join(", ")}) — already exists. Did not proceed.`)
+        }
+
         const { error } = await supabase.from("services").insert(rows)
         if (error) throw new Error(error.message)
         showToast(`Added ${rows.length} service(s)`, "success")
@@ -399,6 +448,23 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
       }
 
       if (action.type === "create_client") {
+        const normName = action.data.full_name.trim().toLowerCase()
+        const normPhone = (action.data.phone || "").replace(/\s+/g, "")
+        const normEmail = (action.data.email || "").trim().toLowerCase()
+        const { data: existingClients } = await supabase
+          .from("clients")
+          .select("full_name, phone, email")
+          .eq("business_id", user.id)
+        const dupClient = (existingClients || []).find(
+          (c) =>
+            (normName && String(c.full_name || "").trim().toLowerCase() === normName) ||
+            (normPhone && c.phone && String(c.phone).replace(/\s+/g, "") === normPhone) ||
+            (normEmail && c.email && String(c.email).trim().toLowerCase() === normEmail)
+        )
+        if (dupClient) {
+          throw new Error(`Duplicate client (${dupClient.full_name}) already exists. Did not proceed.`)
+        }
+
         const { error } = await supabase.from("clients").insert({
           business_id: user.id,
           full_name: action.data.full_name.trim(),
@@ -414,6 +480,20 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
 
       if (action.type === "block_time") {
         const start = normalizeTime24h(action.data.start_time)
+        const { data: existingBlocks } = await supabase
+          .from("block_time_events")
+          .select("title, start_time")
+          .eq("business_id", user.id)
+          .eq("event_date", action.data.event_date)
+        const dupBlock = (existingBlocks || []).find(
+          (b) => normalizeTime24h(String(b.start_time || "")) === start
+        )
+        if (dupBlock) {
+          throw new Error(
+            `Duplicate block time: "${dupBlock.title}" already exists on ${action.data.event_date} at ${start}. Did not proceed.`
+          )
+        }
+
         const duration = minutesBetween(start, action.data.end_time)
         const { error } = await supabase.from("block_time_events").insert({
           business_id: user.id,
@@ -486,6 +566,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                   setMessages([])
                   setExecutedKeys({})
                   setExpandedThinking({})
+                  setExpandedTools({})
                   setSetupNotice("")
                 }}
               >
@@ -548,6 +629,9 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               {messages.map((msg) => {
                 const isUser = msg.role === "user"
                 const showThought = Boolean(expandedThinking[msg.id])
+                const showTools = Boolean(expandedTools[msg.id])
+                const toolCalls = !isUser && Array.isArray(msg.toolCalls) ? msg.toolCalls : []
+                const hasTools = toolCalls.length > 0
                 const hasThink = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null)
                 return (
                   <div
@@ -560,6 +644,89 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                       gap: 6,
                     }}
                   >
+                    {hasTools && (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedTools((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                          }
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#111827",
+                            background: "#FFF5F3",
+                            border: "1px solid #FAD7D0",
+                            borderRadius: 999,
+                            padding: "4px 10px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Wrench size={12} color="#FF6B57" />
+                          <span>
+                            Scanned {toolCalls.length} workspace pages (
+                            {toolCalls.reduce((sum, t) => sum + (Number(t.count) || 0), 0)} items)
+                          </span>
+                          {showTools ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                        {showTools && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              border: "1px solid #E5E7EB",
+                              background: "#FFFFFF",
+                              display: "grid",
+                              gap: 8,
+                            }}
+                          >
+                            {toolCalls.map((t) => (
+                              <div
+                                key={t.id}
+                                style={{
+                                  borderBottom: "1px solid #F1F5F9",
+                                  paddingBottom: 6,
+                                  display: "grid",
+                                  gap: 2,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 8,
+                                    fontSize: 12.5,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                    {t.status === "error" ? (
+                                      <AlertCircle size={13} color="#DC2626" />
+                                    ) : (
+                                      <CheckCircle2 size={13} color="#16A34A" />
+                                    )}
+                                    {t.page}
+                                  </span>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: "#64748B" }}>
+                                    {t.count} · {t.duration_ms}ms
+                                  </span>
+                                </div>
+                                <code style={{ fontSize: 11, color: "#FF6B57" }}>{t.tool}()</code>
+                                {t.summary && (
+                                  <span style={{ fontSize: 12, color: "#64748B" }}>{t.summary}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {hasThink && (
                       <div>
                         <button
@@ -690,7 +857,26 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               })}
 
               {sending && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#64748B", fontSize: 13 }}>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      justifySelf: "start",
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      background: "#FFF5F3",
+                      border: "1px solid #FAD7D0",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#111827",
+                    }}
+                  >
+                    <Wrench size={12} color="#FF6B57" />
+                    <span>Scanning Services, Bookings, Clients, Staff & Settings…</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#64748B", fontSize: 13 }}>
                   <Loader2 size={15} className="animate-spin" />
                   <span>Thinking… {elapsedSeconds.toFixed(1)}s</span>
                   <button
@@ -712,6 +898,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                   >
                     <Square size={10} fill="currentColor" /> Stop
                   </button>
+                  </div>
                 </div>
               )}
               <div ref={bottomRef} />

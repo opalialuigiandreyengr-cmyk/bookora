@@ -1,4 +1,4 @@
-const VERSION = "bookora-pwa-v15"
+const VERSION = "bookora-pwa-v17"
 const SHELL_CACHE = `${VERSION}-shell`
 const RUNTIME_CACHE = `${VERSION}-runtime`
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/assets/bookora-icon.svg"]

@@ -57,6 +57,7 @@ export default function AssistantScreen() {
     appointments,
     services,
     clients,
+    blockEvents,
     addAppointment,
     updateAppointmentStatus,
     addService,
@@ -71,6 +72,7 @@ export default function AssistantScreen() {
   const [sending, setSending] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({});
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [setupNotice, setSetupNotice] = useState('');
   const [executedKeys, setExecutedKeys] = useState<Record<string, 'running' | 'done'>>({});
 
@@ -182,6 +184,7 @@ export default function AssistantScreen() {
         content: result.reply,
         thinking: result.thinking,
         thinkingSeconds: result.thinkingSeconds ?? finalElapsed,
+        toolCalls: result.toolCalls,
         actions: result.actions,
         model: result.model,
       },
@@ -214,6 +217,21 @@ export default function AssistantScreen() {
       }
 
       if (action.type === 'create_appointment') {
+        const normTime = normalizeTime24h(action.data.appointment_time);
+        const normName = (action.data.customer_name || '').trim().toLowerCase();
+        const duplicateBooking = appointments.find(
+          (a) =>
+            !['cancelled', 'no_show'].includes(a.status) &&
+            a.appointment_date === action.data.appointment_date &&
+            normalizeTime24h(a.appointment_time) === normTime &&
+            a.customer_name.trim().toLowerCase() === normName
+        );
+        if (duplicateBooking) {
+          throw new Error(
+            `Duplicate booking: ${action.data.customer_name} already has a booking on ${action.data.appointment_date} at ${normTime}. Did not proceed.`
+          );
+        }
+
         const matchedService = services.find((s) =>
           s.name.toLowerCase().includes((action.data.service_names || '').toLowerCase().trim())
         );
@@ -227,7 +245,7 @@ export default function AssistantScreen() {
           customer_email: action.data.customer_email || matchedClient?.email || '',
           service_names: action.data.service_names || matchedService?.name || 'Service',
           appointment_date: action.data.appointment_date,
-          appointment_time: normalizeTime24h(action.data.appointment_time),
+          appointment_time: normTime,
           duration_minutes: Number(action.data.duration_minutes || matchedService?.duration_minutes || 60),
           total_price: String(action.data.total_price || matchedService?.price || '0'),
           customer_note: action.data.customer_note || 'Booked via Bookora AI',
@@ -264,6 +282,24 @@ export default function AssistantScreen() {
       if (action.type === 'create_service') {
         const items = Array.isArray(action.data.items) ? action.data.items : [];
         if (items.length === 0) throw new Error('No services to add.');
+
+        const existingNames = new Set(services.map((s) => s.name.trim().toLowerCase()));
+        const seenInBatch = new Set<string>();
+        const duplicates: string[] = [];
+        for (const item of items) {
+          const keyName = (item.name || '').trim().toLowerCase();
+          if (!keyName) continue;
+          if (existingNames.has(keyName) || seenInBatch.has(keyName)) {
+            duplicates.push(item.name.trim());
+          }
+          seenInBatch.add(keyName);
+        }
+        if (duplicates.length > 0) {
+          throw new Error(
+            `Duplicate service found (${duplicates.join(', ')}) — already exists in Services. Did not proceed.`
+          );
+        }
+
         for (const item of items) {
           const err = await addService({
             name: item.name,
@@ -281,6 +317,21 @@ export default function AssistantScreen() {
       }
 
       if (action.type === 'create_client') {
+        const normName = (action.data.full_name || '').trim().toLowerCase();
+        const normPhone = (action.data.phone || '').replace(/\s+/g, '');
+        const normEmail = (action.data.email || '').trim().toLowerCase();
+        const duplicateClient = clients.find(
+          (c) =>
+            (normName && c.full_name.trim().toLowerCase() === normName) ||
+            (normPhone && c.phone && c.phone.replace(/\s+/g, '') === normPhone) ||
+            (normEmail && c.email && c.email.trim().toLowerCase() === normEmail)
+        );
+        if (duplicateClient) {
+          throw new Error(
+            `Duplicate client found (${duplicateClient.full_name}) already exists in Clients. Did not proceed.`
+          );
+        }
+
         const err = await addClient({
           full_name: action.data.full_name,
           phone: action.data.phone || '',
@@ -295,6 +346,15 @@ export default function AssistantScreen() {
 
       if (action.type === 'block_time') {
         const start = normalizeTime24h(action.data.start_time);
+        const duplicateBlock = blockEvents.find(
+          (b) => b.event_date === action.data.event_date && normalizeTime24h(b.start_time) === start
+        );
+        if (duplicateBlock) {
+          throw new Error(
+            `Duplicate block time: "${duplicateBlock.title}" already exists on ${action.data.event_date} at ${start}. Did not proceed.`
+          );
+        }
+
         const duration = minutesBetween(start, action.data.end_time);
         const err = await addBlockTime({
           title: action.data.title || 'Blocked time',
@@ -357,6 +417,7 @@ export default function AssistantScreen() {
               setMessages([]);
               setExecutedKeys({});
               setExpandedThinking({});
+              setExpandedTools({});
               setSetupNotice('');
             }}
             style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}
@@ -469,10 +530,59 @@ export default function AssistantScreen() {
               {messages.map((msg) => {
                 const isUser = msg.role === 'user';
                 const showThought = Boolean(expandedThinking[msg.id]);
+                const showTools = Boolean(expandedTools[msg.id]);
+                const toolCalls = !isUser && Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
+                const hasToolsBlock = toolCalls.length > 0;
                 const hasThinkingBlock = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null);
 
                 return (
                   <View key={msg.id} style={[styles.msgGroup, isUser ? styles.msgGroupUser : styles.msgGroupBot]}>
+                    {hasToolsBlock ? (
+                      <View style={styles.toolsWrap}>
+                        <Pressable
+                          onPress={() =>
+                            setExpandedTools((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                          }
+                          style={({ pressed }) => [styles.toolPill, pressed && styles.pressed]}
+                        >
+                          <Ionicons name="construct-outline" size={12} color={colors.coral} />
+                          <Text style={styles.toolPillText}>
+                            Scanned {toolCalls.length} workspace pages (
+                            {toolCalls.reduce((sum, t) => sum + (Number(t.count) || 0), 0)} items)
+                          </Text>
+                          <Ionicons
+                            name={showTools ? 'chevron-up' : 'chevron-down'}
+                            size={13}
+                            color={colors.muted}
+                          />
+                        </Pressable>
+
+                        {showTools ? (
+                          <View style={styles.toolsBox}>
+                            {toolCalls.map((t) => (
+                              <View key={t.id} style={styles.toolRow}>
+                                <View style={styles.toolRowTop}>
+                                  <View style={styles.toolTitleWrap}>
+                                    <Ionicons
+                                      name={t.status === 'error' ? 'alert-circle' : 'checkmark-circle'}
+                                      size={13}
+                                      color={t.status === 'error' ? colors.danger : colors.success}
+                                    />
+                                    <Text style={styles.toolPageName}>{t.page}</Text>
+                                  </View>
+                                  <Text style={styles.toolMeta}>
+                                    {t.count} · {t.duration_ms}ms
+                                  </Text>
+                                </View>
+                                <Text style={styles.toolFuncName}>{t.tool}()</Text>
+                                {t.summary ? <Text style={styles.toolSummary}>{t.summary}</Text> : null}
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
+
                     {hasThinkingBlock ? (
                       <View style={styles.thinkingWrap}>
                         <Pressable
@@ -593,7 +703,14 @@ export default function AssistantScreen() {
               })}
 
               {sending ? (
-                <View style={styles.liveThinkingRow}>
+                <View style={styles.liveWrap}>
+                  <View style={styles.liveScanPill}>
+                    <Ionicons name="construct-outline" size={12} color={colors.coral} />
+                    <Text style={styles.liveScanText}>
+                      Scanning Services, Bookings, Clients, Staff & Settings…
+                    </Text>
+                  </View>
+                  <View style={styles.liveThinkingRow}>
                   <View style={styles.loadingBubble}>
                     <ActivityIndicator size="small" color={colors.coral} />
                     <Text style={styles.mutedSmall}>Thinking… {elapsedSeconds.toFixed(1)}s</Text>
@@ -606,6 +723,7 @@ export default function AssistantScreen() {
                     <Ionicons name="stop" size={12} color={colors.danger} />
                     <Text style={styles.stopChipText}>Stop</Text>
                   </Pressable>
+                  </View>
                 </View>
               ) : null}
             </View>
@@ -856,6 +974,93 @@ const styles = StyleSheet.create({
   },
   msgGroupBot: {
     alignItems: 'flex-start',
+  },
+  toolsWrap: {
+    maxWidth: '94%',
+    gap: 6,
+  },
+  toolPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: '#FFF5F3',
+    borderWidth: 1,
+    borderColor: '#FAD7D0',
+  },
+  toolPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  toolsBox: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 10,
+    gap: 8,
+  },
+  toolRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 6,
+    gap: 2,
+  },
+  toolRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  toolTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
+  },
+  toolPageName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  toolMeta: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  toolFuncName: {
+    fontSize: 10.5,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: colors.coral,
+  },
+  toolSummary: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: colors.muted,
+  },
+  liveWrap: {
+    gap: 6,
+  },
+  liveScanPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: '#FFF5F3',
+    borderWidth: 1,
+    borderColor: '#FAD7D0',
+  },
+  liveScanText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: colors.ink,
   },
   thinkingWrap: {
     maxWidth: '92%',

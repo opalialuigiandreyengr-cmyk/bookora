@@ -1,11 +1,22 @@
 import { supabase } from './supabase';
 
+export type AssistantToolCall = {
+  id: string;
+  tool: string;
+  page: string;
+  status: 'done' | 'error';
+  count: number;
+  duration_ms: number;
+  summary: string;
+};
+
 export type AssistantChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   thinking?: string | null;
   thinkingSeconds?: number | null;
+  toolCalls?: AssistantToolCall[];
   actions?: AssistantAction[];
   model?: string;
 };
@@ -117,6 +128,7 @@ export async function askBookoraAssistant(
   reply: string;
   thinking: string | null;
   thinkingSeconds: number | null;
+  toolCalls: AssistantToolCall[];
   actions: AssistantAction[];
   model?: string;
   error?: string;
@@ -132,6 +144,7 @@ export async function askBookoraAssistant(
       reply: '',
       thinking: null,
       thinkingSeconds: null,
+      toolCalls: [],
       actions: [],
       error: 'Supabase is not configured.',
     };
@@ -147,6 +160,7 @@ export async function askBookoraAssistant(
         reply: '',
         thinking: null,
         thinkingSeconds: null,
+        toolCalls: [],
         actions: [],
         error: 'Session expired. Please sign in again.',
       };
@@ -174,6 +188,7 @@ export async function askBookoraAssistant(
         reply: '',
         thinking: null,
         thinkingSeconds: null,
+        toolCalls: [],
         actions: [],
         error: msg,
       };
@@ -186,6 +201,7 @@ export async function askBookoraAssistant(
       thinking: typeof data?.thinking === 'string' && data.thinking.trim() ? data.thinking.trim() : null,
       thinkingSeconds:
         typeof data?.thinking_seconds === 'number' ? data.thinking_seconds : null,
+      toolCalls: Array.isArray(data?.tool_calls) ? (data.tool_calls as AssistantToolCall[]) : [],
       actions: Array.isArray(data?.actions) ? (data.actions as AssistantAction[]) : [],
       model: data?.model ? String(data.model) : undefined,
     };
@@ -198,6 +214,7 @@ export async function askBookoraAssistant(
         reply: '',
         thinking: null,
         thinkingSeconds: null,
+        toolCalls: [],
         actions: [],
         error: 'Stopped.',
       };
@@ -208,6 +225,7 @@ export async function askBookoraAssistant(
       reply: '',
       thinking: null,
       thinkingSeconds: null,
+      toolCalls: [],
       actions: [],
       error: err instanceof Error ? err.message : 'Unable to reach Bookora AI Assistant.',
     };
