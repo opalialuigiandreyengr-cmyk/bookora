@@ -446,8 +446,8 @@ Deno.serve(async (req) => {
     };
 
     const postCheckout = async (targetStoreId: string, targetVariantId: string) => {
-      lsPayload.relationships.store.data.id = targetStoreId;
-      lsPayload.relationships.variant.data.id = targetVariantId;
+      lsPayload.data.relationships.store.data.id = targetStoreId;
+      lsPayload.data.relationships.variant.data.id = targetVariantId;
       const res = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
         method: 'POST',
         headers: lsHeaders(lsApiKey),
