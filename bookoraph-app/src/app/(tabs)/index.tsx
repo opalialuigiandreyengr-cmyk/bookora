@@ -311,6 +311,14 @@ export default function Dashboard() {
           <View style={styles.headerActions}>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Bookora AI Assistant"
+              onPress={() => router.push('/assistant' as Href)}
+              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+            >
+              <Ionicons name="sparkles-outline" size={19} color={colors.coral} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Notifications"
               onPress={() => router.push('/notifications')}
               style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}

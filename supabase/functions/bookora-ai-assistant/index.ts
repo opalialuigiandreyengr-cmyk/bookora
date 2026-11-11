@@ -1,0 +1,296 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function getManilaNow() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const timeStr = now.toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Manila',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const weekday = now.toLocaleDateString('en-US', { timeZone: 'Asia/Manila', weekday: 'long' });
+  return { dateStr, timeStr, weekday };
+}
+
+type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+type ParsedActionsResult = {
+  reply: string;
+  actions: Record<string, unknown>[];
+};
+
+function extractActionsFromText(rawText: string): ParsedActionsResult {
+  const actions: Record<string, unknown>[] = [];
+  const cleaned = rawText
+    .replace(/<ACTION_JSON>\s*([\s\S]*?)\s*<\/ACTION_JSON>/gi, (_full, inner: string) => {
+      try {
+        const trimmed = inner
+          .trim()
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/```$/i, '')
+          .trim();
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item && typeof item === 'object' && typeof (item as Record<string, unknown>).type === 'string') {
+              actions.push(item as Record<string, unknown>);
+            }
+          }
+        } else if (parsed && typeof parsed === 'object' && typeof (parsed as Record<string, unknown>).type === 'string') {
+          actions.push(parsed as Record<string, unknown>);
+        }
+      } catch {
+        // Ignore malformed JSON action block so reply still renders cleanly
+      }
+      return '';
+    })
+    .trim();
+
+  return {
+    reply: cleaned || rawText.trim(),
+    actions,
+  };
+}
+
+async function fetchOwnerSnapshot(supabaseUrl: string, apiKey: string, userJwt: string, userId: string, todayManila: string) {
+  const headers = {
+    apikey: apiKey,
+    Authorization: `Bearer ${userJwt}`,
+  };
+
+  const safeFetchJson = async (path: string) => {
+    try {
+      const res = await fetch(`${supabaseUrl}/rest/v1/${path}`, { headers });
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [profiles, services, appointments, clients, payments, blocks] = await Promise.all([
+    safeFetchJson(
+      `business_profiles?id=eq.${encodeURIComponent(userId)}&select=business_name,industry,city,country,slug,about,booking_policy&limit=1`
+    ),
+    safeFetchJson(
+      `services?business_id=eq.${encodeURIComponent(userId)}&select=id,name,category,duration_minutes,price,show_on_booking_page&order=name.asc&limit=40`
+    ),
+    safeFetchJson(
+      `appointments?business_id=eq.${encodeURIComponent(
+        userId
+      )}&select=id,customer_name,customer_phone,service_names,appointment_date,appointment_time,duration_minutes,total_price,status&order=appointment_date.desc,appointment_time.asc&limit=40`
+    ),
+    safeFetchJson(
+      `clients?business_id=eq.${encodeURIComponent(userId)}&select=id,full_name,phone,email,notes&order=full_name.asc&limit=40`
+    ),
+    safeFetchJson(
+      `payment_transactions?business_id=eq.${encodeURIComponent(
+        userId
+      )}&select=id,client_name,amount,method,status,transaction_type,created_at&order=created_at.desc&limit=35`
+    ),
+    safeFetchJson(
+      `block_time_events?business_id=eq.${encodeURIComponent(
+        userId
+      )}&event_date=gte.${encodeURIComponent(todayManila)}&select=id,title,event_date,start_time,end_time&order=event_date.asc&limit=15`
+    ),
+  ]);
+
+  const monthPrefix = todayManila.slice(0, 7);
+  const paidThisMonth = payments
+    .filter(
+      (p) =>
+        p?.status === 'paid' &&
+        p?.transaction_type !== 'refund' &&
+        String(p?.created_at || '').startsWith(monthPrefix)
+    )
+    .reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
+
+  const pendingPaymentsCount = payments.filter((p) => p?.status === 'pending').length;
+  const todaysBookings = appointments.filter(
+    (a) => a?.appointment_date === todayManila && !['cancelled', 'no_show'].includes(String(a?.status || ''))
+  );
+  const pendingBookingsCount = appointments.filter((a) => a?.status === 'pending').length;
+
+  return {
+    business: profiles[0] || {},
+    summary: {
+      today_date: todayManila,
+      todays_active_bookings_count: todaysBookings.length,
+      pending_bookings_count: pendingBookingsCount,
+      paid_revenue_this_month_php: paidThisMonth,
+      pending_payments_count: pendingPaymentsCount,
+      total_services: services.length,
+      total_clients_loaded: clients.length,
+    },
+    services,
+    appointments,
+    clients,
+    recent_payments: payments.slice(0, 15),
+    upcoming_blocks: blocks,
+  };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
+  }
+
+  try {
+    const supabaseUrl = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const openRouterKey = (Deno.env.get('OPENROUTER_API_KEY') || '').trim();
+    const configuredModel = (Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free').trim() || 'openrouter/free';
+
+    if (!supabaseUrl || !(anonKey || serviceRoleKey)) {
+      return jsonResponse({ error: 'Supabase configuration missing.', configured: false }, 500);
+    }
+
+    if (!openRouterKey) {
+      return jsonResponse(
+        {
+          error:
+            'OpenRouter AI key is not set yet. Add OPENROUTER_API_KEY in Supabase Edge Function secrets to activate Bookora AI Assistant.',
+          configured: false,
+        },
+        503
+      );
+    }
+
+    const authHeader = req.headers.get('Authorization') || '';
+    const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!jwt) {
+      return jsonResponse({ error: 'Missing Authorization header.' }, 401);
+    }
+
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: anonKey || serviceRoleKey,
+        Authorization: `Bearer ${jwt}`,
+      },
+    });
+    if (!userRes.ok) {
+      return jsonResponse({ error: 'Session expired. Please sign in again.' }, 401);
+    }
+    const user = await userRes.json();
+    if (!user?.id) {
+      return jsonResponse({ error: 'Invalid user.' }, 401);
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const rawMessages = Array.isArray(body?.messages) ? (body.messages as ChatMessage[]) : [];
+    const messages = rawMessages
+      .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+      .slice(-10)
+      .map((m) => ({ role: m.role, content: m.content.trim().slice(0, 2000) }));
+
+    if (messages.length === 0) {
+      return jsonResponse({ error: 'Please enter a message.' }, 400);
+    }
+
+    const { dateStr, timeStr, weekday } = getManilaNow();
+    const snapshot = await fetchOwnerSnapshot(supabaseUrl, anonKey || serviceRoleKey, jwt, user.id, dateStr);
+
+    const systemPrompt = `You are Bookora AI, a concise, practical end-to-end business assistant built inside Bookora PH for local service business owners (salons, nail studios, clinics in the Philippines).
+Current Manila date/time: ${weekday}, ${dateStr} ${timeStr} (Asia/Manila, currency PHP ₱).
+
+RULES:
+1. Be concise, warm, mobile-friendly, and answer accurately ONLY using the live workspace JSON below. Never invent numbers, revenue, bookings, or clients that aren't in the JSON.
+2. Support English and Taglish naturally (match the user's language).
+3. When the owner asks to perform a concrete action in Bookora (book/create an appointment, update booking status, add services, add a client, block time, or draft an SMS/Messenger/promo message), ALSO append a valid <ACTION_JSON>...</ACTION_JSON> block at the very end of your response so the app renders a 1-tap Execute button.
+4. Only include actions the user actually requested or clearly needs right now. Keep normal explanations short and tell the owner they can tap the button below to confirm.
+
+ALLOWED <ACTION_JSON> OBJECT FORMATS (can be a single object or array of objects):
+- Create appointment:
+  {"type":"create_appointment","label":"Book <customer> (<service>)","data":{"customer_name":"","customer_phone":"","customer_email":"","service_names":"","appointment_date":"YYYY-MM-DD","appointment_time":"HH:MM","duration_minutes":60,"total_price":"0","customer_note":"","status":"approved"}}
+- Update booking status (use exact appointment id from snapshot if found):
+  {"type":"update_appointment_status","label":"Mark <customer> <status>","data":{"appointment_id":"","customer_name":"","appointment_date":"YYYY-MM-DD","new_status":"approved|completed|cancelled|no_show"}}
+- Add services (great for menus pasted by owner):
+  {"type":"create_service","label":"Add <N> service(s)","data":{"items":[{"name":"","price":350,"duration_minutes":45,"category":"","description":""}]}}
+- Add client:
+  {"type":"create_client","label":"Add client <name>","data":{"full_name":"","phone":"","email":"","notes":""}}
+- Block calendar time:
+  {"type":"block_time","label":"Block <title>","data":{"title":"","event_date":"YYYY-MM-DD","start_time":"HH:MM","end_time":"HH:MM","note":""}}
+- Draft copyable customer/promo message:
+  {"type":"draft_message","label":"Draft <channel> message","data":{"channel":"SMS|Messenger|Social","recipient":"","message":""}}
+
+LIVE WORKSPACE SNAPSHOT (JSON):
+${JSON.stringify(snapshot)}`;
+
+    const callOpenRouter = async (modelId: string) => {
+      return await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://www.bookoraph.com',
+          'X-Title': 'Bookora PH Owner Assistant',
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+          temperature: 0.35,
+          max_tokens: 900,
+        }),
+      });
+    };
+
+    let res = await callOpenRouter(configuredModel);
+    if (!res.ok && configuredModel !== 'openrouter/free' && [404, 429, 502, 503].includes(res.status)) {
+      res = await callOpenRouter('openrouter/free');
+    }
+
+    const completion = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const errMsg =
+        completion?.error?.message ||
+        completion?.message ||
+        (res.status === 429
+          ? 'Free AI model rate limit reached for now. Please wait a minute and try again.'
+          : 'Unable to reach OpenRouter AI right now.');
+      return jsonResponse({ error: errMsg, configured: true }, res.status === 429 ? 429 : 502);
+    }
+
+    const rawContent = String(completion?.choices?.[0]?.message?.content || '').trim();
+    if (!rawContent) {
+      return jsonResponse({ error: 'The AI model returned an empty reply. Please try again.', configured: true }, 502);
+    }
+
+    const { reply, actions } = extractActionsFromText(rawContent);
+    return jsonResponse({
+      ok: true,
+      configured: true,
+      model: String(completion?.model || configuredModel),
+      reply,
+      actions,
+    });
+  } catch (err) {
+    return jsonResponse(
+      { error: err instanceof Error ? err.message : 'Unexpected assistant error', configured: true },
+      500
+    );
+  }
+});
+

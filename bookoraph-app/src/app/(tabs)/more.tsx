@@ -108,6 +108,15 @@ export default function SettingsHub() {
       heading: 'Tools',
       items: [
         {
+          title: 'Bookora AI Assistant',
+          subtitle: 'End-to-end tasks, drafts & insights',
+          icon: 'sparkles-outline',
+          iconBg: colors.coralSoft,
+          iconColor: colors.coral,
+          route: '/assistant' as Href,
+          badge: 'AI',
+        },
+        {
           title: 'Reports',
           icon: 'bar-chart-outline',
           iconBg: colors.surfaceMuted,

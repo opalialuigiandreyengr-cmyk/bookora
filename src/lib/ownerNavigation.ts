@@ -13,12 +13,14 @@ import {
   Link2,
   Settings2,
   Scissors,
+  Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react"
 
 export type OwnerRouteKey =
   | "Overview"
+  | "Assistant"
   | "Calendar"
   | "Appointments"
   | "Clients"
@@ -45,6 +47,7 @@ export type OwnerRoute = {
 
 export const ownerRoutes: OwnerRoute[] = [
   { key: "Overview", label: "Overview", path: "/dashboard", icon: Home, status: "ready" },
+  { key: "Assistant", label: "Bookora AI", path: "/assistant", icon: Sparkles, status: "ready" },
   { key: "Calendar", label: "Calendar", path: "/calendar", icon: CalendarDays, status: "ready" },
   { key: "Appointments", label: "Appointments", path: "/appointments", icon: CalendarRange, status: "ready" },
   { key: "Clients", label: "Clients", path: "/clients", icon: Users, status: "ready" },
@@ -66,6 +69,7 @@ export const ownerRoutes: OwnerRoute[] = [
 // available for later expansion but do not compete with the daily solo workflow.
 export const soloOwnerRoutes = ownerRoutes.filter((route) => [
   "Overview",
+  "Assistant",
   "Calendar",
   "Appointments",
   "Clients",

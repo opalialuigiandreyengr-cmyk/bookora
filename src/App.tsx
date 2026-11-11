@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js"
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })))
 const ServicesPage = lazy(() => import("@/pages/ServicesPage").then((module) => ({ default: module.ServicesPage })))
 const CalendarPage = lazy(() => import("@/pages/CalendarPage").then((module) => ({ default: module.CalendarPage })))
+const AssistantPage = lazy(() => import("@/pages/AssistantPage").then((module) => ({ default: module.AssistantPage })))
 import { LandingPage } from "@/pages/LandingPage"
 import { SignupPage } from "@/pages/SignupPage"
 import { OnboardingPage } from "@/pages/OnboardingPage"
@@ -243,7 +244,7 @@ function AppContent() {
     }
 
     const destination = clientSlug ? `/book?slug=${encodeURIComponent(clientSlug)}` : "/book"
-    if (["/dashboard", "/onboarding", "/services", "/calendar", "/settings", "/appointments", "/clients", "/staff", "/payments", "/reports", "/notifications", "/integrations", "/integrations/webhooks", "/packages", "/advanced-scheduling", "/block-time", "/memberships"].includes(pathname)) {
+    if (["/dashboard", "/assistant", "/onboarding", "/services", "/calendar", "/settings", "/appointments", "/clients", "/staff", "/payments", "/reports", "/notifications", "/integrations", "/integrations/webhooks", "/packages", "/advanced-scheduling", "/block-time", "/memberships"].includes(pathname)) {
       window.location.replace(destination)
       return null
     }
@@ -288,6 +289,7 @@ function AppContent() {
       window.history.replaceState({}, "", "/")
     }
     if (window.location.pathname === "/reports") return <><ToastViewport /><ReportsPage user={user} onSignOut={handleSignOut} /></>
+    if (window.location.pathname === "/assistant") return <><ToastViewport /><AssistantPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/appointments") return <><ToastViewport /><AppointmentsPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/clients") return <><ToastViewport /><ClientsPage user={user} onSignOut={handleSignOut} /></>
     if (window.location.pathname === "/payments") return <><ToastViewport /><PaymentsPage user={user} onSignOut={handleSignOut} /></>
@@ -346,6 +348,8 @@ function AppContent() {
         <ToastViewport />
         {window.location.pathname === "/reports" ? (
           <ReportsPage user={previewUser} onSignOut={handlePreviewSignOut} />
+        ) : window.location.pathname === "/assistant" ? (
+          <AssistantPage user={previewUser} onSignOut={handlePreviewSignOut} />
         ) : window.location.pathname === "/appointments" ? (
           <AppointmentsPage user={previewUser} onSignOut={handlePreviewSignOut} />
         ) : window.location.pathname === "/clients" ? (

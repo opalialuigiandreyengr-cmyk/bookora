@@ -10,7 +10,7 @@ type OwnerModulePageProps = {
   onSignOut: () => void
 }
 
-const moduleCopy: Record<Exclude<OwnerRouteKey, "Overview" | "Calendar" | "Services" | "Settings" | "Notifications" | "Reports" | "Integrations" | "Packages" | "Advanced Scheduling">, { title: string; description: string; next: string[] }> = {
+const moduleCopy: Record<Exclude<OwnerRouteKey, "Overview" | "Assistant" | "Calendar" | "Services" | "Settings" | "Notifications" | "Reports" | "Integrations" | "Packages" | "Advanced Scheduling">, { title: string; description: string; next: string[] }> = {
   Appointments: {
     title: "Appointments",
     description: "A focused list for confirming, rescheduling, completing, and exporting every booking.",
