@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { type ComponentRef, useRef, useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/app-text';
+import { MarkdownText } from '@/components/markdown-text';
 import { Button, Card, StatusBadge } from '@/components/ui';
 import {
   askBookoraAssistant,
@@ -52,7 +54,6 @@ function minutesBetween(start: string, end?: string): number {
 export default function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const {
-    businessName,
     appointments,
     services,
     clients,
@@ -65,14 +66,28 @@ export default function AssistantScreen() {
 
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
   const [selectedModel, setSelectedModel] = useState('openrouter/free');
-  const [customModel, setCustomModel] = useState('');
-  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({});
   const [setupNotice, setSetupNotice] = useState('');
   const [executedKeys, setExecutedKeys] = useState<Record<string, 'running' | 'done'>>({});
+
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const seqRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const elapsedRef = useRef(0);
+
+  useEffect(() => {
+    if (!sending) return;
+    elapsedRef.current = 0;
+    const interval = setInterval(() => {
+      elapsedRef.current = Number((elapsedRef.current + 0.1).toFixed(1));
+      setElapsedSeconds(elapsedRef.current);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [sending]);
 
   const nextId = (prefix: string) => {
     seqRef.current += 1;
@@ -83,6 +98,14 @@ export default function AssistantScreen() {
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 80);
+  };
+
+  const handleStop = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setSending(false);
   };
 
   const sendMessage = async (textOverride?: string) => {
@@ -97,6 +120,11 @@ export default function AssistantScreen() {
     const nextThread = [...messages, userMsg];
     setMessages(nextThread);
     if (!textOverride) setDraft('');
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    elapsedRef.current = 0;
+    setElapsedSeconds(0);
     setSending(true);
     setSetupNotice('');
     scrollToBottom();
@@ -106,12 +134,24 @@ export default function AssistantScreen() {
       content: m.content,
     }));
 
-    const activeModel =
-      customModel.trim().endsWith(':free') || customModel.trim() === 'openrouter/free'
-        ? customModel.trim()
-        : selectedModel;
-    const result = await askBookoraAssistant(apiHistory, activeModel);
+    const result = await askBookoraAssistant(apiHistory, selectedModel, controller.signal);
+    const finalElapsed = Math.max(0.1, elapsedRef.current);
+    abortRef.current = null;
     setSending(false);
+
+    if (result.aborted) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId('s'),
+          role: 'assistant',
+          content: `_Stopped after ${finalElapsed}s._`,
+          thinkingSeconds: finalElapsed,
+        },
+      ]);
+      scrollToBottom();
+      return;
+    }
 
     if (!result.ok) {
       if (!result.configured) {
@@ -126,6 +166,7 @@ export default function AssistantScreen() {
             id: nextId('e'),
             role: 'assistant',
             content: result.error || 'Could not get a response right now. Please try again.',
+            thinkingSeconds: finalElapsed,
           },
         ]);
       }
@@ -139,6 +180,8 @@ export default function AssistantScreen() {
         id: nextId('a'),
         role: 'assistant',
         content: result.reply,
+        thinking: result.thinking,
+        thinkingSeconds: result.thinkingSeconds ?? finalElapsed,
         actions: result.actions,
         model: result.model,
       },
@@ -275,6 +318,8 @@ export default function AssistantScreen() {
     }
   };
 
+  const activeModelObj = OPENROUTER_FREE_MODELS.find((m) => m.id === selectedModel) || OPENROUTER_FREE_MODELS[0];
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.pageHeader}>
@@ -287,18 +332,31 @@ export default function AssistantScreen() {
         >
           <Ionicons name="chevron-back" size={22} color={colors.ink} />
         </Pressable>
-        <View style={styles.headerTitleWrap}>
+
+        {/* Compact floating dropdown trigger inside header (takes zero extra vertical space) */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose AI model"
+          onPress={() => setShowModelMenu(true)}
+          style={({ pressed }) => [styles.headerTitleBtn, pressed && styles.pressed]}
+        >
           <Text style={styles.pageTitle}>Bookora AI</Text>
-          <Text style={styles.pageSub}>{businessName} · Owner Copilot</Text>
-        </View>
+          <View style={styles.modelInlineRow}>
+            <Text style={styles.pageSub}>{activeModelObj.label}</Text>
+            <Ionicons name="chevron-down" size={12} color={colors.muted} />
+          </View>
+        </Pressable>
+
         {messages.length > 0 ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Clear chat"
             hitSlop={8}
             onPress={() => {
+              handleStop();
               setMessages([]);
               setExecutedKeys({});
+              setExpandedThinking({});
               setSetupNotice('');
             }}
             style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}
@@ -310,60 +368,42 @@ export default function AssistantScreen() {
         )}
       </View>
 
-      {/* Free Model Selector Bar */}
-      <View style={styles.modelBar}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setShowModelPicker((v) => !v)}
-          style={({ pressed }) => [styles.modelPill, pressed && styles.pressed]}
-        >
-          <Ionicons name="hardware-chip-outline" size={14} color={colors.coral} />
-          <Text style={styles.modelPillText} numberOfLines={1}>
-            Model:{' '}
-            {customModel.trim().endsWith(':free')
-              ? customModel.trim()
-              : OPENROUTER_FREE_MODELS.find((m) => m.id === selectedModel)?.label || selectedModel}
-          </Text>
-          <Ionicons name={showModelPicker ? 'chevron-up' : 'chevron-down'} size={14} color={colors.muted} />
-        </Pressable>
-      </View>
-
-      {showModelPicker ? (
-        <View style={styles.modelDrawer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modelChipRow}>
+      {/* Floating Dropdown Overlay Menu (takes zero layout space) */}
+      <Modal
+        visible={showModelMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowModelMenu(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setShowModelMenu(false)}>
+          <View style={[styles.menuPopover, { marginTop: insets.top + 54 }]}>
+            <Text style={styles.menuHeading}>Free OpenRouter Models</Text>
             {OPENROUTER_FREE_MODELS.map((m) => {
-              const active = !customModel.trim().endsWith(':free') && selectedModel === m.id;
+              const active = m.id === selectedModel;
               return (
                 <Pressable
                   key={m.id}
                   onPress={() => {
                     setSelectedModel(m.id);
-                    setCustomModel('');
-                    setShowModelPicker(false);
+                    setShowModelMenu(false);
                   }}
                   style={({ pressed }) => [
-                    styles.modelChoiceChip,
-                    active && styles.modelChoiceChipActive,
+                    styles.menuItem,
+                    active && styles.menuItemActive,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={[styles.modelChoiceLabel, active && styles.modelChoiceLabelActive]}>{m.label}</Text>
-                  <Text style={styles.modelChoiceNote}>{m.note}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.menuItemLabel, active && styles.menuItemLabelActive]}>{m.label}</Text>
+                    <Text style={styles.menuItemNote}>{m.note}</Text>
+                  </View>
+                  {active ? <Ionicons name="checkmark" size={18} color={colors.coral} /> : null}
                 </Pressable>
               );
             })}
-          </ScrollView>
-          <TextInput
-            value={customModel}
-            onChangeText={setCustomModel}
-            placeholder="Or paste any OpenRouter :free model ID (e.g. google/gemma-4-31b-it:free)"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.modelCustomInput}
-          />
-        </View>
-      ) : null}
+          </View>
+        </Pressable>
+      </Modal>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -428,12 +468,51 @@ export default function AssistantScreen() {
             <View style={styles.messagesWrap}>
               {messages.map((msg) => {
                 const isUser = msg.role === 'user';
+                const showThought = Boolean(expandedThinking[msg.id]);
+                const hasThinkingBlock = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null);
+
                 return (
                   <View key={msg.id} style={[styles.msgGroup, isUser ? styles.msgGroupUser : styles.msgGroupBot]}>
+                    {hasThinkingBlock ? (
+                      <View style={styles.thinkingWrap}>
+                        <Pressable
+                          disabled={!msg.thinking}
+                          onPress={() =>
+                            setExpandedThinking((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                          }
+                          style={({ pressed }) => [styles.thinkingPill, pressed && styles.pressed]}
+                        >
+                          <Ionicons name="bulb-outline" size={13} color={colors.muted} />
+                          <Text style={styles.thinkingPillText}>
+                            Thought for {msg.thinkingSeconds ?? 0.5}s
+                            {msg.model ? ` · ${msg.model.split('/').pop()?.replace(':free', '')}` : ''}
+                          </Text>
+                          {msg.thinking ? (
+                            <Ionicons
+                              name={showThought ? 'chevron-up' : 'chevron-down'}
+                              size={13}
+                              color={colors.muted}
+                            />
+                          ) : null}
+                        </Pressable>
+
+                        {showThought && msg.thinking ? (
+                          <View style={styles.thinkingBox}>
+                            <MarkdownText content={msg.thinking} style={styles.thinkingText} />
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
+
                     <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
-                      <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextBot]}>
-                        {msg.content}
-                      </Text>
+                      {isUser ? (
+                        <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{msg.content}</Text>
+                      ) : (
+                        <MarkdownText
+                          content={msg.content}
+                          style={[styles.bubbleText, styles.bubbleTextBot]}
+                        />
+                      )}
                     </View>
 
                     {!isUser && msg.actions && msg.actions.length > 0 ? (
@@ -449,7 +528,7 @@ export default function AssistantScreen() {
                                 {state === 'done' ? <StatusBadge status="active" /> : null}
                               </View>
                               {isDraft && action.data.message ? (
-                                <Text style={styles.draftPreview}>{action.data.message}</Text>
+                                <MarkdownText content={action.data.message} style={styles.draftPreview} />
                               ) : null}
                               <View style={styles.actionBtns}>
                                 <Button
@@ -514,16 +593,26 @@ export default function AssistantScreen() {
               })}
 
               {sending ? (
-                <View style={styles.loadingBubble}>
-                  <ActivityIndicator size="small" color={colors.coral} />
-                  <Text style={styles.mutedSmall}>Thinking…</Text>
+                <View style={styles.liveThinkingRow}>
+                  <View style={styles.loadingBubble}>
+                    <ActivityIndicator size="small" color={colors.coral} />
+                    <Text style={styles.mutedSmall}>Thinking… {elapsedSeconds.toFixed(1)}s</Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleStop}
+                    style={({ pressed }) => [styles.stopChip, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="stop" size={12} color={colors.danger} />
+                    <Text style={styles.stopChipText}>Stop</Text>
+                  </Pressable>
                 </View>
               ) : null}
             </View>
           )}
         </ScrollView>
 
-        <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom + 14, 22) }]}>
+        <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}>
           <View style={styles.composerBar}>
             <TextInput
               value={draft}
@@ -534,22 +623,33 @@ export default function AssistantScreen() {
               maxLength={1000}
               style={styles.input}
               onSubmitEditing={() => {
-                if (Platform.OS === 'web') void sendMessage();
+                if (Platform.OS === 'web' && !sending) void sendMessage();
               }}
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Send message"
-              disabled={!draft.trim() || sending}
-              onPress={() => void sendMessage()}
-              style={({ pressed }) => [
-                styles.sendBtn,
-                (!draft.trim() || sending) && styles.sendBtnDisabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
-            </Pressable>
+            {sending ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Stop generating"
+                onPress={handleStop}
+                style={({ pressed }) => [styles.stopBtn, pressed && styles.pressed]}
+              >
+                <Ionicons name="stop" size={16} color="#FFFFFF" />
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Send message"
+                disabled={!draft.trim()}
+                onPress={() => void sendMessage()}
+                style={({ pressed }) => [
+                  styles.sendBtn,
+                  !draft.trim() && styles.sendBtnDisabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+              </Pressable>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -576,21 +676,81 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitleWrap: {
+  headerTitleBtn: {
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: radius.md,
   },
   pageTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.ink,
   },
+  modelInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   pageSub: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.muted,
   },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.25)',
+    alignItems: 'center',
+  },
+  menuPopover: {
+    width: 290,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: space.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  menuHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: radius.md,
+  },
+  menuItemActive: {
+    backgroundColor: colors.coralSoft,
+  },
+  menuItemLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  menuItemLabelActive: {
+    color: colors.coral,
+  },
+  menuItemNote: {
+    fontSize: 11,
+    color: colors.muted,
+  },
   scrollContent: {
-    padding: space.lg,
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    paddingBottom: space.xl,
     gap: space.md,
     flexGrow: 1,
   },
@@ -689,13 +849,45 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   msgGroup: {
-    gap: 8,
+    gap: 6,
   },
   msgGroupUser: {
     alignItems: 'flex-end',
   },
   msgGroupBot: {
     alignItems: 'flex-start',
+  },
+  thinkingWrap: {
+    maxWidth: '92%',
+    gap: 6,
+  },
+  thinkingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#F3F4F6',
+  },
+  thinkingPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  thinkingBox: {
+    backgroundColor: '#FAFAFB',
+    borderLeftWidth: 2,
+    borderLeftColor: colors.line,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+  },
+  thinkingText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
   },
   bubble: {
     maxWidth: '88%',
@@ -757,6 +949,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  liveThinkingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   loadingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -765,86 +962,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: '#F5F6F8',
     borderRadius: radius.pill,
-    alignSelf: 'flex-start',
   },
-  mutedSmall: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  modelBar: {
-    paddingHorizontal: space.lg,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.line,
-    backgroundColor: '#FFFFFF',
-  },
-  modelPill: {
+  stopChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FAFAFB',
-  },
-  modelPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.ink,
-    maxWidth: 240,
-  },
-  modelDrawer: {
-    paddingHorizontal: space.lg,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    backgroundColor: '#FAFAFB',
-    gap: 8,
-  },
-  modelChipRow: {
-    gap: 8,
-  },
-  modelChoiceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FFFFFF',
-    gap: 2,
-  },
-  modelChoiceChipActive: {
-    borderColor: colors.coral,
     backgroundColor: colors.coralSoft,
   },
-  modelChoiceLabel: {
+  stopChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.danger,
   },
-  modelChoiceLabelActive: {
-    color: colors.coral,
-  },
-  modelChoiceNote: {
-    fontSize: 11,
+  mutedSmall: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.muted,
   },
-  modelCustomInput: {
-    height: 38,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    fontSize: 12,
-    color: colors.ink,
-  },
   composerOuter: {
-    paddingHorizontal: space.lg,
-    paddingTop: space.sm,
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: '#FFFFFF',
@@ -853,7 +993,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 10,
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.line,
@@ -863,16 +1004,24 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 38,
     maxHeight: 110,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     paddingVertical: 8,
     fontSize: 14,
     color: colors.ink,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -883,4 +1032,3 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
 });
-

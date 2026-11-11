@@ -4,80 +4,82 @@ export type AssistantChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  thinking?: string | null;
+  thinkingSeconds?: number | null;
   actions?: AssistantAction[];
   model?: string;
 };
 
 export type AssistantAction =
   | {
-      type: 'create_appointment';
-      label: string;
-      data: {
-        customer_name: string;
-        customer_phone?: string;
-        customer_email?: string;
-        service_names: string;
-        appointment_date: string;
-        appointment_time: string;
-        duration_minutes?: number;
-        total_price?: string | number;
-        customer_note?: string;
-        status?: 'pending' | 'approved' | 'completed';
-      };
-    }
-  | {
-      type: 'update_appointment_status';
-      label: string;
-      data: {
-        appointment_id?: string;
-        customer_name?: string;
-        appointment_date?: string;
-        new_status: 'approved' | 'completed' | 'cancelled' | 'no_show';
-      };
-    }
-  | {
-      type: 'create_service';
-      label: string;
-      data: {
-        items: {
-          name: string;
-          price: number | string;
-          duration_minutes?: number;
-          category?: string;
-          description?: string;
-        }[];
-      };
-    }
-  | {
-      type: 'create_client';
-      label: string;
-      data: {
-        full_name: string;
-        phone?: string;
-        email?: string;
-        notes?: string;
-      };
-    }
-  | {
-      type: 'block_time';
-      label: string;
-      data: {
-        title: string;
-        event_date: string;
-        start_time: string;
-        end_time: string;
-        note?: string;
-      };
-    }
-  | {
-      type: 'draft_message';
-      label: string;
-      data: {
-        channel?: string;
-        recipient?: string;
-        message: string;
-      };
+    type: 'create_appointment';
+    label: string;
+    data: {
+      customer_name: string;
+      customer_phone?: string;
+      customer_email?: string;
+      service_names: string;
+      appointment_date: string;
+      appointment_time: string;
+      duration_minutes?: number;
+      total_price?: string | number;
+      customer_note?: string;
+      status?: 'pending' | 'approved' | 'completed';
     };
+  }
+  | {
+    type: 'update_appointment_status';
+    label: string;
+    data: {
+      appointment_id?: string;
+      customer_name?: string;
+      appointment_date?: string;
+      new_status: 'approved' | 'completed' | 'cancelled' | 'no_show';
+    };
+  }
+  | {
+    type: 'create_service';
+    label: string;
+    data: {
+      items: {
+        name: string;
+        price: number | string;
+        duration_minutes?: number;
+        category?: string;
+        description?: string;
+      }[];
+    };
+  }
+  | {
+    type: 'create_client';
+    label: string;
+    data: {
+      full_name: string;
+      phone?: string;
+      email?: string;
+      notes?: string;
+    };
+  }
+  | {
+    type: 'block_time';
+    label: string;
+    data: {
+      title: string;
+      event_date: string;
+      start_time: string;
+      end_time: string;
+      note?: string;
+    };
+  }
+  | {
+    type: 'draft_message';
+    label: string;
+    data: {
+      channel?: string;
+      recipient?: string;
+      message: string;
+    };
+  };
 
 export type OpenRouterFreeModelOption = {
   id: string;
@@ -86,12 +88,14 @@ export type OpenRouterFreeModelOption = {
 };
 
 export const OPENROUTER_FREE_MODELS: OpenRouterFreeModelOption[] = [
-  { id: 'openrouter/free', label: 'Auto Free Router', note: 'Best available free model' },
-  { id: 'google/gemma-4-31b-it:free', label: 'Gemma 4 31B', note: 'Strong Taglish & tasks' },
-  { id: 'google/gemma-4-26b-a4b-it:free', label: 'Gemma 4 26B', note: 'Fast & balanced' },
-  { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nemotron 3.5 Fast', note: '1M ctx · rapid replies' },
-  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra', note: 'Deep reasoning' },
-  { id: 'baidu/ernie-5.5-flash-preview:free', label: 'ERNIE 5.5 Flash', note: '1M ctx · preview' },
+  { id: 'openrouter/free', label: 'Auto Free Router', note: 'Best live free model' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nemotron 3.5 Lightning', note: '1M ctx · rapid replies' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra', note: '550B · deep reasoning' },
+  { id: 'nvidia/nemotron-3.5-super-vl:free', label: 'Nemotron 3.5 Super VL', note: '1M ctx · balanced' },
+  { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'Nemotron 3 Nano Omni', note: '30B · reasoning' },
+  { id: 'baidu/ernie-5.5-flash-preview:free', label: 'ERNIE 5.5 Flash', note: '1M ctx · fast drafts' },
+  { id: 'recursive/flint-v1.0:free', label: 'Recursive Flint v1.0', note: '262k ctx · structured' },
+  { id: 'liquid/lfm-3-1.7b:free', label: 'Liquid LFM 3 1.7B', note: 'Lightweight & instant' },
 ];
 
 export const ASSISTANT_QUICK_PROMPTS = [
@@ -102,96 +106,110 @@ export const ASSISTANT_QUICK_PROMPTS = [
   'Block lunch break tomorrow 12:00 PM to 1:00 PM',
 ];
 
-async function extractErrorMessage(error: unknown): Promise<{ message: string; configured: boolean }> {
-  const errObj = error as {
-    message?: string;
-    context?: { status?: number; json?: () => Promise<Record<string, unknown>> };
-  } | null;
-
-  let parsedMessage = '';
-  let configured = true;
-
-  try {
-    const ctx = errObj?.context;
-    if (ctx && typeof ctx.json === 'function') {
-      const body = await ctx.json();
-      if (typeof body?.error === 'string' && body.error.trim()) {
-        parsedMessage = body.error.trim();
-      }
-      if (body?.configured === false) {
-        configured = false;
-      }
-    }
-  } catch {
-    // Ignore non-JSON error body
-  }
-
-  const message = parsedMessage || errObj?.message || 'Unable to reach Bookora AI Assistant.';
-  const status = errObj?.context?.status;
-  if (
-    status === 503 ||
-    status === 401 ||
-    message.toLowerCase().includes('openrouter_api_key') ||
-    message.toLowerCase().includes('not set yet') ||
-    message.toLowerCase().includes('user not found')
-  ) {
-    configured = false;
-  }
-  return { message, configured };
-}
-
 export async function askBookoraAssistant(
   history: { role: 'user' | 'assistant'; content: string }[],
-  model?: string
+  model?: string,
+  signal?: AbortSignal
 ): Promise<{
   ok: boolean;
+  aborted?: boolean;
   configured: boolean;
   reply: string;
+  thinking: string | null;
+  thinkingSeconds: number | null;
   actions: AssistantAction[];
   model?: string;
   error?: string;
 }> {
-  if (!supabase) {
+  const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseKey =
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+  if (!supabase || !supabaseUrl || !supabaseKey) {
     return {
       ok: false,
       configured: false,
       reply: '',
+      thinking: null,
+      thinkingSeconds: null,
       actions: [],
       error: 'Supabase is not configured.',
     };
   }
 
-  const { data, error } = await supabase.functions.invoke('bookora-ai-assistant', {
-    body: { messages: history, model: model || 'openrouter/free' },
-  });
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      return {
+        ok: false,
+        configured: true,
+        reply: '',
+        thinking: null,
+        thinkingSeconds: null,
+        actions: [],
+        error: 'Session expired. Please sign in again.',
+      };
+    }
 
-  if (error) {
-    const parsed = await extractErrorMessage(error);
+    const res = await fetch(`${supabaseUrl}/functions/v1/bookora-ai-assistant`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ messages: history, model: model || 'openrouter/free' }),
+      signal,
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.configured === false) {
+      const msg = String(data?.error || `Request failed (${res.status})`);
+      const configured =
+        data?.configured === false || res.status === 503 || res.status === 401 ? false : true;
+      return {
+        ok: false,
+        configured,
+        reply: '',
+        thinking: null,
+        thinkingSeconds: null,
+        actions: [],
+        error: msg,
+      };
+    }
+
+    return {
+      ok: true,
+      configured: true,
+      reply: String(data?.reply || ''),
+      thinking: typeof data?.thinking === 'string' && data.thinking.trim() ? data.thinking.trim() : null,
+      thinkingSeconds:
+        typeof data?.thinking_seconds === 'number' ? data.thinking_seconds : null,
+      actions: Array.isArray(data?.actions) ? (data.actions as AssistantAction[]) : [],
+      model: data?.model ? String(data.model) : undefined,
+    };
+  } catch (err) {
+    if (err instanceof Error && (err.name === 'AbortError' || err.message.toLowerCase().includes('aborted'))) {
+      return {
+        ok: false,
+        aborted: true,
+        configured: true,
+        reply: '',
+        thinking: null,
+        thinkingSeconds: null,
+        actions: [],
+        error: 'Stopped.',
+      };
+    }
     return {
       ok: false,
-      configured: parsed.configured,
+      configured: true,
       reply: '',
+      thinking: null,
+      thinkingSeconds: null,
       actions: [],
-      error: parsed.message,
+      error: err instanceof Error ? err.message : 'Unable to reach Bookora AI Assistant.',
     };
   }
-
-  if (data?.configured === false) {
-    return {
-      ok: false,
-      configured: false,
-      reply: '',
-      actions: [],
-      error: String(data?.error || 'OpenRouter API key is not configured yet.'),
-    };
-  }
-
-  return {
-    ok: true,
-    configured: true,
-    reply: String(data?.reply || ''),
-    actions: Array.isArray(data?.actions) ? (data.actions as AssistantAction[]) : [],
-    model: data?.model ? String(data.model) : undefined,
-  };
 }
-

@@ -1,6 +1,6 @@
-import { useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { ArrowUp, CheckCircle2, Copy, Loader2, Sparkles, Trash2 } from "lucide-react"
+import { ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OwnerMobileMenuButton, OwnerSidebar } from "@/components/owner/OwnerSidebar"
 import { OwnerStatusBadge } from "@/components/owner/OwnerDataPrimitives"
@@ -9,79 +9,82 @@ import { supabase } from "@/lib/supabase"
 
 type AssistantAction =
   | {
-      type: "create_appointment"
-      label: string
-      data: {
-        customer_name: string
-        customer_phone?: string
-        customer_email?: string
-        service_names: string
-        appointment_date: string
-        appointment_time: string
+    type: "create_appointment"
+    label: string
+    data: {
+      customer_name: string
+      customer_phone?: string
+      customer_email?: string
+      service_names: string
+      appointment_date: string
+      appointment_time: string
+      duration_minutes?: number
+      total_price?: string | number
+      customer_note?: string
+      status?: "pending" | "approved" | "completed"
+    }
+  }
+  | {
+    type: "update_appointment_status"
+    label: string
+    data: {
+      appointment_id?: string
+      customer_name?: string
+      appointment_date?: string
+      new_status: "approved" | "completed" | "cancelled" | "no_show"
+    }
+  }
+  | {
+    type: "create_service"
+    label: string
+    data: {
+      items: Array<{
+        name: string
+        price: number | string
         duration_minutes?: number
-        total_price?: string | number
-        customer_note?: string
-        status?: "pending" | "approved" | "completed"
-      }
+        category?: string
+        description?: string
+      }>
     }
+  }
   | {
-      type: "update_appointment_status"
-      label: string
-      data: {
-        appointment_id?: string
-        customer_name?: string
-        appointment_date?: string
-        new_status: "approved" | "completed" | "cancelled" | "no_show"
-      }
+    type: "create_client"
+    label: string
+    data: {
+      full_name: string
+      phone?: string
+      email?: string
+      notes?: string
     }
+  }
   | {
-      type: "create_service"
-      label: string
-      data: {
-        items: Array<{
-          name: string
-          price: number | string
-          duration_minutes?: number
-          category?: string
-          description?: string
-        }>
-      }
+    type: "block_time"
+    label: string
+    data: {
+      title: string
+      event_date: string
+      start_time: string
+      end_time: string
+      note?: string
     }
+  }
   | {
-      type: "create_client"
-      label: string
-      data: {
-        full_name: string
-        phone?: string
-        email?: string
-        notes?: string
-      }
+    type: "draft_message"
+    label: string
+    data: {
+      channel?: string
+      recipient?: string
+      message: string
     }
-  | {
-      type: "block_time"
-      label: string
-      data: {
-        title: string
-        event_date: string
-        start_time: string
-        end_time: string
-        note?: string
-      }
-    }
-  | {
-      type: "draft_message"
-      label: string
-      data: {
-        channel?: string
-        recipient?: string
-        message: string
-      }
-    }
+  }
 
 type ChatMessage = {
   id: string
   role: "user" | "assistant"
   content: string
+  thinking?: string | null
+  thinkingSeconds?: number | null
+  model?: string
   actions?: AssistantAction[]
 }
 
@@ -91,6 +94,17 @@ const QUICK_PROMPTS = [
   "Book Maria Santos for Gel Manicure tomorrow 2:00 PM",
   "Add Classic Pedicure ₱350 (45m) and Nail Removal ₱150 (20m) to services",
   "Block lunch break tomorrow 12:00 PM to 1:00 PM",
+]
+
+const FREE_MODELS = [
+  { id: "openrouter/free", label: "Auto Free Router" },
+  { id: "nvidia/nemotron-3.5-lightning:free", label: "Nemotron 3.5 Lightning (:free)" },
+  { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "Nemotron 3 Ultra (:free)" },
+  { id: "nvidia/nemotron-3.5-super-vl:free", label: "Nemotron 3.5 Super VL (:free)" },
+  { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", label: "Nemotron 3 Nano Omni (:free)" },
+  { id: "baidu/ernie-5.5-flash-preview:free", label: "ERNIE 5.5 Flash (:free)" },
+  { id: "recursive/flint-v1.0:free", label: "Recursive Flint v1.0 (:free)" },
+  { id: "liquid/lfm-3-1.7b:free", label: "Liquid LFM 3 1.7B (:free)" },
 ]
 
 function normalizeTime24h(raw?: string): string {
@@ -114,28 +128,99 @@ function minutesBetween(start: string, end?: string): number {
   return diff >= 5 ? diff : 60
 }
 
-const FREE_MODELS = [
-  { id: "openrouter/free", label: "Auto Free Router (openrouter/free)" },
-  { id: "google/gemma-4-31b-it:free", label: "Google Gemma 4 31B (:free)" },
-  { id: "google/gemma-4-26b-a4b-it:free", label: "Google Gemma 4 26B (:free)" },
-  { id: "nvidia/nemotron-3.5-lightning:free", label: "NVIDIA Nemotron 3.5 Lightning (:free)" },
-  { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "NVIDIA Nemotron 3 Ultra (:free)" },
-  { id: "baidu/ernie-5.5-flash-preview:free", label: "Baidu ERNIE 5.5 Flash (:free)" },
-]
+const INLINE_PATTERN = /(\*\*\*[^*]+?\*\*\*|\*\*[^*]+?\*\*|__[^_]+?__|(?<!\*)\*[^*\n]+?\*(?!\*)|`[^`]+?`)/g
+
+function renderInlineMarkdown(line: string, keyPrefix: string) {
+  const nodes: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  INLINE_PATTERN.lastIndex = 0
+  let i = 0
+
+  while ((match = INLINE_PATTERN.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(<Fragment key={`${keyPrefix}_t_${i++}`}>{line.slice(lastIndex, match.index)}</Fragment>)
+    }
+    const raw = match[0]
+    if (raw.startsWith("***") && raw.endsWith("***")) {
+      nodes.push(<strong key={`${keyPrefix}_bi_${i++}`} style={{ fontStyle: "italic" }}>{raw.slice(3, -3)}</strong>)
+    } else if (raw.startsWith("**") && raw.endsWith("**")) {
+      nodes.push(<strong key={`${keyPrefix}_b_${i++}`}>{raw.slice(2, -2)}</strong>)
+    } else if (raw.startsWith("__") && raw.endsWith("__")) {
+      nodes.push(<u key={`${keyPrefix}_u_${i++}`}>{raw.slice(2, -2)}</u>)
+    } else if (raw.startsWith("`") && raw.endsWith("`")) {
+      nodes.push(
+        <code key={`${keyPrefix}_c_${i++}`} style={{ background: "rgba(15,23,42,0.06)", padding: "1px 4px", borderRadius: 4 }}>
+          {raw.slice(1, -1)}
+        </code>
+      )
+    } else if (raw.startsWith("*") && raw.endsWith("*")) {
+      nodes.push(<em key={`${keyPrefix}_i_${i++}`}>{raw.slice(1, -1)}</em>)
+    }
+    lastIndex = match.index + raw.length
+  }
+
+  if (lastIndex < line.length) {
+    nodes.push(<Fragment key={`${keyPrefix}_tail`}>{line.slice(lastIndex)}</Fragment>)
+  }
+  return nodes
+}
+
+function FormattedMarkdown({ content }: { content: string }) {
+  const lines = String(content || "").split(/\r?\n/)
+  return (
+    <div>
+      {lines.map((rawLine, idx) => {
+        const headingMatch = rawLine.trim().match(/^#{1,4}\s+(.*)$/)
+        const bulletMatch = rawLine.match(/^\s*[-*•]\s+(.*)$/)
+        return (
+          <div key={idx} style={{ minHeight: rawLine.trim() ? undefined : 8 }}>
+            {headingMatch ? (
+              <strong>{renderInlineMarkdown(headingMatch[1], `h${idx}`)}</strong>
+            ) : bulletMatch ? (
+              <span>• {renderInlineMarkdown(bulletMatch[1], `b${idx}`)}</span>
+            ) : (
+              renderInlineMarkdown(rawLine, `l${idx}`)
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState("openrouter/free")
-  const [customModel, setCustomModel] = useState("")
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({})
   const [setupNotice, setSetupNotice] = useState("")
   const [executedKeys, setExecutedKeys] = useState<Record<string, "running" | "done">>({})
   const bottomRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const startRef = useRef(0)
+
+  useEffect(() => {
+    if (!sending) return
+    const timer = setInterval(() => {
+      setElapsedSeconds(Number(((Date.now() - startRef.current) / 1000).toFixed(1)))
+    }, 100)
+    return () => clearInterval(timer)
+  }, [sending])
 
   const navigate = (path: string) => {
     window.location.assign(path)
+  }
+
+  const handleStop = () => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setSending(false)
   }
 
   const sendMessage = async (textOverride?: string) => {
@@ -150,41 +235,51 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
     const nextThread = [...messages, userMsg]
     setMessages(nextThread)
     if (!textOverride) setDraft("")
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    startRef.current = Date.now()
+    setElapsedSeconds(0)
     setSending(true)
     setSetupNotice("")
 
     try {
-      const activeModel = customModel.trim().endsWith(":free") ? customModel.trim() : selectedModel
-      const { data, error } = await supabase.functions.invoke("bookora-ai-assistant", {
-        body: {
-          messages: nextThread.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-          model: activeModel,
-        },
-      })
-
-      if (error) {
-        let msg = error.message || "Unable to reach Bookora AI."
-        let configured = true
-        try {
-          const ctx = (error as { context?: { json?: () => Promise<Record<string, unknown>> } }).context
-          if (ctx && typeof ctx.json === "function") {
-            const body = await ctx.json()
-            if (typeof body?.error === "string" && body.error.trim()) msg = body.error.trim()
-            if (body?.configured === false) configured = false
-          }
-        } catch {
-          // Ignore parse failure
-        }
-        if (!configured || msg.toLowerCase().includes("openrouter_api_key")) {
-          setSetupNotice(msg)
-        } else {
-          setMessages((prev) => [...prev, { id: `e_${Date.now()}`, role: "assistant", content: msg }])
-        }
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      const url = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "")
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ""
+      if (!token || !url || !anonKey) {
+        showToast("Session expired. Please sign in again.", "error")
         return
       }
 
-      if (data?.configured === false) {
-        setSetupNotice(String(data?.error || "OpenRouter API key is not configured yet."))
+      const res = await fetch(`${url}/functions/v1/bookora-ai-assistant`, {
+        method: "POST",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: nextThread.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+          model: selectedModel,
+        }),
+        signal: controller.signal,
+      })
+
+      const data = await res.json().catch(() => ({}))
+      const finalElapsed = Math.max(0.1, Number(((Date.now() - startRef.current) / 1000).toFixed(1)))
+
+      if (!res.ok || data?.configured === false) {
+        const msg = String(data?.error || `Request failed (${res.status})`)
+        if (data?.configured === false || res.status === 503 || res.status === 401 || msg.toLowerCase().includes("openrouter_api_key")) {
+          setSetupNotice(msg)
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { id: `e_${Date.now()}`, role: "assistant", content: msg, thinkingSeconds: finalElapsed },
+          ])
+        }
         return
       }
 
@@ -194,11 +289,33 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           id: `a_${Date.now()}`,
           role: "assistant",
           content: String(data?.reply || ""),
+          thinking: typeof data?.thinking === "string" && data.thinking.trim() ? data.thinking.trim() : null,
+          thinkingSeconds: typeof data?.thinking_seconds === "number" ? data.thinking_seconds : finalElapsed,
+          model: data?.model ? String(data.model) : undefined,
           actions: Array.isArray(data?.actions) ? (data.actions as AssistantAction[]) : [],
         },
       ])
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 60)
+    } catch (err) {
+      const finalElapsed = Math.max(0.1, Number(((Date.now() - startRef.current) / 1000).toFixed(1)))
+      if (err instanceof Error && (err.name === "AbortError" || err.message.toLowerCase().includes("abort"))) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `s_${Date.now()}`, role: "assistant", content: `_Stopped after ${finalElapsed}s._`, thinkingSeconds: finalElapsed },
+        ])
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `e_${Date.now()}`,
+            role: "assistant",
+            content: err instanceof Error ? err.message : "Unable to reach Bookora AI.",
+            thinkingSeconds: finalElapsed,
+          },
+        ])
+      }
     } finally {
+      abortRef.current = null
       setSending(false)
     }
   }
@@ -237,13 +354,12 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
       if (action.type === "update_appointment_status") {
         let targetId = action.data.appointment_id
         if (!targetId) {
-          const query = supabase
+          const { data } = await supabase
             .from("appointments")
             .select("id, customer_name, appointment_date")
             .eq("business_id", user.id)
             .order("appointment_date", { ascending: false })
             .limit(30)
-          const { data } = await query
           const nameNeedle = (action.data.customer_name || "").toLowerCase().trim()
           const dateNeedle = (action.data.appointment_date || "").trim()
           const match = (data || []).find(
@@ -341,65 +457,46 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               <p>End-to-end owner copilot for bookings, services, clients, and drafts</p>
             </div>
           </div>
-          {messages.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setMessages([])
-                setExecutedKeys({})
-                setSetupNotice("")
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              aria-label="Free OpenRouter model"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              style={{
+                padding: "7px 12px",
+                borderRadius: 10,
+                border: "1px solid #E5E7EB",
+                background: "#FFFFFF",
+                fontSize: 13,
+                color: "#111827",
               }}
             >
-              <Trash2 data-icon="inline-start" />
-              Clear Chat
-            </Button>
-          )}
+              {FREE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            {messages.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  handleStop()
+                  setMessages([])
+                  setExecutedKeys({})
+                  setExpandedThinking({})
+                  setSetupNotice("")
+                }}
+              >
+                <Trash2 data-icon="inline-start" />
+                Clear
+              </Button>
+            )}
+          </div>
         </header>
 
         <section className="admin-section" style={{ maxWidth: 880 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: "#64748B" }}>
-              Free Model:
-              <select
-                value={selectedModel}
-                onChange={(e) => {
-                  setSelectedModel(e.target.value)
-                  setCustomModel("")
-                }}
-                style={{
-                  marginLeft: 8,
-                  padding: "6px 10px",
-                  borderRadius: 10,
-                  border: "1px solid #E5E7EB",
-                  background: "#FFFFFF",
-                  fontSize: 13,
-                  color: "#111827",
-                }}
-              >
-                {FREE_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <input
-              type="text"
-              value={customModel}
-              onChange={(e) => setCustomModel(e.target.value)}
-              placeholder="Or paste custom model ending with :free"
-              style={{
-                flex: 1,
-                minWidth: 220,
-                padding: "6px 10px",
-                borderRadius: 10,
-                border: "1px solid #E5E7EB",
-                fontSize: 13,
-              }}
-            />
-          </div>
-
           {setupNotice && (
             <div className="admin-security-banner">
               <Sparkles size={16} />
@@ -450,6 +547,8 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {messages.map((msg) => {
                 const isUser = msg.role === "user"
+                const showThought = Boolean(expandedThinking[msg.id])
+                const hasThink = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null)
                 return (
                   <div
                     key={msg.id}
@@ -458,9 +557,57 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                       maxWidth: "82%",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 8,
+                      gap: 6,
                     }}
                   >
+                    {hasThink && (
+                      <div>
+                        <button
+                          type="button"
+                          disabled={!msg.thinking}
+                          onClick={() =>
+                            setExpandedThinking((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                          }
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#64748B",
+                            background: "#F3F4F6",
+                            border: "none",
+                            borderRadius: 999,
+                            padding: "4px 10px",
+                            cursor: msg.thinking ? "pointer" : "default",
+                          }}
+                        >
+                          <Lightbulb size={12} />
+                          <span>
+                            Thought for {msg.thinkingSeconds ?? 0.5}s
+                            {msg.model ? ` · ${msg.model.split("/").pop()?.replace(":free", "")}` : ""}
+                          </span>
+                          {msg.thinking && (showThought ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                        </button>
+                        {showThought && msg.thinking && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              borderLeft: "2px solid #E2E8F0",
+                              background: "#FAFAFB",
+                              color: "#64748B",
+                              fontSize: 12.5,
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            <FormattedMarkdown content={msg.thinking} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div
                       style={{
                         padding: "11px 15px",
@@ -468,12 +615,11 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                         background: isUser ? "#FF6B57" : "#F6F7F9",
                         color: isUser ? "#FFFFFF" : "#16181D",
                         border: isUser ? "none" : "1px solid #EAECEF",
-                        whiteSpace: "pre-wrap",
                         fontSize: 14,
                         lineHeight: 1.55,
                       }}
                     >
-                      {msg.content}
+                      {isUser ? msg.content : <FormattedMarkdown content={msg.content} />}
                     </div>
 
                     {!isUser &&
@@ -496,18 +642,17 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                               {state === "done" && <OwnerStatusBadge label="Done" tone="success" />}
                             </div>
                             {isDraft && action.data.message && (
-                              <p
+                              <div
                                 style={{
                                   fontSize: 13,
                                   background: "#F8F9FB",
                                   padding: 10,
                                   borderRadius: 8,
                                   marginBottom: 10,
-                                  whiteSpace: "pre-wrap",
                                 }}
                               >
-                                {action.data.message}
-                              </p>
+                                <FormattedMarkdown content={action.data.message} />
+                              </div>
                             )}
                             <Button
                               type="button"
@@ -545,9 +690,28 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               })}
 
               {sending && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748B", fontSize: 13 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#64748B", fontSize: 13 }}>
                   <Loader2 size={15} className="animate-spin" />
-                  <span>Thinking…</span>
+                  <span>Thinking… {elapsedSeconds.toFixed(1)}s</span>
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      background: "#FFF1F0",
+                      color: "#DC2626",
+                      border: "none",
+                      borderRadius: 999,
+                      padding: "4px 10px",
+                      fontWeight: 700,
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Square size={10} fill="currentColor" /> Stop
+                  </button>
                 </div>
               )}
               <div ref={bottomRef} />
@@ -557,14 +721,15 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              void sendMessage()
+              if (!sending) void sendMessage()
             }}
             style={{
               display: "flex",
               gap: 8,
-              marginTop: 16,
-              padding: 10,
-              borderRadius: 16,
+              marginTop: 20,
+              marginBottom: 16,
+              padding: "10px 14px",
+              borderRadius: 18,
               border: "1px solid #E5E7EB",
               background: "#FFFFFF",
             }}
@@ -582,14 +747,20 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                 padding: "6px 8px",
               }}
             />
-            <Button type="submit" disabled={!draft.trim() || sending}>
-              <ArrowUp data-icon="inline-start" />
-              Send
-            </Button>
+            {sending ? (
+              <Button type="button" variant="outline" style={{ color: "#DC2626", borderColor: "#FCA5A5" }} onClick={handleStop}>
+                <Square data-icon="inline-start" size={14} />
+                Stop
+              </Button>
+            ) : (
+              <Button type="submit" disabled={!draft.trim()}>
+                <ArrowUp data-icon="inline-start" />
+                Send
+              </Button>
+            )}
           </form>
         </section>
       </main>
     </div>
   )
 }
-

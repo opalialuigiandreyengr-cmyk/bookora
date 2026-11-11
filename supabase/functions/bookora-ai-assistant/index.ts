@@ -36,6 +36,40 @@ type ParsedActionsResult = {
   actions: Record<string, unknown>[];
 };
 
+function extractThinkingAndReply(
+  rawContent: string,
+  reasoningField: unknown,
+  reasoningDetails: unknown
+): { thinking: string | null; cleanContent: string } {
+  const thinkParts: string[] = [];
+
+  if (typeof reasoningField === 'string' && reasoningField.trim()) {
+    thinkParts.push(reasoningField.trim());
+  } else if (Array.isArray(reasoningDetails)) {
+    for (const part of reasoningDetails) {
+      if (part && typeof part === 'object') {
+        const text = (part as Record<string, unknown>).text || (part as Record<string, unknown>).summary;
+        if (typeof text === 'string' && text.trim()) {
+          thinkParts.push(text.trim());
+        }
+      }
+    }
+  }
+
+  const cleanContent = rawContent
+    .replace(/<think>\s*([\s\S]*?)\s*<\/think>/gi, (_m, inner: string) => {
+      if (inner && inner.trim()) thinkParts.push(inner.trim());
+      return '';
+    })
+    .trim();
+
+  const mergedThinking = thinkParts.join('\n\n').trim();
+  return {
+    thinking: mergedThinking || null,
+    cleanContent,
+  };
+}
+
 function extractActionsFromText(rawText: string): ParsedActionsResult {
   const actions: Record<string, unknown>[] = [];
   const cleaned = rawText
@@ -264,15 +298,26 @@ ${JSON.stringify(snapshot)}`;
           model: modelId,
           messages: [{ role: 'system', content: systemPrompt }, ...messages],
           temperature: 0.35,
-          max_tokens: 900,
+          max_tokens: 1400,
         }),
       });
     };
 
     const fallbackChain = Array.from(
-      new Set([primaryModel, 'openrouter/free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free'])
+      new Set([
+        primaryModel,
+        'openrouter/free',
+        'nvidia/nemotron-3.5-lightning:free',
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'nvidia/nemotron-3.5-super-vl:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+        'baidu/ernie-5.5-flash-preview:free',
+        'recursive/flint-v1.0:free',
+        'liquid/lfm-3-1.7b:free',
+      ])
     );
 
+    const startedAt = Date.now();
     let res = await callOpenRouter(fallbackChain[0]);
     let usedModel = fallbackChain[0];
     for (let i = 1; i < fallbackChain.length; i += 1) {
@@ -284,6 +329,8 @@ ${JSON.stringify(snapshot)}`;
     }
 
     const completion = await res.json().catch(() => ({}));
+    const thinkingSeconds = Math.max(0.1, Number(((Date.now() - startedAt) / 1000).toFixed(1)));
+
     if (!res.ok) {
       const rawErr = String(completion?.error?.message || completion?.message || '');
       if (res.status === 401 || rawErr.toLowerCase().includes('user not found')) {
@@ -299,22 +346,31 @@ ${JSON.stringify(snapshot)}`;
       const errMsg =
         rawErr ||
         (res.status === 429
-          ? 'Free AI model rate limit reached for now. Please wait a minute or pick another :free model.'
+          ? 'Free AI model rate limit reached for now. Please wait a minute or pick another free model.'
           : 'Unable to reach OpenRouter AI right now.');
       return jsonResponse({ error: errMsg, configured: true }, res.status === 429 ? 429 : 502);
     }
 
-    const rawContent = String(completion?.choices?.[0]?.message?.content || '').trim();
-    if (!rawContent) {
+    const msgObj = completion?.choices?.[0]?.message || {};
+    const rawContent = String(msgObj?.content || '').trim();
+    const { thinking, cleanContent } = extractThinkingAndReply(
+      rawContent,
+      msgObj?.reasoning ?? msgObj?.reasoning_content,
+      msgObj?.reasoning_details
+    );
+
+    if (!cleanContent && !thinking) {
       return jsonResponse({ error: 'The AI model returned an empty reply. Please try again.', configured: true }, 502);
     }
 
-    const { reply, actions } = extractActionsFromText(rawContent);
+    const { reply, actions } = extractActionsFromText(cleanContent || thinking || '');
     return jsonResponse({
       ok: true,
       configured: true,
       model: String(completion?.model || usedModel),
       reply,
+      thinking,
+      thinking_seconds: thinkingSeconds,
       actions,
     });
   } catch (err) {
