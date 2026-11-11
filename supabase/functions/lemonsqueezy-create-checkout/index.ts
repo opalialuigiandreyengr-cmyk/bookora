@@ -13,21 +13,20 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function cleanId(raw: string | undefined): string {
+  return (raw || '').trim().replace(/^#+/, '').trim();
+}
+
 function getEnvConfig() {
   const supabaseUrl = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const lsApiKey = (Deno.env.get('LEMONSQUEEZY_API_KEY') || '').trim();
-  const lsStoreId = (Deno.env.get('LEMONSQUEEZY_STORE_ID') || '').trim();
-  const lsMonthlyVariantId = (
-    Deno.env.get('LEMONSQUEEZY_MONTHLY_VARIANT_ID') ||
-    Deno.env.get('LEMONSQUEEZY_VARIANT_ID') ||
-    ''
-  ).trim();
-  const lsAnnualVariantId = (
-    Deno.env.get('LEMONSQUEEZY_ANNUAL_VARIANT_ID') ||
-    lsMonthlyVariantId
-  ).trim();
+  const lsStoreId = cleanId(Deno.env.get('LEMONSQUEEZY_STORE_ID'));
+  const lsMonthlyVariantId = cleanId(
+    Deno.env.get('LEMONSQUEEZY_MONTHLY_VARIANT_ID') || Deno.env.get('LEMONSQUEEZY_VARIANT_ID')
+  );
+  const lsAnnualVariantId = cleanId(Deno.env.get('LEMONSQUEEZY_ANNUAL_VARIANT_ID')) || lsMonthlyVariantId;
 
   return {
     supabaseUrl,
@@ -446,19 +445,74 @@ Deno.serve(async (req) => {
       },
     };
 
-    const lsRes = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
-      method: 'POST',
-      headers: lsHeaders(lsApiKey),
-      body: JSON.stringify(lsPayload),
-    });
+    const postCheckout = async (targetStoreId: string, targetVariantId: string) => {
+      lsPayload.relationships.store.data.id = targetStoreId;
+      lsPayload.relationships.variant.data.id = targetVariantId;
+      const res = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
+        method: 'POST',
+        headers: lsHeaders(lsApiKey),
+        body: JSON.stringify(lsPayload),
+      });
+      const json = await res.json().catch(() => ({}));
+      return { ok: res.ok, status: res.status, json };
+    };
 
-    const lsJson = await lsRes.json().catch(() => ({}));
+    let attempt = await postCheckout(lsStoreId, variantId);
+
+    // Auto-recover if caller accidentally configured Product ID instead of Variant ID
+    if ((!attempt.ok || !attempt.json?.data?.attributes?.url) && (attempt.status === 404 || attempt.status === 422)) {
+      const prodVarsRes = await fetch(
+        `https://api.lemonsqueezy.com/v1/products/${encodeURIComponent(variantId)}/variants`,
+        { headers: lsHeaders(lsApiKey) }
+      );
+      if (prodVarsRes.ok) {
+        const prodVarsJson = await prodVarsRes.json().catch(() => ({}));
+        const firstVar = Array.isArray(prodVarsJson?.data)
+          ? prodVarsJson.data.find((v: { attributes?: { status?: string } }) => v?.attributes?.status !== 'pending') ||
+            prodVarsJson.data[0]
+          : null;
+        if (firstVar?.id) {
+          attempt = await postCheckout(lsStoreId, String(firstVar.id));
+        }
+      }
+    }
+
+    const lsJson = attempt.json;
     const checkoutUrl = lsJson?.data?.attributes?.url;
     const checkoutId = lsJson?.data?.id ? String(lsJson.data.id) : '';
 
-    if (!lsRes.ok || !checkoutUrl) {
-      const apiDetail =
+    if (!attempt.ok || !checkoutUrl) {
+      let apiDetail =
         lsJson?.errors?.[0]?.detail || lsJson?.message || 'Failed to create Lemon Squeezy checkout.';
+
+      // Provide actionable diagnostic when Test/Live mode or Store/Variant IDs mismatch
+      if (apiDetail.toLowerCase().includes('related resource') || attempt.status === 404) {
+        const [storesRes, varsRes] = await Promise.all([
+          fetch('https://api.lemonsqueezy.com/v1/stores', { headers: lsHeaders(lsApiKey) }),
+          fetch('https://api.lemonsqueezy.com/v1/variants', { headers: lsHeaders(lsApiKey) }),
+        ]);
+        const storesJson = await storesRes.json().catch(() => ({}));
+        const varsJson = await varsRes.json().catch(() => ({}));
+        const visibleStores = Array.isArray(storesJson?.data)
+          ? storesJson.data.map(
+              (s: { id: string; attributes?: { name?: string } }) => `${s.id} (${s.attributes?.name || 'Store'})`
+            )
+          : [];
+        const visibleVariants = Array.isArray(varsJson?.data)
+          ? varsJson.data
+              .slice(0, 6)
+              .map(
+                (v: { id: string; attributes?: { name?: string; status?: string } }) =>
+                  `${v.id} (${v.attributes?.name || 'Variant'}/${v.attributes?.status || ''})`
+              )
+          : [];
+        apiDetail = `${apiDetail} (Configured Store=${lsStoreId}, Variant=${variantId}. Your API key sees Stores: [${
+          visibleStores.join(', ') || 'none'
+        }] and Variants: [${
+          visibleVariants.join(', ') || 'none — ensure Product is Published in the same Test/Live mode as your API key'
+        }].)`;
+      }
+
       return jsonResponse(
         {
           error: apiDetail,
