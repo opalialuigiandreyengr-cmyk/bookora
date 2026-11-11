@@ -161,8 +161,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const openRouterKey = (Deno.env.get('OPENROUTER_API_KEY') || '').trim();
-    const configuredModel = (Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free').trim() || 'openrouter/free';
+    const openRouterKey = (Deno.env.get('OPENROUTER_API_KEY') || '')
+      .trim()
+      .replace(/^['"]+|['"]+$/g, '')
+      .trim();
+    const configuredModel =
+      (Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free')
+        .trim()
+        .replace(/^['"]+|['"]+$/g, '') || 'openrouter/free';
 
     if (!supabaseUrl || !(anonKey || serviceRoleKey)) {
       return jsonResponse({ error: 'Supabase configuration missing.', configured: false }, 500);
@@ -200,6 +206,12 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+    const requestedModel = typeof body?.model === 'string' ? body.model.trim() : '';
+    const isAllowedFreeModel =
+      requestedModel === 'openrouter/free' ||
+      (requestedModel.length > 5 && requestedModel.endsWith(':free') && !requestedModel.includes(' '));
+    const primaryModel = isAllowedFreeModel ? requestedModel : configuredModel;
+
     const rawMessages = Array.isArray(body?.messages) ? (body.messages as ChatMessage[]) : [];
     const messages = rawMessages
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
@@ -257,18 +269,37 @@ ${JSON.stringify(snapshot)}`;
       });
     };
 
-    let res = await callOpenRouter(configuredModel);
-    if (!res.ok && configuredModel !== 'openrouter/free' && [404, 429, 502, 503].includes(res.status)) {
-      res = await callOpenRouter('openrouter/free');
+    const fallbackChain = Array.from(
+      new Set([primaryModel, 'openrouter/free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free'])
+    );
+
+    let res = await callOpenRouter(fallbackChain[0]);
+    let usedModel = fallbackChain[0];
+    for (let i = 1; i < fallbackChain.length; i += 1) {
+      if (res.ok || res.status === 401 || res.status === 403) break;
+      if ([400, 404, 429, 502, 503, 504].includes(res.status)) {
+        usedModel = fallbackChain[i];
+        res = await callOpenRouter(usedModel);
+      }
     }
 
     const completion = await res.json().catch(() => ({}));
     if (!res.ok) {
+      const rawErr = String(completion?.error?.message || completion?.message || '');
+      if (res.status === 401 || rawErr.toLowerCase().includes('user not found')) {
+        return jsonResponse(
+          {
+            error:
+              'OpenRouter rejected your API key (401: User not found). Generate/copy a valid key from openrouter.ai/keys (starts with sk-or-v1-, no extra quotes) and save it as OPENROUTER_API_KEY in Supabase Edge Function Secrets.',
+            configured: false,
+          },
+          401
+        );
+      }
       const errMsg =
-        completion?.error?.message ||
-        completion?.message ||
+        rawErr ||
         (res.status === 429
-          ? 'Free AI model rate limit reached for now. Please wait a minute and try again.'
+          ? 'Free AI model rate limit reached for now. Please wait a minute or pick another :free model.'
           : 'Unable to reach OpenRouter AI right now.');
       return jsonResponse({ error: errMsg, configured: true }, res.status === 429 ? 429 : 502);
     }
@@ -282,7 +313,7 @@ ${JSON.stringify(snapshot)}`;
     return jsonResponse({
       ok: true,
       configured: true,
-      model: String(completion?.model || configuredModel),
+      model: String(completion?.model || usedModel),
       reply,
       actions,
     });

@@ -114,9 +114,20 @@ function minutesBetween(start: string, end?: string): number {
   return diff >= 5 ? diff : 60
 }
 
+const FREE_MODELS = [
+  { id: "openrouter/free", label: "Auto Free Router (openrouter/free)" },
+  { id: "google/gemma-4-31b-it:free", label: "Google Gemma 4 31B (:free)" },
+  { id: "google/gemma-4-26b-a4b-it:free", label: "Google Gemma 4 26B (:free)" },
+  { id: "nvidia/nemotron-3.5-lightning:free", label: "NVIDIA Nemotron 3.5 Lightning (:free)" },
+  { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "NVIDIA Nemotron 3 Ultra (:free)" },
+  { id: "baidu/ernie-5.5-flash-preview:free", label: "Baidu ERNIE 5.5 Flash (:free)" },
+]
+
 export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [selectedModel, setSelectedModel] = useState("openrouter/free")
+  const [customModel, setCustomModel] = useState("")
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [setupNotice, setSetupNotice] = useState("")
@@ -143,9 +154,11 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
     setSetupNotice("")
 
     try {
+      const activeModel = customModel.trim().endsWith(":free") ? customModel.trim() : selectedModel
       const { data, error } = await supabase.functions.invoke("bookora-ai-assistant", {
         body: {
           messages: nextThread.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+          model: activeModel,
         },
       })
 
@@ -345,6 +358,48 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
         </header>
 
         <section className="admin-section" style={{ maxWidth: 880 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#64748B" }}>
+              Free Model:
+              <select
+                value={selectedModel}
+                onChange={(e) => {
+                  setSelectedModel(e.target.value)
+                  setCustomModel("")
+                }}
+                style={{
+                  marginLeft: 8,
+                  padding: "6px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #E5E7EB",
+                  background: "#FFFFFF",
+                  fontSize: 13,
+                  color: "#111827",
+                }}
+              >
+                {FREE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <input
+              type="text"
+              value={customModel}
+              onChange={(e) => setCustomModel(e.target.value)}
+              placeholder="Or paste custom model ending with :free"
+              style={{
+                flex: 1,
+                minWidth: 220,
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: "1px solid #E5E7EB",
+                fontSize: 13,
+              }}
+            />
+          </div>
+
           {setupNotice && (
             <div className="admin-security-banner">
               <Sparkles size={16} />

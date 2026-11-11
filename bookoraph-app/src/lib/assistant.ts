@@ -79,6 +79,21 @@ export type AssistantAction =
       };
     };
 
+export type OpenRouterFreeModelOption = {
+  id: string;
+  label: string;
+  note: string;
+};
+
+export const OPENROUTER_FREE_MODELS: OpenRouterFreeModelOption[] = [
+  { id: 'openrouter/free', label: 'Auto Free Router', note: 'Best available free model' },
+  { id: 'google/gemma-4-31b-it:free', label: 'Gemma 4 31B', note: 'Strong Taglish & tasks' },
+  { id: 'google/gemma-4-26b-a4b-it:free', label: 'Gemma 4 26B', note: 'Fast & balanced' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nemotron 3.5 Fast', note: '1M ctx · rapid replies' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra', note: 'Deep reasoning' },
+  { id: 'baidu/ernie-5.5-flash-preview:free', label: 'ERNIE 5.5 Flash', note: '1M ctx · preview' },
+];
+
 export const ASSISTANT_QUICK_PROMPTS = [
   'Summarize my bookings and revenue this month',
   'Draft a friendly Taglish reminder for upcoming bookings',
@@ -112,10 +127,13 @@ async function extractErrorMessage(error: unknown): Promise<{ message: string; c
   }
 
   const message = parsedMessage || errObj?.message || 'Unable to reach Bookora AI Assistant.';
+  const status = errObj?.context?.status;
   if (
-    errObj?.context?.status === 503 ||
+    status === 503 ||
+    status === 401 ||
     message.toLowerCase().includes('openrouter_api_key') ||
-    message.toLowerCase().includes('not set yet')
+    message.toLowerCase().includes('not set yet') ||
+    message.toLowerCase().includes('user not found')
   ) {
     configured = false;
   }
@@ -123,7 +141,8 @@ async function extractErrorMessage(error: unknown): Promise<{ message: string; c
 }
 
 export async function askBookoraAssistant(
-  history: { role: 'user' | 'assistant'; content: string }[]
+  history: { role: 'user' | 'assistant'; content: string }[],
+  model?: string
 ): Promise<{
   ok: boolean;
   configured: boolean;
@@ -143,7 +162,7 @@ export async function askBookoraAssistant(
   }
 
   const { data, error } = await supabase.functions.invoke('bookora-ai-assistant', {
-    body: { messages: history },
+    body: { messages: history, model: model || 'openrouter/free' },
   });
 
   if (error) {

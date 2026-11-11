@@ -20,6 +20,7 @@ import { Button, Card, StatusBadge } from '@/components/ui';
 import {
   askBookoraAssistant,
   ASSISTANT_QUICK_PROMPTS,
+  OPENROUTER_FREE_MODELS,
   type AssistantAction,
   type AssistantChatMessage,
 } from '@/lib/assistant';
@@ -63,6 +64,9 @@ export default function AssistantScreen() {
   } = useApp();
 
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
+  const [selectedModel, setSelectedModel] = useState('openrouter/free');
+  const [customModel, setCustomModel] = useState('');
+  const [showModelPicker, setShowModelPicker] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [setupNotice, setSetupNotice] = useState('');
@@ -102,7 +106,11 @@ export default function AssistantScreen() {
       content: m.content,
     }));
 
-    const result = await askBookoraAssistant(apiHistory);
+    const activeModel =
+      customModel.trim().endsWith(':free') || customModel.trim() === 'openrouter/free'
+        ? customModel.trim()
+        : selectedModel;
+    const result = await askBookoraAssistant(apiHistory, activeModel);
     setSending(false);
 
     if (!result.ok) {
@@ -302,6 +310,61 @@ export default function AssistantScreen() {
         )}
       </View>
 
+      {/* Free Model Selector Bar */}
+      <View style={styles.modelBar}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setShowModelPicker((v) => !v)}
+          style={({ pressed }) => [styles.modelPill, pressed && styles.pressed]}
+        >
+          <Ionicons name="hardware-chip-outline" size={14} color={colors.coral} />
+          <Text style={styles.modelPillText} numberOfLines={1}>
+            Model:{' '}
+            {customModel.trim().endsWith(':free')
+              ? customModel.trim()
+              : OPENROUTER_FREE_MODELS.find((m) => m.id === selectedModel)?.label || selectedModel}
+          </Text>
+          <Ionicons name={showModelPicker ? 'chevron-up' : 'chevron-down'} size={14} color={colors.muted} />
+        </Pressable>
+      </View>
+
+      {showModelPicker ? (
+        <View style={styles.modelDrawer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modelChipRow}>
+            {OPENROUTER_FREE_MODELS.map((m) => {
+              const active = !customModel.trim().endsWith(':free') && selectedModel === m.id;
+              return (
+                <Pressable
+                  key={m.id}
+                  onPress={() => {
+                    setSelectedModel(m.id);
+                    setCustomModel('');
+                    setShowModelPicker(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.modelChoiceChip,
+                    active && styles.modelChoiceChipActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={[styles.modelChoiceLabel, active && styles.modelChoiceLabelActive]}>{m.label}</Text>
+                  <Text style={styles.modelChoiceNote}>{m.note}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <TextInput
+            value={customModel}
+            onChangeText={setCustomModel}
+            placeholder="Or paste any OpenRouter :free model ID (e.g. google/gemma-4-31b-it:free)"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.modelCustomInput}
+          />
+        </View>
+      ) : null}
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -460,32 +523,34 @@ export default function AssistantScreen() {
           )}
         </ScrollView>
 
-        <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Ask Bookora AI anything…"
-            placeholderTextColor={colors.muted}
-            multiline
-            maxLength={1000}
-            style={styles.input}
-            onSubmitEditing={() => {
-              if (Platform.OS === 'web') void sendMessage();
-            }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
-            disabled={!draft.trim() || sending}
-            onPress={() => void sendMessage()}
-            style={({ pressed }) => [
-              styles.sendBtn,
-              (!draft.trim() || sending) && styles.sendBtnDisabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
-          </Pressable>
+        <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom + 14, 22) }]}>
+          <View style={styles.composerBar}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Ask Bookora AI anything…"
+              placeholderTextColor={colors.muted}
+              multiline
+              maxLength={1000}
+              style={styles.input}
+              onSubmitEditing={() => {
+                if (Platform.OS === 'web') void sendMessage();
+              }}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              disabled={!draft.trim() || sending}
+              onPress={() => void sendMessage()}
+              style={({ pressed }) => [
+                styles.sendBtn,
+                (!draft.trim() || sending) && styles.sendBtnDisabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -706,26 +771,100 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
   },
-  composerBar: {
+  modelBar: {
+    paddingHorizontal: space.lg,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+    backgroundColor: '#FFFFFF',
+  },
+  modelPill: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FAFAFB',
+  },
+  modelPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.ink,
+    maxWidth: 240,
+  },
+  modelDrawer: {
+    paddingHorizontal: space.lg,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: '#FAFAFB',
     gap: 8,
+  },
+  modelChipRow: {
+    gap: 8,
+  },
+  modelChoiceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FFFFFF',
+    gap: 2,
+  },
+  modelChoiceChipActive: {
+    borderColor: colors.coral,
+    backgroundColor: colors.coralSoft,
+  },
+  modelChoiceLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  modelChoiceLabelActive: {
+    color: colors.coral,
+  },
+  modelChoiceNote: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  modelCustomInput: {
+    height: 38,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    fontSize: 12,
+    color: colors.ink,
+  },
+  composerOuter: {
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: '#FFFFFF',
   },
-  input: {
-    flex: 1,
-    minHeight: 42,
-    maxHeight: 110,
-    borderRadius: 20,
+  composerBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    padding: 8,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: '#F8F9FB',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  },
+  input: {
+    flex: 1,
+    minHeight: 38,
+    maxHeight: 110,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     fontSize: 14,
     color: colors.ink,
   },
