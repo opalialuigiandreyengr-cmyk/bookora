@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2 } from "lucide-react"
+import { AlertCircle, ArrowUp, Bot, CheckCircle2, ChevronDown, ChevronUp, Copy, Lightbulb, Loader2, Sparkles, Square, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OwnerMobileMenuButton, OwnerSidebar } from "@/components/owner/OwnerSidebar"
 import { OwnerStatusBadge } from "@/components/owner/OwnerDataPrimitives"
@@ -965,7 +965,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           <div className="dashboard-topbar-left">
             <OwnerMobileMenuButton onOpen={() => setSidebarOpen(true)} />
             <div>
-              <h1>Bookora AI Assistant</h1>
+              <h1>Ask AI</h1>
               <p>End-to-end owner copilot for bookings, services, clients, and drafts</p>
             </div>
           </div>
@@ -1028,9 +1028,9 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                       justifyContent: "center",
                     }}
                   >
-                    <Sparkles size={16} color="#FF6B57" />
+                    <Bot size={17} color="#FF6B57" />
                   </span>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>AI Business Assistant</h2>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Ask AI</h2>
                 </div>
                 <OwnerStatusBadge label="Saved Locally" tone="neutral" />
               </div>
@@ -1055,7 +1055,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                       fontSize: 13.5,
                     }}
                   >
-                    <Sparkles size={14} color="#FF6B57" />
+                    <Bot size={14} color="#FF6B57" />
                     <span>{prompt}</span>
                   </button>
                 ))}
@@ -1369,8 +1369,6 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                         color: "#64748B",
                         fontSize: 12.5,
                         lineHeight: 1.5,
-                        maxHeight: 150,
-                        overflowY: "auto",
                         whiteSpace: "pre-wrap",
                       }}
                     >
@@ -1418,7 +1416,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask Bookora AI anything (e.g., Book Maria tomorrow 2pm, summarize revenue)…"
+              placeholder="Ask AI anything…"
               style={{
                 flex: 1,
                 border: "none",

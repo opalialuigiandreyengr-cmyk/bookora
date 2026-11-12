@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/app-text';
 import { MarkdownText } from '@/components/markdown-text';
+import { RobotIcon } from '@/components/robot-icon';
 import { Button, Card, StatusBadge } from '@/components/ui';
 import {
   askBookoraAssistant,
@@ -186,10 +187,10 @@ export default function AssistantScreen() {
     return `${prefix}_${Date.now()}_${seqRef.current}`;
   };
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (animated = true) => {
     setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 80);
+      scrollRef.current?.scrollToEnd({ animated });
+    }, animated ? 80 : 20);
   };
 
   const handleStop = () => {
@@ -273,11 +274,11 @@ export default function AssistantScreen() {
       onToolDone: upsertLiveTool,
       onThinkingDelta: (chunk) => {
         setLiveThinking((prev) => prev + chunk);
-        scrollToBottom();
+        scrollToBottom(false);
       },
       onContentDelta: (chunk) => {
         setLiveReply((prev) => prev + chunk);
-        scrollToBottom();
+        scrollToBottom(false);
       },
     });
     const finalElapsed = Math.max(0.1, elapsedRef.current);
@@ -736,7 +737,7 @@ export default function AssistantScreen() {
           onPress={() => setShowModelMenu(true)}
           style={({ pressed }) => [styles.headerTitleBtn, pressed && styles.pressed]}
         >
-          <Text style={styles.pageTitle}>Bookora AI</Text>
+          <Text style={styles.pageTitle}>Ask AI</Text>
           <View style={styles.modelInlineRow}>
             <Text style={styles.pageSub}>{activeModelObj.label}</Text>
             <Ionicons name="chevron-down" size={12} color={colors.muted} />
@@ -821,9 +822,9 @@ export default function AssistantScreen() {
               <View style={styles.welcomeHero}>
                 <View style={styles.welcomeInlineRow}>
                   <View style={styles.sparkleBadge}>
-                    <Ionicons name="sparkles" size={16} color={colors.coral} />
+                    <RobotIcon size={17} color={colors.coral} />
                   </View>
-                  <Text style={styles.welcomeTitle}>AI Business Assistant</Text>
+                  <Text style={styles.welcomeTitle}>Ask AI</Text>
                 </View>
                 <Text style={styles.welcomeMetaLine}>
                   {services.length} services · {appointments.length} bookings · {clients.length} clients
@@ -837,7 +838,7 @@ export default function AssistantScreen() {
                     onPress={() => void sendMessage(prompt)}
                     style={({ pressed }) => [styles.promptChip, pressed && styles.pressed]}
                   >
-                    <Ionicons name="sparkles-outline" size={14} color={colors.coral} />
+                    <RobotIcon size={14} color={colors.coral} />
                     <Text style={styles.promptChipText}>{prompt}</Text>
                     <Ionicons name="arrow-forward" size={13} color={colors.muted} />
                   </Pressable>
@@ -1071,9 +1072,7 @@ export default function AssistantScreen() {
                   </View>
                   {liveThinking ? (
                     <View style={styles.liveThinkingPreviewBox}>
-                      <Text numberOfLines={6} style={styles.thinkingText}>
-                        {liveThinking}
-                      </Text>
+                      <Text style={styles.thinkingText}>{liveThinking}</Text>
                     </View>
                   ) : null}
                   {liveReply ? (
@@ -1097,7 +1096,7 @@ export default function AssistantScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Ask Bookora AI anything…"
+              placeholder="Ask AI anything…"
               placeholderTextColor={colors.muted}
               multiline
               maxLength={1000}

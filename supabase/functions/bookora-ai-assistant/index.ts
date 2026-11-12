@@ -922,7 +922,10 @@ ${JSON.stringify(snapshot)}`;
           );
           const unpairedMatch = withoutThink.match(/^([\s\S]*?)<\/(?:think|thought|reasoning)>([\s\S]*)$/i);
           const contentOutsideThink = unpairedMatch ? unpairedMatch[2] || '' : withoutThink;
-          const combinedThink = [rawReasoning.trim(), inlineThink.trim()].filter(Boolean).join('\n\n');
+          const cleanRawR = rawReasoning.replace(/^\s+/, '');
+          const cleanInlineT = inlineThink.replace(/^\s+/, '');
+          const combinedThink =
+            cleanRawR && cleanInlineT ? `${cleanRawR}\n\n${cleanInlineT}` : cleanRawR || cleanInlineT;
           if (combinedThink.length > emittedThinkLen) {
             const deltaThink = combinedThink.slice(emittedThinkLen);
             emittedThinkLen = combinedThink.length;

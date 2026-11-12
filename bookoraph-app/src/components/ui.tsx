@@ -237,6 +237,7 @@ export function NativeListGroup({
 
 export function NativeListRow({
   icon,
+  iconNode,
   iconBg = colors.surfaceMuted,
   iconColor = colors.ink,
   title,
@@ -250,6 +251,7 @@ export function NativeListRow({
   onPress,
 }: {
   icon?: IconName;
+  iconNode?: ReactNode;
   iconBg?: string;
   iconColor?: string;
   title: string;
@@ -276,9 +278,9 @@ export function NativeListRow({
         pressed && onPress && !disabled && styles.listRowPressed,
       ]}
     >
-      {icon ? (
+      {iconNode || icon ? (
         <View style={[styles.listRowIcon, { backgroundColor: iconBg }]}>
-          <Ionicons name={icon} size={17} color={destructive ? colors.danger : iconColor} />
+          {iconNode || <Ionicons name={icon!} size={17} color={destructive ? colors.danger : iconColor} />}
         </View>
       ) : null}
       <View style={styles.listRowBody}>

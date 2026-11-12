@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, type Href } from 'expo-router';
-import { type ComponentProps } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 import { Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
+import { RobotIcon } from '@/components/robot-icon';
 import { Card, NativeListGroup, NativeListRow, Screen, StatusBadge } from '@/components/ui';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
@@ -13,7 +14,8 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 type MenuItem = {
   title: string;
   subtitle?: string;
-  icon: IconName;
+  icon?: IconName;
+  iconNode?: ReactNode;
   iconBg: string;
   iconColor: string;
   route: Href;
@@ -108,9 +110,9 @@ export default function SettingsHub() {
       heading: 'Tools',
       items: [
         {
-          title: 'Bookora AI Assistant',
+          title: 'Ask AI',
           subtitle: 'End-to-end tasks, drafts & insights',
-          icon: 'sparkles-outline',
+          iconNode: <RobotIcon size={17} color={colors.coral} />,
           iconBg: colors.coralSoft,
           iconColor: colors.coral,
           route: '/assistant' as Href,
@@ -276,6 +278,7 @@ export default function SettingsHub() {
               key={item.title}
               first={idx === 0}
               icon={item.icon}
+              iconNode={item.iconNode}
               iconBg={item.iconBg}
               iconColor={item.iconColor}
               title={item.title}

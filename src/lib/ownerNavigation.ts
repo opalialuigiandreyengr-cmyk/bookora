@@ -13,7 +13,7 @@ import {
   Link2,
   Settings2,
   Scissors,
-  Sparkles,
+  Bot,
   Users,
   type LucideIcon,
 } from "lucide-react"
@@ -47,7 +47,7 @@ export type OwnerRoute = {
 
 export const ownerRoutes: OwnerRoute[] = [
   { key: "Overview", label: "Overview", path: "/dashboard", icon: Home, status: "ready" },
-  { key: "Assistant", label: "Bookora AI", path: "/assistant", icon: Sparkles, status: "ready" },
+  { key: "Assistant", label: "Ask AI", path: "/assistant", icon: Bot, status: "ready" },
   { key: "Calendar", label: "Calendar", path: "/calendar", icon: CalendarDays, status: "ready" },
   { key: "Appointments", label: "Appointments", path: "/appointments", icon: CalendarRange, status: "ready" },
   { key: "Clients", label: "Clients", path: "/clients", icon: Users, status: "ready" },

@@ -6,6 +6,7 @@ import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/app-text';
 import { NewAppointmentModal } from '@/components/calendar/NewAppointmentModal';
+import { RobotIcon } from '@/components/robot-icon';
 import { Card, EmptyState, Screen, StatusBadge } from '@/components/ui';
 import { openExternalLink } from '@/lib/external-links';
 import { useApp } from '@/providers/app-provider';
@@ -311,11 +312,11 @@ export default function Dashboard() {
           <View style={styles.headerActions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Bookora AI Assistant"
+              accessibilityLabel="Ask AI"
               onPress={() => router.push('/assistant' as Href)}
               style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
             >
-              <Ionicons name="sparkles-outline" size={19} color={colors.coral} />
+              <RobotIcon size={19} color={colors.coral} />
             </Pressable>
             <Pressable
               accessibilityRole="button"
