@@ -103,36 +103,87 @@ function extractThinkingAndReply(
   };
 }
 
+const KNOWN_ACTION_TYPES = new Set([
+  'create_appointment',
+  'update_appointment_status',
+  'create_service',
+  'create_client',
+  'block_time',
+  'add_time_off',
+  'delete_service',
+  'delete_appointment',
+  'delete_client',
+  'delete_block_time',
+  'delete_time_off',
+  'draft_message',
+]);
+
+function parseActionPayload(rawInner: string): Record<string, unknown>[] {
+  const candidates: string[] = [];
+  const cleanedInner = rawInner
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  if (!cleanedInner) return [];
+  candidates.push(cleanedInner);
+  candidates.push(cleanedInner.replace(/,\s*([}\]])/g, '$1'));
+
+  for (const cand of candidates) {
+    try {
+      const parsed = JSON.parse(cand);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      const valid = list.filter(
+        (item): item is Record<string, unknown> =>
+          Boolean(item && typeof item === 'object' && KNOWN_ACTION_TYPES.has(String((item as Record<string, unknown>).type || '')))
+      );
+      if (valid.length > 0) return valid;
+    } catch {
+      // Try next cleanup candidate
+    }
+  }
+  return [];
+}
+
 function extractActionsFromText(rawText: string): ParsedActionsResult {
   const actions: Record<string, unknown>[] = [];
-  const cleaned = rawText
+  const hadActionTag = /<ACTION_JSON/i.test(rawText);
+
+  let working = rawText
+    // 1. Complete paired <ACTION_JSON>...</ACTION_JSON>
     .replace(/<ACTION_JSON>\s*([\s\S]*?)\s*<\/ACTION_JSON>/gi, (_full, inner: string) => {
-      try {
-        const trimmed = inner
-          .trim()
-          .replace(/^```json\s*/i, '')
-          .replace(/^```\s*/i, '')
-          .replace(/```$/i, '')
-          .trim();
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          for (const item of parsed) {
-            if (item && typeof item === 'object' && typeof (item as Record<string, unknown>).type === 'string') {
-              actions.push(item as Record<string, unknown>);
-            }
-          }
-        } else if (parsed && typeof parsed === 'object' && typeof (parsed as Record<string, unknown>).type === 'string') {
-          actions.push(parsed as Record<string, unknown>);
-        }
-      } catch {
-        // Ignore malformed JSON action block so reply still renders cleanly
-      }
+      actions.push(...parseActionPayload(inner));
       return '';
     })
+    // 2. Unclosed trailing <ACTION_JSON>... (truncated or missing closing tag)
+    .replace(/<ACTION_JSON>\s*([\s\S]*)$/gi, (_full, inner: string) => {
+      actions.push(...parseActionPayload(inner));
+      return '';
+    })
+    // 3. Bare ```json ... ``` blocks containing a known action object/array
+    .replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, (full, inner: string) => {
+      const found = parseActionPayload(inner);
+      if (found.length > 0) {
+        actions.push(...found);
+        return '';
+      }
+      return full;
+    })
+    // 4. Final scrub of stray action tags
+    .replace(/<\/?ACTION_JSON[^>]*>/gi, '')
     .trim();
 
+  if (!working) {
+    if (actions.length > 0) {
+      working = 'Ready — tap Confirm below to apply.';
+    } else if (hadActionTag) {
+      working = 'I prepared the action, but the response was cut off before finishing. Please send again.';
+    }
+  }
+
   return {
-    reply: cleaned || rawText.trim(),
+    reply: working,
     actions,
   };
 }
@@ -200,7 +251,7 @@ function selectScannersForPrompt(messages: ChatMessage[]): ScannerKey[] {
     picked.add('staff');
     picked.add('services');
   }
-  if (/\b(setting|settings|profile|hour|hours|open|close|slug|link|address|location|policy|fee|plan|subscription)\b/i.test(text)) {
+  if (/\b(setting|settings|profile|hour|hours|open|close|slug|link|address|location|policy|fee|plan|subscription|time off|time-off|break|breaks|leave|day off|holiday|vacation)\b/i.test(text)) {
     picked.add('overview');
   }
   if (/\b(notification|notifications|alert|alerts|report|reports|webhook|webhooks|integration|integrations|google calendar|zoom|email|sms|messenger)\b/i.test(text)) {
@@ -698,10 +749,12 @@ Deno.serve(async (req) => {
       .trim()
       .replace(/^['"]+|['"]+$/g, '')
       .trim();
+    const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+    const rawEnvModel = (Deno.env.get('OPENROUTER_MODEL') || DEFAULT_MODEL)
+      .trim()
+      .replace(/^['"]+|['"]+$/g, '');
     const configuredModel =
-      (Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free')
-        .trim()
-        .replace(/^['"]+|['"]+$/g, '') || 'openrouter/free';
+      !rawEnvModel || rawEnvModel === 'openrouter/free' ? DEFAULT_MODEL : rawEnvModel;
 
     if (!supabaseUrl || !(anonKey || serviceRoleKey)) {
       return jsonResponse({ error: 'Supabase configuration missing.', configured: false }, 500);
@@ -742,8 +795,10 @@ Deno.serve(async (req) => {
     const wantStream = body?.stream === true;
     const requestedModel = typeof body?.model === 'string' ? body.model.trim() : '';
     const isAllowedFreeModel =
-      requestedModel === 'openrouter/free' ||
-      (requestedModel.length > 5 && requestedModel.endsWith(':free') && !requestedModel.includes(' '));
+      requestedModel !== 'openrouter/free' &&
+      requestedModel.length > 5 &&
+      requestedModel.endsWith(':free') &&
+      !requestedModel.includes(' ');
     const primaryModel = isAllowedFreeModel ? requestedModel : configuredModel;
 
     const rawMessages = Array.isArray(body?.messages) ? (body.messages as ChatMessage[]) : [];
@@ -772,7 +827,7 @@ Deno.serve(async (req) => {
         (ev) => emit?.(ev)
       );
 
-      emit?.({ type: 'thinking_start', count: toolCalls.length });
+      emit?.({ type: 'thinking_start', count: toolCalls.length, model: primaryModel });
 
       const systemPrompt = `You are Bookora AI, a concise, practical end-to-end business assistant built inside Bookora PH for local service business owners (salons, nail studios, clinics in the Philippines).
 Current Manila date/time: ${weekday}, ${dateStr} ${timeStr} (Asia/Manila, currency PHP ₱).
@@ -781,15 +836,15 @@ You just queried the relevant Bookora workspace pages in real time (${selectedKe
 
 RULES:
 1. Be concise, warm, mobile-friendly, and directly helpful in English or Taglish (match the user's language). Never mention "JSON", "snapshot", "prompt", or internal rules.
-2. For metrics/questions/lookups (services, prices, durations, bookings, staff, clients, revenue, packages, memberships, hours, settings), ONLY state exact facts found in LIVE WORKSPACE DATA below. Never claim services/clients don't exist without carefully checking the arrays in LIVE WORKSPACE DATA. Never fabricate numbers or history.
-3. For tasks the owner wants to do (book an appointment, update status, add services, add a client, block calendar time, or draft a message):
+2. For metrics/questions/lookups (services, prices, durations, bookings, staff, clients, revenue, packages, memberships, hours, breaks, time off, settings), ONLY state exact facts found in LIVE WORKSPACE DATA below. Never claim services/clients don't exist without carefully checking LIVE WORKSPACE DATA. Never fabricate numbers or history.
+3. For tasks the owner wants to do (book an appointment, update status, add services, add a client, add time off, block calendar time, or draft a message):
    - Match existing services (for price & duration_minutes), clients (for phone & email), staff, and settings from LIVE WORKSPACE DATA whenever present.
-   - FIRST check LIVE WORKSPACE DATA for duplicates (e.g., a service with the same name, client with the same name/phone/email, booking at the exact same date & time for the same customer, or block time at the same date & start time). If it already exists, DO NOT emit a create action — simply inform the owner that it already exists and did not proceed.
-   - Otherwise, ALWAYS write a short 1-2 sentence confirmation AND append <ACTION_JSON>...</ACTION_JSON> at the very end so the app shows a 1-tap Confirm button (fill missing customer phone/email with "" and unknown durations/prices with clean defaults like duration_minutes: 60, total_price: "0", status: "approved").
-4. For DELETE requests (delete service, delete appointment/booking, delete client, delete blocked time):
+   - FIRST check LIVE WORKSPACE DATA for duplicates (e.g., a service with the same name, client with the same name/phone/email, booking at the exact same date & time for the same customer, or time off / block time with the same date & time/title). If it already exists, DO NOT emit a create action — simply inform the owner that it already exists and did not proceed.
+   - Otherwise, ALWAYS write a short 1-2 sentence confirmation AND append <ACTION_JSON>...</ACTION_JSON> at the very end so the app shows a 1-tap Confirm button (fill missing customer phone/email with "" and unknown durations/prices with clean defaults like duration_minutes: 60, total_price: "0", status: "approved"). Never skip closing </ACTION_JSON>.
+4. For DELETE requests (delete service, delete appointment/booking, delete client, delete time off, delete blocked time):
    - FIRST verify the exact matching item exists in LIVE WORKSPACE DATA and use its exact id and details. If it does not exist, clearly tell the owner it was not found and DO NOT emit a delete action.
-   - NEVER claim it has already been deleted. Explicitly state what will be permanently deleted, ask the owner to confirm first, and append the delete <ACTION_JSON> so the app requires explicit confirmation before deleting.
-5. Keep any internal thinking very brief (under 4 sentences) so your final answer and <ACTION_JSON> always finish cleanly. Never output your reasoning inside the final reply text.
+   - NEVER claim it has already been deleted. Explicitly state what will be permanently deleted, ask the owner to confirm first, and append the delete <ACTION_JSON>...</ACTION_JSON>.
+5. Keep any internal thinking brief (under 4 sentences) so your final answer and <ACTION_JSON> always finish cleanly. Never output reasoning or <ACTION_JSON> tags inside your visible reply text.
 
 ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
 - Create appointment:
@@ -800,6 +855,8 @@ ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
   {"type":"create_service","label":"Add <N> service(s)","data":{"items":[{"name":"","price":350,"duration_minutes":45,"category":"","description":""}]}}
 - Add client:
   {"type":"create_client","label":"Add client <name>","data":{"full_name":"","phone":"","email":"","notes":""}}
+- Add time off (saved in Business Hours & Time Off settings):
+  {"type":"add_time_off","label":"Add time off: <title> (<startDate>)","data":{"title":"","startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD","startTime":"HH:MM","endTime":"HH:MM","allDay":false,"repeat":"none|weekly|monthly"}}
 - Block calendar time:
   {"type":"block_time","label":"Block <title>","data":{"title":"","event_date":"YYYY-MM-DD","start_time":"HH:MM","end_time":"HH:MM","note":""}}
 - Delete service (ALWAYS verify exists & ask confirmation; use exact service_id if found):
@@ -808,6 +865,8 @@ ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
   {"type":"delete_appointment","label":"Delete booking: <customer_name> (<appointment_date>)","data":{"appointment_id":"","customer_name":"","appointment_date":"YYYY-MM-DD","appointment_time":""}}
 - Delete client (ALWAYS verify exists & ask confirmation; use exact client_id if found):
   {"type":"delete_client","label":"Delete client: <full_name>","data":{"client_id":"","full_name":""}}
+- Delete time off (ALWAYS verify exists & ask confirmation; use exact time_off_id if found):
+  {"type":"delete_time_off","label":"Delete time off: <title>","data":{"time_off_id":"","title":"","startDate":"YYYY-MM-DD"}}
 - Delete block time (ALWAYS verify exists & ask confirmation; use exact block_id if found):
   {"type":"delete_block_time","label":"Delete blocked time: <title>","data":{"block_id":"","title":"","event_date":"YYYY-MM-DD","start_time":""}}
 - Draft copyable customer/promo message:
@@ -816,72 +875,150 @@ ALLOWED <ACTION_JSON> OBJECT FORMATS (single object or array):
 LIVE WORKSPACE DATA:
 ${JSON.stringify(snapshot)}`;
 
-      const callOpenRouter = async (modelId: string) => {
-        return await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${openRouterKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://www.bookoraph.com',
-            'X-Title': 'Bookora PH Owner Assistant',
-          },
-          body: JSON.stringify({
-            model: modelId,
-            messages: [{ role: 'system', content: systemPrompt }, ...messages],
-            temperature: 0.35,
-            max_tokens: 3200,
-          }),
-        });
-      };
-
-      const fallbackChain = Array.from(
-        new Set([
-          primaryModel,
-          'openrouter/free',
-          'nvidia/nemotron-3.5-lightning:free',
-          'baidu/ernie-5.5-flash-preview:free',
-          'nvidia/nemotron-3.5-super-vl:free',
-          'nvidia/nemotron-3-ultra-550b-a55b:free',
-          'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-          'recursive/flint-v1.0:free',
-          'liquid/lfm-3-1.7b:free',
-        ])
-      );
-
       const startedAt = Date.now();
-      let res = await callOpenRouter(fallbackChain[0]);
-      let usedModel = fallbackChain[0];
-      let completion = await res.json().catch(() => ({}));
+      const usedModel = primaryModel;
+      const useOpenRouterStream = Boolean(emit);
 
-      const parseCandidate = (comp: Record<string, unknown>) => {
-        const choices = Array.isArray(comp?.choices) ? comp.choices : [];
-        const msgObj = (choices[0] as Record<string, unknown> | undefined)?.message as Record<string, unknown> | undefined;
-        const rawContent = String(msgObj?.content || '').trim();
-        return extractThinkingAndReply(
-          rawContent,
-          msgObj?.reasoning ?? msgObj?.reasoning_content,
-          msgObj?.reasoning_details
-        );
-      };
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://www.bookoraph.com',
+          'X-Title': 'Bookora PH Owner Assistant',
+        },
+        body: JSON.stringify({
+          model: usedModel,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+          temperature: 0.35,
+          max_tokens: 3200,
+          stream: useOpenRouterStream,
+        }),
+      });
 
-      let parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
+      let rawContent = '';
+      let rawReasoning = '';
+      let responseModel = usedModel;
+      let completionErr: Record<string, unknown> | null = null;
 
-      for (let i = 1; i < fallbackChain.length; i += 1) {
-        if (res.status === 401 || res.status === 403) break;
-        const needsRetry = !res.ok || !parsed.cleanContent;
-        if (!needsRetry) break;
-        if (!res.ok && ![400, 404, 429, 502, 503, 504].includes(res.status)) break;
+      const resContentType = res.headers.get('content-type') || '';
+      if (res.ok && useOpenRouterStream && resContentType.includes('text/event-stream') && res.body?.getReader) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
+        let emittedThinkLen = 0;
+        let emittedReplyLen = 0;
+        let actionTagStarted = false;
 
-        usedModel = fallbackChain[i];
-        res = await callOpenRouter(usedModel);
-        completion = await res.json().catch(() => ({}));
-        parsed = res.ok ? parseCandidate(completion) : { thinking: null, cleanContent: '' };
+        const computeLiveStreams = () => {
+          // 1. Live thinking preview from delta.reasoning + <think>/<thought>/<reasoning> in rawContent
+          let inlineThink = '';
+          const withoutThink = rawContent.replace(
+            /<(think|thought|reasoning)>([\s\S]*?)(?:<\/\1>|$)/gi,
+            (_m, _tag, inner: string) => {
+              if (inner) inlineThink += (inlineThink ? '\n' : '') + inner;
+              return '';
+            }
+          );
+          const unpairedMatch = withoutThink.match(/^([\s\S]*?)<\/(?:think|thought|reasoning)>([\s\S]*)$/i);
+          const contentOutsideThink = unpairedMatch ? unpairedMatch[2] || '' : withoutThink;
+          const combinedThink = [rawReasoning.trim(), inlineThink.trim()].filter(Boolean).join('\n\n');
+          if (combinedThink.length > emittedThinkLen) {
+            const deltaThink = combinedThink.slice(emittedThinkLen);
+            emittedThinkLen = combinedThink.length;
+            if (deltaThink) emit?.({ type: 'thinking_delta', text: deltaThink });
+          }
+
+          // 2. Live reply preview (halt cleanly before any <ACTION_JSON or trailing partial < tag)
+          if (!actionTagStarted) {
+            const actionIdx = contentOutsideThink.search(/<action_json/i);
+            let safeReply =
+              actionIdx >= 0 ? contentOutsideThink.slice(0, actionIdx) : contentOutsideThink;
+            if (actionIdx >= 0) actionTagStarted = true;
+            else safeReply = safeReply.replace(/<[a-z_]*$/i, '');
+            safeReply = safeReply.replace(/^\s+/, '');
+            if (
+              safeReply.length > emittedReplyLen &&
+              (emittedReplyLen > 0 || (safeReply.length >= 24 && !looksLikeLeakedThought(safeReply)))
+            ) {
+              const deltaReply = safeReply.slice(emittedReplyLen);
+              emittedReplyLen = safeReply.length;
+              if (deltaReply) emit?.({ type: 'content_delta', text: deltaReply });
+            }
+          }
+        };
+
+        const processSseLine = (rawLine: string) => {
+          const line = rawLine.trim();
+          if (!line.startsWith('data:')) return;
+          const payloadStr = line.slice(5).trim();
+          if (!payloadStr || payloadStr === '[DONE]') return;
+          try {
+            const chunk = JSON.parse(payloadStr) as Record<string, unknown>;
+            if (chunk.model) responseModel = String(chunk.model);
+            const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
+            const delta = (choices[0] as Record<string, unknown> | undefined)?.delta as Record<string, unknown> | undefined;
+            if (!delta) return;
+
+            const rDirect =
+              typeof delta.reasoning === 'string'
+                ? delta.reasoning
+                : typeof delta.reasoning_content === 'string'
+                  ? delta.reasoning_content
+                  : '';
+            if (rDirect) rawReasoning += rDirect;
+            if (Array.isArray(delta.reasoning_details)) {
+              for (const part of delta.reasoning_details) {
+                if (part && typeof part === 'object') {
+                  const txt = (part as Record<string, unknown>).text || (part as Record<string, unknown>).summary;
+                  if (typeof txt === 'string') rawReasoning += txt;
+                }
+              }
+            }
+            if (typeof delta.content === 'string' && delta.content) {
+              rawContent += delta.content;
+            }
+            computeLiveStreams();
+          } catch {
+            // Ignore malformed SSE chunk
+          }
+        };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split(/\r?\n/);
+          sseBuffer = lines.pop() || '';
+          for (const l of lines) processSseLine(l);
+        }
+        if (sseBuffer.trim()) processSseLine(sseBuffer);
+      } else {
+        const completion = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!res.ok) {
+          completionErr = completion;
+        } else {
+          if (completion?.model) responseModel = String(completion.model);
+          const choices = Array.isArray(completion?.choices) ? completion.choices : [];
+          const msgObj = (choices[0] as Record<string, unknown> | undefined)?.message as Record<string, unknown> | undefined;
+          rawContent = String(msgObj?.content || '');
+          const rField = msgObj?.reasoning ?? msgObj?.reasoning_content;
+          if (typeof rField === 'string') rawReasoning = rField;
+          else if (Array.isArray(msgObj?.reasoning_details)) {
+            rawReasoning = msgObj.reasoning_details
+              .map((p) => (p && typeof p === 'object' ? String((p as Record<string, unknown>).text || (p as Record<string, unknown>).summary || '') : ''))
+              .filter(Boolean)
+              .join('\n\n');
+          }
+          if (rawReasoning.trim()) emit?.({ type: 'thinking_delta', text: rawReasoning.trim() });
+        }
       }
 
       const thinkingSeconds = Math.max(0.1, Number(((Date.now() - startedAt) / 1000).toFixed(1)));
 
       if (!res.ok) {
-        const rawErr = String(completion?.error?.message || completion?.message || '');
+        const errObj = completionErr?.error as Record<string, unknown> | undefined;
+        const rawErr = String(errObj?.message || completionErr?.message || '');
         if (res.status === 401 || rawErr.toLowerCase().includes('user not found')) {
           return {
             status: 401,
@@ -895,7 +1032,7 @@ ${JSON.stringify(snapshot)}`;
         const errMsg =
           rawErr ||
           (res.status === 429
-            ? 'Free AI model rate limit reached for now. Please wait a minute or pick another free model.'
+            ? 'Free AI model rate limit reached for now. Please wait a minute or pick another model from the dropdown.'
             : 'Unable to reach OpenRouter AI right now.');
         return {
           status: res.status === 429 ? 429 : 502,
@@ -903,12 +1040,13 @@ ${JSON.stringify(snapshot)}`;
         };
       }
 
+      const parsed = extractThinkingAndReply(rawContent.trim(), rawReasoning.trim() || null, null);
       if (!parsed.cleanContent) {
         return {
           status: 502,
           payload: {
             error:
-              'The selected free model spent all tokens thinking without producing a final reply. Try Nemotron 3.5 Lightning or ERNIE 5.5 Flash, or send again.',
+              'The selected model spent all tokens thinking without producing a final reply. Please send again or try another model.',
             configured: true,
             tool_calls: toolCalls,
           },
@@ -917,7 +1055,10 @@ ${JSON.stringify(snapshot)}`;
 
       const { reply, actions } = extractActionsFromText(parsed.cleanContent);
       const cleanThinking = parsed.thinking
-        ? parsed.thinking.replace(/<ACTION_JSON>[\s\S]*?<\/ACTION_JSON>/gi, '').trim() || null
+        ? parsed.thinking
+            .replace(/<ACTION_JSON>[\s\S]*?(?:<\/ACTION_JSON>|$)/gi, '')
+            .replace(/<\/?ACTION_JSON[^>]*>/gi, '')
+            .trim() || null
         : null;
 
       return {
@@ -925,7 +1066,7 @@ ${JSON.stringify(snapshot)}`;
         payload: {
           ok: true,
           configured: true,
-          model: String(completion?.model || usedModel),
+          model: responseModel,
           reply,
           thinking: cleanThinking,
           thinking_seconds: thinkingSeconds,

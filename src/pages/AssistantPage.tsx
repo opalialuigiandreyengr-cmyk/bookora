@@ -105,6 +105,28 @@ type AssistantAction =
     }
   }
   | {
+    type: "add_time_off"
+    label: string
+    data: {
+      title: string
+      startDate: string
+      endDate?: string
+      startTime?: string
+      endTime?: string
+      allDay?: boolean
+      repeat?: "none" | "weekly" | "monthly"
+    }
+  }
+  | {
+    type: "delete_time_off"
+    label: string
+    data: {
+      time_off_id?: string
+      title?: string
+      startDate?: string
+    }
+  }
+  | {
     type: "draft_message"
     label: string
     data: {
@@ -135,18 +157,19 @@ type ChatMessage = {
   actions?: AssistantAction[]
 }
 
+const DEFAULT_WEB_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
 const QUICK_PROMPTS = [
-  "Summarize my bookings and revenue this month",
-  "Draft a friendly Taglish reminder for upcoming bookings",
-  "Book Maria Santos for Gel Manicure tomorrow 2:00 PM",
-  "Add Classic Pedicure ₱350 (45m) and Nail Removal ₱150 (20m) to services",
-  "Block lunch break tomorrow 12:00 PM to 1:00 PM",
+  "Summarize bookings & revenue this month",
+  "Draft Taglish reminder for upcoming bookings",
+  "Book Maria Santos · Gel Manicure tomorrow 2 PM",
+  "Add Classic Pedicure ₱350 (45m) and Nail Removal ₱150 (20m)",
+  "Add time off tomorrow 12:00 PM to 1:00 PM",
 ]
 
 const FREE_MODELS = [
-  { id: "openrouter/free", label: "Auto Free Router" },
-  { id: "nvidia/nemotron-3.5-lightning:free", label: "Nemotron 3.5 Lightning (:free)" },
   { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "Nemotron 3 Ultra (:free)" },
+  { id: "nvidia/nemotron-3.5-lightning:free", label: "Nemotron 3.5 Lightning (:free)" },
   { id: "nvidia/nemotron-3.5-super-vl:free", label: "Nemotron 3.5 Super VL (:free)" },
   { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", label: "Nemotron 3 Nano Omni (:free)" },
   { id: "baidu/ernie-5.5-flash-preview:free", label: "ERNIE 5.5 Flash (:free)" },
@@ -237,20 +260,68 @@ function FormattedMarkdown({ content }: { content: string }) {
 }
 
 export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) {
+  const chatStorageKey = `bookora_web_ai_chat_v1_${user.id}`
+  const modelStorageKey = `bookora_web_ai_model_v1_${user.id}`
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [selectedModel, setSelectedModel] = useState("openrouter/free")
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(chatStorageKey)
+      if (!raw) return []
+      const parsed = JSON.parse(raw) as { messages?: ChatMessage[] }
+      return Array.isArray(parsed?.messages) ? parsed.messages : []
+    } catch {
+      return []
+    }
+  })
+  const [selectedModel, setSelectedModel] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(modelStorageKey)
+      if (saved && FREE_MODELS.some((m) => m.id === saved)) return saved
+    } catch {
+      // Ignore storage errors
+    }
+    return DEFAULT_WEB_MODEL
+  })
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [liveTools, setLiveTools] = useState<AssistantToolCall[]>([])
+  const [liveThinking, setLiveThinking] = useState("")
+  const [liveReply, setLiveReply] = useState("")
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({})
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({})
   const [setupNotice, setSetupNotice] = useState("")
-  const [executedKeys, setExecutedKeys] = useState<Record<string, "running" | "done">>({})
+  const [executedKeys, setExecutedKeys] = useState<Record<string, "running" | "done">>(() => {
+    try {
+      const raw = window.localStorage.getItem(chatStorageKey)
+      if (!raw) return {}
+      const parsed = JSON.parse(raw) as { executedKeys?: Record<string, "running" | "done"> }
+      return parsed?.executedKeys && typeof parsed.executedKeys === "object" ? parsed.executedKeys : {}
+    } catch {
+      return {}
+    }
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const startRef = useRef(0)
+
+  useEffect(() => {
+    try {
+      if (messages.length === 0) window.localStorage.removeItem(chatStorageKey)
+      else window.localStorage.setItem(chatStorageKey, JSON.stringify({ messages: messages.slice(-60), executedKeys }))
+    } catch {
+      // Ignore storage errors
+    }
+  }, [messages, executedKeys, chatStorageKey])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(modelStorageKey, selectedModel)
+    } catch {
+      // Ignore storage errors
+    }
+  }, [selectedModel, modelStorageKey])
 
   useEffect(() => {
     if (!sending) return
@@ -270,7 +341,28 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
       abortRef.current = null
     }
     setLiveTools([])
+    setLiveThinking("")
+    setLiveReply("")
     setSending(false)
+  }
+
+  const clearSavedChat = () => {
+    if (!window.confirm("Delete saved conversation from local storage?")) return
+    handleStop()
+    setMessages([])
+    setExecutedKeys({})
+    setExpandedThinking({})
+    setExpandedTools({})
+    setSetupNotice("")
+    try {
+      window.localStorage.removeItem(chatStorageKey)
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  const deleteSingleMessage = (msgId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== msgId))
   }
 
   const sendMessage = async (textOverride?: string) => {
@@ -291,6 +383,8 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
     startRef.current = Date.now()
     setElapsedSeconds(0)
     setLiveTools([])
+    setLiveThinking("")
+    setLiveReply("")
     setSending(true)
     setSetupNotice("")
 
@@ -352,6 +446,12 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
             const ev = JSON.parse(line) as Record<string, unknown>
             if ((ev.type === "tool_start" || ev.type === "tool_done") && ev.tool && typeof ev.tool === "object") {
               upsertTool(ev.tool as AssistantToolCall)
+            } else if (ev.type === "thinking_delta" && typeof ev.text === "string") {
+              setLiveThinking((prev) => prev + ev.text)
+              setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 40)
+            } else if (ev.type === "content_delta" && typeof ev.text === "string") {
+              setLiveReply((prev) => prev + ev.text)
+              setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 40)
             } else if (ev.type === "result" && ev.data && typeof ev.data === "object") {
               data = ev.data as Record<string, unknown>
             } else if (ev.type === "error") {
@@ -443,6 +543,8 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
     } finally {
       abortRef.current = null
       setLiveTools([])
+      setLiveThinking("")
+      setLiveReply("")
       setSending(false)
     }
   }
@@ -758,6 +860,85 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
         if (error) throw new Error(error.message)
         showToast(`Deleted "${targetTitle}"`, "success")
         setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
+        return
+      }
+
+      if (action.type === "add_time_off") {
+        const startDate = action.data.startDate
+        const endDate = action.data.endDate || startDate
+        const startTime = normalizeTime24h(action.data.startTime || "09:00")
+        const endTime = normalizeTime24h(action.data.endTime || "18:00")
+        const title = (action.data.title || "Time off").trim()
+        const { data: profileRow } = await supabase
+          .from("business_profiles")
+          .select("time_off")
+          .eq("id", user.id)
+          .maybeSingle()
+        const existingRules = Array.isArray(profileRow?.time_off) ? (profileRow.time_off as Array<Record<string, unknown>>) : []
+        const duplicate = existingRules.find(
+          (r) =>
+            String(r.startDate || "") === startDate &&
+            normalizeTime24h(String(r.startTime || "")) === startTime &&
+            String(r.title || "").trim().toLowerCase() === title.toLowerCase()
+        )
+        if (duplicate) {
+          throw new Error(`Duplicate time off: "${duplicate.title}" on ${startDate} already exists. Did not proceed.`)
+        }
+        const nextRules = [
+          ...existingRules,
+          {
+            id: `to_${Date.now()}`,
+            title,
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+            allDay: Boolean(action.data.allDay),
+            repeat: action.data.repeat || "none",
+          },
+        ]
+        const { error } = await supabase
+          .from("business_profiles")
+          .update({ time_off: nextRules, updated_at: new Date().toISOString() })
+          .eq("id", user.id)
+        if (error) throw new Error(error.message)
+        showToast(`Added time off: ${title}`, "success")
+        setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
+        return
+      }
+
+      if (action.type === "delete_time_off") {
+        const { data: profileRow } = await supabase
+          .from("business_profiles")
+          .select("time_off")
+          .eq("id", user.id)
+          .maybeSingle()
+        const existingRules = Array.isArray(profileRow?.time_off) ? (profileRow.time_off as Array<Record<string, unknown>>) : []
+        const target =
+          existingRules.find((r) => action.data.time_off_id && String(r.id) === action.data.time_off_id) ||
+          existingRules.find(
+            (r) =>
+              (!action.data.startDate || String(r.startDate || "") === action.data.startDate) &&
+              (!action.data.title ||
+                String(r.title || "").trim().toLowerCase() === action.data.title.trim().toLowerCase())
+          )
+        if (!target) throw new Error("Time off entry not found. Did not delete.")
+        if (!window.confirm(`Permanently delete time off "${target.title}" (${target.startDate})?`)) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+          return
+        }
+        const nextRules = existingRules.filter((r) => String(r.id) !== String(target.id))
+        const { error } = await supabase
+          .from("business_profiles")
+          .update({ time_off: nextRules, updated_at: new Date().toISOString() })
+          .eq("id", user.id)
+        if (error) throw new Error(error.message)
+        showToast(`Deleted "${target.title}"`, "success")
+        setExecutedKeys((prev) => ({ ...prev, [key]: "done" }))
       }
     } catch (err) {
       setExecutedKeys((prev) => {
@@ -812,17 +993,10 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  handleStop()
-                  setMessages([])
-                  setExecutedKeys({})
-                  setExpandedThinking({})
-                  setExpandedTools({})
-                  setSetupNotice("")
-                }}
+                onClick={clearSavedChat}
               >
                 <Trash2 data-icon="inline-start" />
-                Clear
+                Delete Chat
               </Button>
             )}
           </div>
@@ -840,16 +1014,28 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
           )}
 
           {messages.length === 0 ? (
-            <article className="admin-card">
-              <div className="panel-heading">
-                <div>
-                  <h2>What can I do for your business today?</h2>
-                  <p>Ask in English or Taglish — Bookora AI uses your live workspace data.</p>
+            <div style={{ display: "grid", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      background: "#FFF1EE",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Sparkles size={16} color="#FF6B57" />
+                  </span>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>AI Business Assistant</h2>
                 </div>
-                <OwnerStatusBadge label="OpenRouter Free" tone="warning" />
+                <OwnerStatusBadge label="Saved Locally" tone="neutral" />
               </div>
 
-              <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              <div style={{ display: "grid", gap: 8 }}>
                 {QUICK_PROMPTS.map((prompt) => (
                   <button
                     key={prompt}
@@ -869,12 +1055,12 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                       fontSize: 13.5,
                     }}
                   >
-                    <Sparkles size={15} color="#FF6B57" />
+                    <Sparkles size={14} color="#FF6B57" />
                     <span>{prompt}</span>
                   </button>
                 ))}
               </div>
-            </article>
+            </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {messages.map((msg) => {
@@ -1001,18 +1187,34 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                       </div>
                     )}
 
-                    <div
-                      style={{
-                        padding: "11px 15px",
-                        borderRadius: 16,
-                        background: isUser ? "#FF6B57" : "#F6F7F9",
-                        color: isUser ? "#FFFFFF" : "#16181D",
-                        border: isUser ? "none" : "1px solid #EAECEF",
-                        fontSize: 14,
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      {isUser ? msg.content : <FormattedMarkdown content={msg.content} />}
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 6, flexDirection: isUser ? "row-reverse" : "row" }}>
+                      <div
+                        style={{
+                          padding: "11px 15px",
+                          borderRadius: 16,
+                          background: isUser ? "#FF6B57" : "#F6F7F9",
+                          color: isUser ? "#FFFFFF" : "#16181D",
+                          border: isUser ? "none" : "1px solid #EAECEF",
+                          fontSize: 14,
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        {isUser ? msg.content : <FormattedMarkdown content={msg.content} />}
+                      </div>
+                      <button
+                        type="button"
+                        title="Delete message"
+                        onClick={() => deleteSingleMessage(msg.id)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          padding: 4,
+                          cursor: "pointer",
+                          color: "#94A3B8",
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
 
                     {!isUser &&
@@ -1157,6 +1359,39 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                     <Square size={10} fill="currentColor" /> Stop
                   </button>
                   </div>
+                  {liveThinking && (
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        borderLeft: "2px solid #FF6B57",
+                        background: "#FAFAFB",
+                        color: "#64748B",
+                        fontSize: 12.5,
+                        lineHeight: 1.5,
+                        maxHeight: 150,
+                        overflowY: "auto",
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {liveThinking}
+                    </div>
+                  )}
+                  {liveReply && (
+                    <div
+                      style={{
+                        padding: "11px 15px",
+                        borderRadius: 16,
+                        background: "#F6F7F9",
+                        color: "#16181D",
+                        border: "1px solid #EAECEF",
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      <FormattedMarkdown content={liveReply} />
+                    </div>
+                  )}
                 </div>
               )}
               <div ref={bottomRef} />

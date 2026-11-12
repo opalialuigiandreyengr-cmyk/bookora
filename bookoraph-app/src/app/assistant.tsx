@@ -4,6 +4,7 @@ import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,12 +23,14 @@ import { Button, Card, StatusBadge } from '@/components/ui';
 import {
   askBookoraAssistant,
   ASSISTANT_QUICK_PROMPTS,
+  DEFAULT_FREE_MODEL,
   OPENROUTER_FREE_MODELS,
   type AssistantAction,
   type AssistantChatMessage,
   type AssistantToolCall,
 } from '@/lib/assistant';
 import { goBackOrReplace } from '@/lib/navigation';
+import { authStorage } from '@/lib/storage';
 import { useApp } from '@/providers/app-provider';
 import { colors, radius, space } from '@/theme';
 
@@ -64,10 +67,13 @@ function confirmDestructive(title: string, message: string): Promise<boolean> {
 export default function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const {
+    session,
     appointments,
     services,
     clients,
     blockEvents,
+    businessProfile,
+    saveBusinessProfile,
     addAppointment,
     updateAppointmentStatus,
     deleteAppointment,
@@ -79,22 +85,91 @@ export default function AssistantScreen() {
     deleteBlockTime,
   } = useApp();
 
-  const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
-  const [selectedModel, setSelectedModel] = useState('openrouter/free');
+  const ownerKey = session?.user?.id || 'owner';
+  const chatStorageKey = `bookora_ai_chat_v1_${ownerKey}`;
+  const modelStorageKey = `bookora_ai_model_v1_${ownerKey}`;
+
+  const [messages, setMessages] = useState<AssistantChatMessage[]>(() => {
+    try {
+      const raw = authStorage?.getItem(chatStorageKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { messages?: AssistantChatMessage[] };
+      return Array.isArray(parsed?.messages) ? parsed.messages : [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedModel, setSelectedModel] = useState(() => {
+    try {
+      const savedModel = authStorage?.getItem(modelStorageKey);
+      if (savedModel && OPENROUTER_FREE_MODELS.some((m) => m.id === savedModel)) {
+        return savedModel;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return DEFAULT_FREE_MODEL;
+  });
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveTools, setLiveTools] = useState<AssistantToolCall[]>([]);
+  const [liveThinking, setLiveThinking] = useState('');
+  const [liveReply, setLiveReply] = useState('');
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [expandedThinking, setExpandedThinking] = useState<Record<string, boolean>>({});
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [setupNotice, setSetupNotice] = useState('');
-  const [executedKeys, setExecutedKeys] = useState<Record<string, 'running' | 'done'>>({});
+  const [executedKeys, setExecutedKeys] = useState<Record<string, 'running' | 'done'>>(() => {
+    try {
+      const raw = authStorage?.getItem(chatStorageKey);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as { executedKeys?: Record<string, 'running' | 'done'> };
+      return parsed?.executedKeys && typeof parsed.executedKeys === 'object' ? parsed.executedKeys : {};
+    } catch {
+      return {};
+    }
+  });
 
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
-  const seqRef = useRef(0);
+  const seqRef = useRef(1000);
   const abortRef = useRef<AbortController | null>(null);
   const elapsedRef = useRef(0);
+
+  useEffect(() => {
+    try {
+      if (messages.length === 0) {
+        authStorage?.removeItem(chatStorageKey);
+      } else {
+        authStorage?.setItem(
+          chatStorageKey,
+          JSON.stringify({ messages: messages.slice(-60), executedKeys })
+        );
+      }
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [messages, executedKeys, chatStorageKey]);
+
+  useEffect(() => {
+    try {
+      authStorage?.setItem(modelStorageKey, selectedModel);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [selectedModel, modelStorageKey]);
+
+  useEffect(() => {
+    const showEv = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEv = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const sSub = Keyboard.addListener(showEv, () => setKeyboardOpen(true));
+    const hSub = Keyboard.addListener(hideEv, () => setKeyboardOpen(false));
+    return () => {
+      sSub.remove();
+      hSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!sending) return;
@@ -108,7 +183,7 @@ export default function AssistantScreen() {
 
   const nextId = (prefix: string) => {
     seqRef.current += 1;
-    return `${prefix}_${seqRef.current}`;
+    return `${prefix}_${Date.now()}_${seqRef.current}`;
   };
 
   const scrollToBottom = () => {
@@ -123,7 +198,32 @@ export default function AssistantScreen() {
       abortRef.current = null;
     }
     setLiveTools([]);
+    setLiveThinking('');
+    setLiveReply('');
     setSending(false);
+  };
+
+  const clearSavedChat = async () => {
+    const ok = await confirmDestructive(
+      'Delete saved chat?',
+      'Remove this conversation history from local storage?'
+    );
+    if (!ok) return;
+    handleStop();
+    setMessages([]);
+    setExecutedKeys({});
+    setExpandedThinking({});
+    setExpandedTools({});
+    setSetupNotice('');
+    try {
+      authStorage?.removeItem(chatStorageKey);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const deleteSingleMessage = (msgId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
   };
 
   const sendMessage = async (textOverride?: string) => {
@@ -144,6 +244,8 @@ export default function AssistantScreen() {
     elapsedRef.current = 0;
     setElapsedSeconds(0);
     setLiveTools([]);
+    setLiveThinking('');
+    setLiveReply('');
     setSending(true);
     setSetupNotice('');
     scrollToBottom();
@@ -169,11 +271,21 @@ export default function AssistantScreen() {
     const result = await askBookoraAssistant(apiHistory, selectedModel, controller.signal, {
       onToolStart: upsertLiveTool,
       onToolDone: upsertLiveTool,
+      onThinkingDelta: (chunk) => {
+        setLiveThinking((prev) => prev + chunk);
+        scrollToBottom();
+      },
+      onContentDelta: (chunk) => {
+        setLiveReply((prev) => prev + chunk);
+        scrollToBottom();
+      },
     });
     const finalElapsed = Math.max(0.1, elapsedRef.current);
     abortRef.current = null;
     setSending(false);
     setLiveTools([]);
+    setLiveThinking('');
+    setLiveReply('');
 
     if (result.aborted) {
       setMessages((prev) => [
@@ -519,6 +631,78 @@ export default function AssistantScreen() {
         if (err) throw new Error(err);
         setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
         Alert.alert('Blocked time removed', `"${target.title}" was deleted.`);
+        return;
+      }
+
+      if (action.type === 'add_time_off') {
+        const startDate = action.data.startDate;
+        const endDate = action.data.endDate || startDate;
+        const startTime = normalizeTime24h(action.data.startTime || '09:00');
+        const endTime = normalizeTime24h(action.data.endTime || '18:00');
+        const title = (action.data.title || 'Time off').trim();
+        const existingRules = Array.isArray(businessProfile.time_off) ? businessProfile.time_off : [];
+        const duplicateRule = existingRules.find(
+          (r) =>
+            r.startDate === startDate &&
+            normalizeTime24h(r.startTime) === startTime &&
+            r.title.trim().toLowerCase() === title.toLowerCase()
+        );
+        if (duplicateRule) {
+          throw new Error(
+            `Duplicate time off: "${duplicateRule.title}" on ${startDate} already exists. Did not proceed.`
+          );
+        }
+        const nextRules = [
+          ...existingRules,
+          {
+            id: nextId('to'),
+            title,
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+            allDay: Boolean(action.data.allDay),
+            repeat: action.data.repeat || 'none',
+          },
+        ];
+        const err = await saveBusinessProfile({ time_off: nextRules });
+        if (err) throw new Error(err);
+        setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
+        Alert.alert('Time off added', `${title} on ${startDate} saved.`);
+        return;
+      }
+
+      if (action.type === 'delete_time_off') {
+        const existingRules = Array.isArray(businessProfile.time_off) ? businessProfile.time_off : [];
+        const target =
+          existingRules.find((r) => action.data.time_off_id && r.id === action.data.time_off_id) ||
+          existingRules.find(
+            (r) =>
+              (!action.data.startDate || r.startDate === action.data.startDate) &&
+              (!action.data.title ||
+                r.title.trim().toLowerCase() === action.data.title.trim().toLowerCase())
+          );
+        if (!target) {
+          throw new Error('Time off entry not found. Did not delete.');
+        }
+        const ok = await confirmDestructive(
+          'Delete time off?',
+          `Permanently remove "${target.title}" (${target.startDate}) from Business Hours & Time Off?`
+        );
+        if (!ok) {
+          setExecutedKeys((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          return;
+        }
+        const err = await saveBusinessProfile({
+          time_off: existingRules.filter((r) => r.id !== target.id),
+        });
+        if (err) throw new Error(err);
+        setExecutedKeys((prev) => ({ ...prev, [key]: 'done' }));
+        Alert.alert('Time off deleted', `"${target.title}" was removed.`);
       }
     } catch (err) {
       setExecutedKeys((prev) => {
@@ -562,17 +746,9 @@ export default function AssistantScreen() {
         {messages.length > 0 ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Clear chat"
+            accessibilityLabel="Delete saved chat"
             hitSlop={8}
-            onPress={() => {
-              handleStop();
-              setMessages([]);
-              setExecutedKeys({});
-              setExpandedThinking({});
-              setExpandedTools({});
-              setLiveTools([]);
-              setSetupNotice('');
-            }}
+            onPress={() => void clearSavedChat()}
             style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}
           >
             <Ionicons name="trash-outline" size={18} color={colors.muted} />
@@ -622,7 +798,7 @@ export default function AssistantScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           ref={scrollRef}
@@ -642,29 +818,18 @@ export default function AssistantScreen() {
 
           {messages.length === 0 ? (
             <View style={styles.welcomeWrap}>
-              <Card style={styles.welcomeCard}>
-                <View style={styles.sparkleBadge}>
-                  <Ionicons name="sparkles" size={20} color={colors.coral} />
+              <View style={styles.welcomeHero}>
+                <View style={styles.welcomeInlineRow}>
+                  <View style={styles.sparkleBadge}>
+                    <Ionicons name="sparkles" size={16} color={colors.coral} />
+                  </View>
+                  <Text style={styles.welcomeTitle}>AI Business Assistant</Text>
                 </View>
-                <Text style={styles.welcomeTitle}>Your AI business assistant</Text>
-                <Text style={styles.welcomeBody}>
-                  Ask in English or Taglish to check bookings & revenue, add services, block time, book clients, or
-                  draft customer reminders.
+                <Text style={styles.welcomeMetaLine}>
+                  {services.length} services · {appointments.length} bookings · {clients.length} clients
                 </Text>
-                <View style={styles.contextRow}>
-                  <View style={styles.contextChip}>
-                    <Text style={styles.contextChipText}>{appointments.length} bookings</Text>
-                  </View>
-                  <View style={styles.contextChip}>
-                    <Text style={styles.contextChipText}>{services.length} services</Text>
-                  </View>
-                  <View style={styles.contextChip}>
-                    <Text style={styles.contextChipText}>{clients.length} clients</Text>
-                  </View>
-                </View>
-              </Card>
+              </View>
 
-              <Text style={styles.promptSectionLabel}>Try asking</Text>
               <View style={styles.promptsList}>
                 {ASSISTANT_QUICK_PROMPTS.map((prompt) => (
                   <Pressable
@@ -674,6 +839,7 @@ export default function AssistantScreen() {
                   >
                     <Ionicons name="sparkles-outline" size={14} color={colors.coral} />
                     <Text style={styles.promptChipText}>{prompt}</Text>
+                    <Ionicons name="arrow-forward" size={13} color={colors.muted} />
                   </Pressable>
                 ))}
               </View>
@@ -763,15 +929,26 @@ export default function AssistantScreen() {
                       </View>
                     ) : null}
 
-                    <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
-                      {isUser ? (
-                        <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{msg.content}</Text>
-                      ) : (
-                        <MarkdownText
-                          content={msg.content}
-                          style={[styles.bubbleText, styles.bubbleTextBot]}
-                        />
-                      )}
+                    <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowBot]}>
+                      <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
+                        {isUser ? (
+                          <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{msg.content}</Text>
+                        ) : (
+                          <MarkdownText
+                            content={msg.content}
+                            style={[styles.bubbleText, styles.bubbleTextBot]}
+                          />
+                        )}
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete message"
+                        hitSlop={6}
+                        onPress={() => deleteSingleMessage(msg.id)}
+                        style={({ pressed }) => [styles.msgDeleteBtn, pressed && styles.pressed]}
+                      >
+                        <Ionicons name="trash-outline" size={12} color={colors.muted} />
+                      </Pressable>
                     </View>
 
                     {!isUser && msg.actions && msg.actions.length > 0 ? (
@@ -892,13 +1069,30 @@ export default function AssistantScreen() {
                     <Text style={styles.stopChipText}>Stop</Text>
                   </Pressable>
                   </View>
+                  {liveThinking ? (
+                    <View style={styles.liveThinkingPreviewBox}>
+                      <Text numberOfLines={6} style={styles.thinkingText}>
+                        {liveThinking}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {liveReply ? (
+                    <View style={[styles.bubble, styles.bubbleBot]}>
+                      <MarkdownText content={liveReply} style={[styles.bubbleText, styles.bubbleTextBot]} />
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
             </View>
           )}
         </ScrollView>
 
-        <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}>
+        <View
+          style={[
+            styles.composerOuter,
+            { paddingBottom: keyboardOpen ? 6 : Math.max(insets.bottom, 10) },
+          ]}
+        >
           <View style={styles.composerBar}>
             <TextInput
               value={draft}
@@ -1062,64 +1256,45 @@ const styles = StyleSheet.create({
   },
   welcomeWrap: {
     gap: space.md,
+    paddingTop: space.sm,
   },
-  welcomeCard: {
-    gap: space.sm,
-    backgroundColor: '#FAFAFB',
+  welcomeHero: {
+    gap: 6,
+    paddingHorizontal: 2,
+  },
+  welcomeInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   sparkleBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     backgroundColor: colors.coralSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   welcomeTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.ink,
   },
-  welcomeBody: {
-    fontSize: 14,
-    lineHeight: 20,
+  welcomeMetaLine: {
+    fontSize: 12.5,
+    fontWeight: '500',
     color: colors.muted,
-  },
-  contextRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  contextChip: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  contextChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.ink,
-  },
-  promptSectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    paddingLeft: 40,
   },
   promptsList: {
-    gap: 8,
+    gap: 7,
   },
   promptChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.line,
@@ -1240,8 +1415,24 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: colors.muted,
   },
+  bubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    maxWidth: '94%',
+  },
+  bubbleRowUser: {
+    flexDirection: 'row-reverse',
+  },
+  bubbleRowBot: {
+    flexDirection: 'row',
+  },
+  msgDeleteBtn: {
+    padding: 4,
+    opacity: 0.55,
+  },
   bubble: {
-    maxWidth: '88%',
+    flexShrink: 1,
     borderRadius: radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1309,6 +1500,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  liveThinkingPreviewBox: {
+    backgroundColor: '#FAFAFB',
+    borderLeftWidth: 2,
+    borderLeftColor: colors.coral,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radius.sm,
+    maxWidth: '92%',
+  },
   loadingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1338,8 +1538,8 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   composerOuter: {
-    paddingHorizontal: space.xl,
-    paddingTop: space.md,
+    paddingHorizontal: space.md,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.line,
     backgroundColor: '#FFFFFF',
@@ -1347,20 +1547,20 @@ const styles = StyleSheet.create({
   composerBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 24,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: '#F8F9FB',
   },
   input: {
     flex: 1,
-    minHeight: 38,
-    maxHeight: 110,
+    minHeight: 34,
+    maxHeight: 104,
     paddingHorizontal: 6,
-    paddingVertical: 8,
+    paddingVertical: 5,
     fontSize: 14,
     color: colors.ink,
   },

@@ -119,6 +119,28 @@ export type AssistantAction =
     };
   }
   | {
+    type: 'add_time_off';
+    label: string;
+    data: {
+      title: string;
+      startDate: string;
+      endDate?: string;
+      startTime?: string;
+      endTime?: string;
+      allDay?: boolean;
+      repeat?: 'none' | 'weekly' | 'monthly';
+    };
+  }
+  | {
+    type: 'delete_time_off';
+    label: string;
+    data: {
+      time_off_id?: string;
+      title?: string;
+      startDate?: string;
+    };
+  }
+  | {
     type: 'draft_message';
     label: string;
     data: {
@@ -134,10 +156,11 @@ export type OpenRouterFreeModelOption = {
   note: string;
 };
 
+export const DEFAULT_FREE_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+
 export const OPENROUTER_FREE_MODELS: OpenRouterFreeModelOption[] = [
-  { id: 'openrouter/free', label: 'Auto Free Router', note: 'Best live free model' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra', note: '550B · default reasoning' },
   { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nemotron 3.5 Lightning', note: '1M ctx · rapid replies' },
-  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra', note: '550B · deep reasoning' },
   { id: 'nvidia/nemotron-3.5-super-vl:free', label: 'Nemotron 3.5 Super VL', note: '1M ctx · balanced' },
   { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'Nemotron 3 Nano Omni', note: '30B · reasoning' },
   { id: 'baidu/ernie-5.5-flash-preview:free', label: 'ERNIE 5.5 Flash', note: '1M ctx · fast drafts' },
@@ -146,17 +169,19 @@ export const OPENROUTER_FREE_MODELS: OpenRouterFreeModelOption[] = [
 ];
 
 export const ASSISTANT_QUICK_PROMPTS = [
-  'Summarize my bookings and revenue this month',
-  'Draft a friendly Taglish reminder for upcoming bookings',
-  'Book Maria Santos for Gel Manicure tomorrow 2:00 PM',
-  'Add Classic Pedicure ₱350 (45m) and Nail Removal ₱150 (20m) to services',
-  'Block lunch break tomorrow 12:00 PM to 1:00 PM',
+  'Summarize bookings & revenue this month',
+  'Draft Taglish reminder for upcoming bookings',
+  'Book Maria Santos · Gel Manicure tomorrow 2 PM',
+  'Add Classic Pedicure ₱350 (45m) and Nail Removal ₱150 (20m)',
+  'Add time off tomorrow 12:00 PM to 1:00 PM',
 ];
 
 export type AssistantStreamHandlers = {
   onToolStart?: (tool: AssistantToolCall) => void;
   onToolDone?: (tool: AssistantToolCall) => void;
   onThinkingStart?: () => void;
+  onThinkingDelta?: (text: string) => void;
+  onContentDelta?: (text: string) => void;
 };
 
 export async function askBookoraAssistant(
@@ -216,7 +241,7 @@ export async function askBookoraAssistant(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages: history, model: model || 'openrouter/free', stream: true }),
+      body: JSON.stringify({ messages: history, model: model || DEFAULT_FREE_MODEL, stream: true }),
       signal,
     });
 
@@ -243,6 +268,10 @@ export async function askBookoraAssistant(
             handlers?.onToolDone?.(t);
           } else if (ev.type === 'thinking_start') {
             handlers?.onThinkingStart?.();
+          } else if (ev.type === 'thinking_delta' && typeof ev.text === 'string') {
+            handlers?.onThinkingDelta?.(ev.text);
+          } else if (ev.type === 'content_delta' && typeof ev.text === 'string') {
+            handlers?.onContentDelta?.(ev.text);
           } else if (ev.type === 'result' && ev.data && typeof ev.data === 'object') {
             finalPayload = ev.data as Record<string, unknown>;
           } else if (ev.type === 'error') {
