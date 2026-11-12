@@ -134,6 +134,7 @@ export default function AssistantScreen() {
   });
 
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const liveThinkScrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const seqRef = useRef(1000);
   const abortRef = useRef<AbortController | null>(null);
   const elapsedRef = useRef(0);
@@ -849,7 +850,7 @@ export default function AssistantScreen() {
             <View style={styles.messagesWrap}>
               {messages.map((msg) => {
                 const isUser = msg.role === 'user';
-                const showThought = Boolean(expandedThinking[msg.id]);
+                const showThought = expandedThinking[msg.id] !== false;
                 const toolCalls = !isUser && Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
                 const hasToolsBlock = toolCalls.length > 0;
                 const hasThinkingBlock = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null);
@@ -904,7 +905,7 @@ export default function AssistantScreen() {
                         <Pressable
                           disabled={!msg.thinking}
                           onPress={() =>
-                            setExpandedThinking((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                            setExpandedThinking((prev) => ({ ...prev, [msg.id]: !showThought }))
                           }
                           style={({ pressed }) => [styles.thinkingPill, pressed && styles.pressed]}
                         >
@@ -923,9 +924,13 @@ export default function AssistantScreen() {
                         </Pressable>
 
                         {showThought && msg.thinking ? (
-                          <View style={styles.thinkingBox}>
+                          <ScrollView
+                            nestedScrollEnabled
+                            showsVerticalScrollIndicator
+                            style={styles.thinkingBox}
+                          >
                             <MarkdownText content={msg.thinking} style={styles.thinkingText} />
-                          </View>
+                          </ScrollView>
                         ) : null}
                       </View>
                     ) : null}
@@ -1071,9 +1076,17 @@ export default function AssistantScreen() {
                   </Pressable>
                   </View>
                   {liveThinking ? (
-                    <View style={styles.liveThinkingPreviewBox}>
+                    <ScrollView
+                      ref={liveThinkScrollRef}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator
+                      style={styles.liveThinkingPreviewBox}
+                      onContentSizeChange={() =>
+                        liveThinkScrollRef.current?.scrollToEnd({ animated: false })
+                      }
+                    >
                       <Text style={styles.thinkingText}>{liveThinking}</Text>
-                    </View>
+                    </ScrollView>
                   ) : null}
                   {liveReply ? (
                     <View style={[styles.bubble, styles.bubbleBot]}>
@@ -1408,6 +1421,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: radius.sm,
+    maxHeight: 112,
+    flexGrow: 0,
   },
   thinkingText: {
     fontSize: 12,
@@ -1507,6 +1522,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: radius.sm,
     maxWidth: '92%',
+    height: 112,
+    flexGrow: 0,
   },
   loadingBubble: {
     flexDirection: 'row',

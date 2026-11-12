@@ -303,8 +303,15 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
     }
   })
   const bottomRef = useRef<HTMLDivElement>(null)
+  const liveThinkRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const startRef = useRef(0)
+
+  useEffect(() => {
+    if (liveThinkRef.current) {
+      liveThinkRef.current.scrollTop = liveThinkRef.current.scrollHeight
+    }
+  }, [liveThinking])
 
   useEffect(() => {
     try {
@@ -1065,7 +1072,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {messages.map((msg) => {
                 const isUser = msg.role === "user"
-                const showThought = Boolean(expandedThinking[msg.id])
+                const showThought = expandedThinking[msg.id] !== false
                 const toolCalls = !isUser && Array.isArray(msg.toolCalls) ? msg.toolCalls : []
                 const hasTools = toolCalls.length > 0
                 const hasThink = !isUser && (Boolean(msg.thinking) || msg.thinkingSeconds != null)
@@ -1145,7 +1152,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                           type="button"
                           disabled={!msg.thinking}
                           onClick={() =>
-                            setExpandedThinking((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                            setExpandedThinking((prev) => ({ ...prev, [msg.id]: !showThought }))
                           }
                           style={{
                             display: "inline-flex",
@@ -1179,6 +1186,8 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                               color: "#64748B",
                               fontSize: 12.5,
                               lineHeight: 1.5,
+                              maxHeight: 112,
+                              overflowY: "auto",
                             }}
                           >
                             <FormattedMarkdown content={msg.thinking} />
@@ -1361,6 +1370,7 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                   </div>
                   {liveThinking && (
                     <div
+                      ref={liveThinkRef}
                       style={{
                         padding: "8px 12px",
                         borderRadius: 10,
@@ -1369,6 +1379,8 @@ export function AssistantPage({ user }: { user: User; onSignOut?: () => void }) 
                         color: "#64748B",
                         fontSize: 12.5,
                         lineHeight: 1.5,
+                        height: 112,
+                        overflowY: "auto",
                         whiteSpace: "pre-wrap",
                       }}
                     >
